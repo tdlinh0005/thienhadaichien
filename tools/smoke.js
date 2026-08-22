@@ -2,7 +2,7 @@
 global.window = global;
 var fs = require('fs'), path = require('path');
 var goc = path.join(__dirname, '..', 'js');
-['data', 'util', 'galaxy', 'combat', 'engine', 'fleet'].forEach(function (f) {
+['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions'].forEach(function (f) {
   eval(fs.readFileSync(path.join(goc, f + '.js'), 'utf8'));
 });
 var G = window.G;
@@ -226,6 +226,35 @@ if (mucTL) {
     ktra(thuSau < thuTruoc || bcTL.data.tl.chan === 10, 'phòng thủ mặt đất của mục tiêu bị phá thật');
     ktra(quyDaoSau === quyDaoTruoc, 'lớp quỹ đạo KHÔNG bị tên lửa đụng tới');
   }
+}
+
+/* ---- 10e. bỏ hoang thuộc địa ---- */
+if (st.planets.length >= 2) {
+  var soTruoc = st.planets.length;
+  var htBo = st.planets[1];
+  ktra(!!G.boHoang(st, 0), 'không bỏ được hành tinh mẹ');
+  ktra(!!G.HANHDONG.boHoang(st, { pi: 1 }), 'phải xác nhận mới bỏ hoang được');
+  /* còn hạm đội xuất phát từ đó thì không bỏ được */
+  st.planets[1].ships = { cargoS: 1 }; st.planets[1].res.deut = 10000;
+  var eB = G.guiHam(st, 1, { cargoS: 1 }, st.planets[0].c, 'transport', {}, 100);
+  if (!eB) {
+    ktra(!!G.boHoang(st, 1), 'không bỏ được khi còn hạm đội của hành tinh đó đang bay');
+    now += 24 * 3600; G.tick(st, now);
+  }
+  /* gửi một hạm đội của hành tinh MẸ đi để kiểm tra việc dời chỉ số */
+  st.planets[0].ships.probe = (st.planets[0].ships.probe || 0) + 2;
+  st.planets[0].res.deut += 50000;
+  var xaBo = G.toaDo(st.planets[0].c.g, Math.min(G.C.SO_HE, st.planets[0].c.h + 3), 5);
+  G.guiHam(st, 0, { probe: 2 }, xaBo, 'spy', {}, 10);
+  var eBo = G.HANHDONG.boHoang(st, { pi: 1, xacnhan: 'BO' });
+  ktra(!eBo, 'bỏ hoang được thuộc địa' + (eBo ? ': ' + eBo : ''));
+  ktra(st.planets.length === soTruoc - 1, 'danh sách hành tinh giảm đúng 1');
+  ktra(!st.planets.some(function (x) { return G.tdKey(x.c) === G.tdKey(htBo.c); }), 'hành tinh đã biến khỏi đế quốc');
+  ktra(st.fleets.every(function (f) { return f.pi >= 0 && f.pi < st.planets.length; }), 'chỉ số hành tinh của hạm đội vẫn hợp lệ');
+  now += 12 * 3600; G.tick(st, now);
+  ktra(st.fleets.length === 0, 'hạm đội cũ vẫn về được sau khi bỏ hoang (không kẹt)');
+  var oCu = G.oHanhTinh(st, htBo.c);
+  ktra(oCu.loai !== 'toi', 'ô toạ độ cũ không còn là của ta');
 }
 
 /* ---- 11. tua offline dài ---- */

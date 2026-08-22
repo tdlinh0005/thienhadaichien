@@ -60,6 +60,11 @@
       if (xong) xong(r.loi || null);
     }, function (e) { if (xong) xong(e.message); });
   };
+  APP.taiXepHang = function (loai) {
+    api('/api/xephang?loai=' + encodeURIComponent(loai || 'tong')).then(function (r) {
+      MP.xh = r.ds; U.ve();
+    }, function (e) { U.toast(e.message, 'loi'); });
+  };
   APP.taiHe = function (g, h) {
     api('/api/he?g=' + g + '&h=' + h).then(function (r) {
       MP.he = r; U.ve();
@@ -178,6 +183,8 @@
     return h;
   };
 
+  U.nguon.thanhVien = function () { return (MP.lm && MP.lm.tv) || []; };
+
   /* thêm phần lập liên minh vào màn liên minh */
   var lmGoc = U.m_lienminh;
   U.m_lienminh = function () {
@@ -204,7 +211,7 @@
         if (!U.gal) { var c = U.st().planets[0].c; U.gal = { g: c.g, h: c.h }; }
         APP.taiHe(U.gal.g, U.gal.h);
       }
-      if (m === 'xephang') api('/api/xephang').then(function (r) { MP.xh = r.ds; U.ve(); }, function () { });
+      if (m === 'xephang') APP.taiXepHang(U.xhLoai);
       if (m === 'lienminh') api('/api/lm').then(function (r) { MP.lm = r; U.ve(); }, function () { });
       if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
     },
@@ -230,6 +237,22 @@
         if (r.loi) return U.toast(r.loi, 'loi');
         apDung(r);
         api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã lập liên minh.', 'ok'); }, function () { U.ve(); });
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'gui-thu': function (el) {
+      var ten = el.getAttribute('data-ten') || '';
+      U.hop('Gửi thư cho ' + ten,
+        '<p class="mo">Thư sẽ xuất hiện trong hộp tin của họ. Tối đa 1.200 ký tự.</p>' +
+        '<input id="thu-den" value="' + U.esc(ten) + '" style="width:100%;margin-bottom:6px" placeholder="tên chỉ huy">' +
+        '<textarea id="thu-noi" style="width:100%;height:150px" placeholder="Chào đồng minh..."></textarea>' +
+        '<div style="margin-top:8px"><button class="nut oke" data-act="gui-thu-ok">Gửi</button></div>');
+    },
+    'gui-thu-ok': function () {
+      var den = (document.getElementById('thu-den') || {}).value || '';
+      var noi = (document.getElementById('thu-noi') || {}).value || '';
+      if (!noi.trim()) return U.toast('Thư trống.', 'loi');
+      api('/api/guithu', { den: den, noi: noi }).then(function () {
+        U.dongHop(); U.toast('Đã gửi thư cho ' + den + '.', 'ok');
       }, function (e) { U.toast(e.message, 'loi'); });
     },
     'doi-mk': function () {

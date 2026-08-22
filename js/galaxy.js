@@ -181,23 +181,34 @@ G.dacTinh = function (st, c) {
 };
 
 /* --- Bảng xếp hạng: sinh tất định, điểm tăng dần theo thời gian ------- */
-G.xepHang = function (st) {
-  if (G.HOOK && G.HOOK.xepHang) return G.HOOK.xepHang(st);
+G.xepHang = function (st, loai) {
+  if (G.HOOK && G.HOOK.xepHang) return G.HOOK.xepHang(st, loai);
   var r = G.rng(G.hash(st.seed + '#rank'));
   var gio = Math.max(0, (st.now - st.t0) / 3600);
   var ds = [];
   for (var i = 0; i < 59; i++) {
     var nen = 220 * Math.pow(560, Math.pow(r(), 0.85));
+    var tong = Math.round(nen * (1 + gio * 0.022));
+    /* chia tổng điểm ra từng hạng mục theo tỷ lệ ngẫu nhiên nhưng tất định */
+    var wCT = 0.3 + r() * 0.3, wNC = 0.1 + r() * 0.2, wHam = 0.15 + r() * 0.35;
+    var tongW = wCT + wNC + wHam + 0.15;
     ds.push({
       ten: G.HO[Math.floor(r() * G.HO.length)] + ' ' + G.TEN[Math.floor(r() * G.TEN.length)],
       lm: G.LIEN_MINH[Math.floor(r() * G.LIEN_MINH.length)],
-      diem: Math.round(nen * (1 + gio * 0.022)),
+      diem: tong, tong: tong,
+      ct: Math.round(tong * wCT / tongW), nc: Math.round(tong * wNC / tongW),
+      ham: Math.round(tong * wHam / tongW), thu: Math.round(tong * 0.15 / tongW),
       ht: 1 + Math.floor(r() * 6)
     });
   }
   var d = G.diem(st);
-  ds.push({ ten: st.ten, lm: st.lm ? st.lm.ten : '', diem: Math.round(d.tong), ht: st.planets.length, ta: true });
-  ds.sort(function (a, b) { return b.diem - a.diem; });
-  for (var j = 0; j < ds.length; j++) ds[j].hang = j + 1;
+  ds.push({
+    ten: st.ten, lm: st.lm ? st.lm.ten : '', diem: Math.round(d.tong), tong: Math.round(d.tong),
+    ct: Math.round(d.ct), nc: Math.round(d.nc), ham: Math.round(d.ham), thu: Math.round(d.thu),
+    ht: st.planets.length, ta: true
+  });
+  var cot = { tong: 'tong', ct: 'ct', nc: 'nc', ham: 'ham', thu: 'thu' }[loai || 'tong'] || 'tong';
+  ds.sort(function (a, b) { return (b[cot] || 0) - (a[cot] || 0); });
+  for (var j = 0; j < ds.length; j++) { ds[j].hang = j + 1; ds[j].diem = ds[j][cot] || 0; }
   return ds;
 };

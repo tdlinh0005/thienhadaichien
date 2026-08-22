@@ -37,6 +37,10 @@ var SCHEMA = [
      tk INTEGER PRIMARY KEY REFERENCES tk(id) ON DELETE CASCADE,
      state TEXT NOT NULL,
      diem INTEGER NOT NULL DEFAULT 0,
+     diemCT INTEGER NOT NULL DEFAULT 0,
+     diemNC INTEGER NOT NULL DEFAULT 0,
+     diemHam INTEGER NOT NULL DEFAULT 0,
+     diemThu INTEGER NOT NULL DEFAULT 0,
      lastTick INTEGER NOT NULL,
      keTiep INTEGER NOT NULL,              -- mốc sự kiện gần nhất, để scheduler gọi tick
      lm TEXT,
@@ -126,11 +130,13 @@ function Kho(duong) {
     phienDonRac: d.prepare('DELETE FROM phien WHERE hetHan<?'),
 
     dqGet: d.prepare('SELECT * FROM dq WHERE tk=?'),
-    dqThem: d.prepare('INSERT INTO dq(tk,state,diem,lastTick,keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?)'),
-    dqLuu: d.prepare('UPDATE dq SET state=?,diem=?,lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'),
+    dqThem: d.prepare('INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'),
+    dqLuu: d.prepare('UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'),
     dqDenHan: d.prepare('SELECT tk FROM dq WHERE keTiep<=? ORDER BY keTiep LIMIT ?'),
-    dqXepHang: d.prepare(`SELECT dq.tk, dq.diem, dq.lm, dq.soHT, tk.hienthi, tk.vaoCuoi
+    dqXepHang: d.prepare(`SELECT dq.tk, dq.diem, dq.diemCT, dq.diemNC, dq.diemHam, dq.diemThu,
+                                 dq.lm, dq.soHT, tk.hienthi, tk.vaoCuoi
                           FROM dq JOIN tk ON tk.id=dq.tk ORDER BY dq.diem DESC LIMIT ?`),
+    tkTheoHienThi: d.prepare('SELECT * FROM tk WHERE hienthi=? COLLATE NOCASE'),
     dqTheoLM: d.prepare(`SELECT dq.tk, dq.diem, dq.soHT, tk.hienthi FROM dq JOIN tk ON tk.id=dq.tk
                          WHERE dq.lm=? ORDER BY dq.diem DESC`),
     dqTongLM: d.prepare('SELECT lm, COUNT(*) sl, SUM(diem) diem FROM dq WHERE lm IS NOT NULL GROUP BY lm'),

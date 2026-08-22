@@ -11,7 +11,7 @@ APP.mp = false;                 // true khi đang chơi ở chế độ nhiều 
 /* Nguồn dữ liệu vũ trụ: bản một người tính tại chỗ, bản nhiều người lấy từ server */
 U.nguon = {
   xemHe: function (g, h) { return G.xemHe(U.st(), g, h); },
-  xepHang: function () { return G.xepHang(U.st()); },
+  xepHang: function (loai) { return G.xepHang(U.st(), loai); },
   dsLM: function () {
     var out = [];
     for (var i = 0; i < G.LIEN_MINH.length; i++) if (G.LIEN_MINH[i]) out.push({ ten: G.LIEN_MINH[i] });
@@ -157,6 +157,11 @@ var ACT = {
     }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi hướng.'); });
   },
 
+  'xh-loai': function (el) {
+    U.xhLoai = el.getAttribute('data-loai');
+    if (APP.taiXepHang) APP.taiXepHang(U.xhLoai); else U.ve();
+  },
+
   /* ---------- máy tính trận đánh ---------- */
   'mp-chay': function () { U.mpDoc(); U.mpChay(); U.ve(); window.scrollTo(0, 0); },
   'mp-nap-ham': function () { U.mpDoc(); U.mp.A.ships = G.clone(U.ht().ships || {}); U.ve(); },
@@ -187,6 +192,26 @@ var ACT = {
   /* ---------- liên minh ---------- */
   'lm-vao': function (el) { lam('lmvao', { ten: el.getAttribute('data-ten') }, 'Đã gửi đơn và được nhận.'); },
   'lm-ra': function () { lam('lmra', {}, 'Đã rời liên minh.'); },
+
+  /* ---------- bỏ hoang thuộc địa ---------- */
+  'bo-hoang': function () {
+    var p = U.ht();
+    U.hop('Bỏ hoang ' + p.ten + '?',
+      '<p>Toàn bộ công trình, tàu và tài nguyên trên <b>' + U.esc(p.ten) + '</b> ' + G.tdStr(p.c) +
+      ' sẽ mất. Ô toạ độ trở về trạng thái trống, ai cũng có thể tới chiếm. <b>Không lấy lại được.</b></p>' +
+      '<p>Gõ chữ <b>BO</b> để xác nhận:</p>' +
+      '<input id="bh-xn" maxlength="10" style="width:120px"> ' +
+      '<button class="nut xoa" data-act="bo-hoang-ok" data-pi="' + U.pi + '">Bỏ hoang</button>');
+  },
+  'bo-hoang-ok': function (el) {
+    var e2 = document.getElementById('bh-xn');
+    APP.lam('boHoang', { pi: +el.getAttribute('data-pi'), xacnhan: e2 ? e2.value.trim().toUpperCase() : '' },
+      function (err) {
+        U.dongHop();
+        if (!err) U.pi = 0;
+        veLai(err, err ? null : 'Đã bỏ hoang thuộc địa.');
+      });
+  },
 
   /* ---------- đổi tên hành tinh ---------- */
   'doi-ten': function () {

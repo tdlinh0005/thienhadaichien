@@ -137,6 +137,10 @@ G.HANHDONG = {
   },
   docHet: function (st) { for (var i = 0; i < st.msgs.length; i++) st.msgs[i].doc = true; return null; },
   xoatin: function (st) { st.msgs = []; return null; },
+  boHoang: function (st, d) {
+    if (chuoi(d.xacnhan, 10) !== 'BO') return 'Cần xác nhận trước khi bỏ hoang.';
+    return G.boHoang(st, Math.floor(+d.pi));
+  },
   doiTenHT: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     var ten = chuoi(d.ten, 24).replace(/[<>&"]/g, '').trim();

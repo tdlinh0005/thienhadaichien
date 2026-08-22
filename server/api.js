@@ -204,7 +204,8 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
 
   if (duong === '/api/xephang') {
     var r4 = self.tg.nap(p.tk);
-    return json(res, 200, { ds: self.tg.xepHangCho(r4 ? r4.st : null) });
+    var loai4 = chuoi(truyVan.get('loai') || 'tong', 8);
+    return json(res, 200, { loai: loai4, ds: self.tg.xepHangCho(r4 ? r4.st : null, loai4) });
   }
 
   if (duong === '/api/lm') {
@@ -226,6 +227,15 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
       bt: self.kho.q.btDS.all(40),
       tran: self.kho.q.tranDS.all(20)
     });
+  }
+
+  if (duong === '/api/guithu' && req.method === 'POST') {
+    var b9 = await docBody(req);
+    /* chống spam: mỗi người gửi tối đa 1 thư / 8 giây */
+    if (!self.gioiHan('thu:' + p.tk, 1)) return json(res, 429, { loi: 'Gửi thư chậm thôi — chờ vài giây.' });
+    var loi9 = self.tg.guiThu(p.tk, p.tkRow.hienthi, b9.den, b9.noi);
+    if (loi9) return json(res, 400, { loi: loi9 });
+    return json(res, 200, { ok: true });
   }
 
   if (duong === '/api/xoatk' && req.method === 'POST') {

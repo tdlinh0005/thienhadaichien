@@ -205,6 +205,10 @@ thay vì phải mở state của tất cả mọi người.
 Chỉ mục: `ht_tk(tk)`. Tra cứu theo hệ dùng `td LIKE 'g:h:%'` nên đi bằng chỉ mục
 khoá chính trên `td`.
 
+Cột `diemCT` / `diemNC` / `diemHam` / `diemThu` là điểm tách theo hạng mục, ghi
+cùng lúc với `diem` mỗi lần lưu, để bảng xếp hạng sắp theo từng hạng mục mà không
+phải mở state của mọi người.
+
 **`hamdang`** — chỉ mục hạm đội đang bay tới hành tinh của **người khác**, để bên
 phòng thủ được báo động trước. Cùng cơ chế với `ht`: mỗi lần `TheGioi.luu()` chạy,
 xoá hết dòng của tài khoản đó rồi ghi lại từ `st.fleets`, nên gọi hạm đội về hay
@@ -280,6 +284,7 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/state` | GET | **có** | — | `{st, sv, toi:{ten, tk}}` — `st` là state đã tua tới hiện tại, `sv` là gói `/api/thongtin` |
 | `/api/lam` | POST | **có** | `{ten, dl}` | `{loi, st, sv}` — `ten` là khoá trong `G.HANHDONG`, `dl` là dữ liệu của hành động · 400 hành động không tồn tại · 503 đế quốc đang bị xử lý |
 | `/api/he` | GET | **có** | query `?g=&h=` | `{g, h, o:[…15 ô…]}`; mỗi ô có `loai` = `toi` / `nguoi` / `npc` / `trong`, kèm `key`, `c`, `debris` |
+| `/api/guithu` | POST | **có** | `{den, noi}` — `den` là tên chỉ huy hoặc id tài khoản | `{ok:true}` — thư rơi thẳng vào hộp tin người nhận (`loai:'thu'`); tối đa 1.200 ký tự, 1 thư / 8 giây |
 | `/api/xephang` | GET | **có** | — | `{ds:[{hang, ten, lm, diem, ht, ta}]}` — tối đa 200 người |
 | `/api/lm` | GET | **có** | — | `{ds:[{ten, tag, sl, diem, chu, mota}], tv:[{ten, diem, ht, ta}]}` (`tv` = thành viên liên minh của mình) |
 | `/api/lmtao` | POST | **có** | `{ten, tag}` | `{loi, st, sv}` — lập liên minh rồi tự gia nhập · 400 tên/thẻ sai hoặc đã tồn tại |

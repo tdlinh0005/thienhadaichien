@@ -16,6 +16,8 @@ function log(s) { console.log('  · ' + s); }
 function G_so(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function G_tong(o) { var t = 0; for (var k in o) t += o[k] || 0; return t; }
 function G_moc() { return 5000; }
+function G_tdKeyLike(c) { return c.g + ':' + c.h + ':' + c.p; }
+var G = { tdKeyLike: G_tdKeyLike };
 
 function nghi(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
@@ -437,7 +439,55 @@ function truyVan(sql, ...args) {
     var hamTT = stA3.fleets.filter(x => x.pha === 've');
     ktra(hamTT.length >= 1, 'hạm đội tiếp tế đang trên đường về');
 
+    /* ---------- 10c. thư giữa người chơi ---------- */
+    var soTinB = docState(idB).msgs.length;
+    var th1 = await goi('/api/guithu', { den: 'Lê Vũ', noi: 'Đình chiến nhé, ta chia đôi hệ này.' }, a.token);
+    ktra(!th1.loi, 'gửi được thư cho người chơi khác' + (th1.loi ? ': ' + th1.loi : ''));
+    var stBThu = docState(idB);
+    var thu = stBThu.msgs.find(m => m.loai === 'thu');
+    ktra(!!thu, 'thư vào đúng hộp tin của người nhận');
+    if (thu) {
+      ktra(thu.td.indexOf('Quốc Bình') >= 0, 'thư ghi đúng tên người gửi');
+      ktra(thu.nd.indexOf('Đình chiến') >= 0, 'nội dung thư nguyên vẹn');
+    }
+    ktra(stBThu.msgs.length === soTinB + 1, 'chỉ thêm đúng một tin');
+    var th2 = await goi('/api/guithu', { den: 'Không Có Ai', noi: 'xin chào' }, a.token);
+    ktra(!!th2.loi, 'không gửi được cho người không tồn tại');
+    var th3 = await goi('/api/guithu', { den: 'Quốc Bình', noi: 'tự gửi' }, a.token);
+    ktra(!!th3.loi, 'không tự gửi thư cho chính mình');
+    var th4 = await goi('/api/guithu', { den: 'Lê Vũ', noi: '' }, a.token);
+    ktra(!!th4.loi, 'không gửi được thư trống');
+    var th5 = await goi('/api/guithu', { den: 'Lê Vũ', noi: 'spam ngay lập tức' }, a.token);
+    ktra(th5.__ma === 429, 'chặn gửi thư liên tiếp (chống spam)');
+
+    /* ---------- 10d. bỏ hoang thuộc địa ---------- */
+    var stCol = docState(idA);
+    if (stCol.planets.length >= 2) {
+      var tdCol = G.tdKeyLike(stCol.planets[1].c);
+      var bh1 = await goi('/api/lam', { ten: 'boHoang', dl: { pi: 1 } }, a.token);
+      ktra(!!bh1.loi, 'bỏ hoang phải có xác nhận');
+      var bh2 = await goi('/api/lam', { ten: 'boHoang', dl: { pi: 0, xacnhan: 'BO' } }, a.token);
+      ktra(!!bh2.loi, 'không bỏ được hành tinh mẹ');
+      var bh3 = await goi('/api/lam', { ten: 'boHoang', dl: { pi: 1, xacnhan: 'BO' } }, a.token);
+      ktra(!bh3.loi, 'bỏ hoang được thuộc địa' + (bh3.loi ? ': ' + bh3.loi : ''));
+      ktra(truyVan('SELECT * FROM ht WHERE td=?', tdCol).length === 0, 'ô toạ độ được trả về trạng thái trống trong bảng ht');
+      ktra(bh3.st.planets.length === stCol.planets.length - 1, 'đế quốc còn ít hơn 1 hành tinh');
+    }
+
     /* ---------- 11. xếp hạng & bảng tin ---------- */
+    /* xếp hạng theo hạng mục */
+    var xhHam = await goi('/api/xephang?loai=ham', null, a.token);
+    ktra(xhHam.loai === 'ham' && xhHam.ds.length >= 2, 'xếp hạng theo hạm đội trả về danh sách');
+    var giamHam = xhHam.ds.every(function (e, i) { return i === 0 || xhHam.ds[i - 1].diem >= e.diem; });
+    ktra(giamHam, 'xếp hạng hạm đội sắp giảm dần đúng');
+    ktra(xhHam.ds[0].tong !== undefined && xhHam.ds[0].ct !== undefined, 'mỗi dòng có đủ điểm từng hạng mục');
+    var xhThu = await goi('/api/xephang?loai=thu', null, a.token);
+    var khac = JSON.stringify(xhThu.ds.map(function (e) { return e.ten; })) !==
+               JSON.stringify(xhHam.ds.map(function (e) { return e.ten; }));
+    ktra(khac || xhThu.ds.length < 3, 'thứ tự hạng mục phòng thủ khác hạng mục hạm đội');
+    var xhBay = await goi('/api/xephang?loai=linhtinh', null, a.token);
+    ktra(xhBay.ds.length >= 2, 'hạng mục không hợp lệ thì quay về tổng điểm chứ không lỗi');
+
     var xh = await goi('/api/xephang', null, a.token);
     ktra(xh.ds.length === 4 && xh.ds[0].diem >= xh.ds[1].diem, 'bảng xếp hạng lấy từ database, sắp theo điểm (' + xh.ds.length + ' người)');
     ktra(xh.ds.some(e => e.ta), 'bảng xếp hạng đánh dấu được chính mình');

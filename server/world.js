@@ -136,7 +136,8 @@ TheGioi.prototype.nap = function (tk) {
 TheGioi.prototype.luu = function (tk, st) {
   var kho = this.kho;
   var now = Math.floor(Date.now() / 1000);
-  var diem = Math.round(G.diem(st).tong);
+  var dd = G.diem(st);
+  var diem = Math.round(dd.tong);
   var ke = G.sukienKe(st);
   if (!isFinite(ke)) ke = st.lastTick + 3600;
   ke = Math.min(ke, st.lastTick + 3600);           // tick định kỳ ít nhất 1 giờ/lần
@@ -144,7 +145,8 @@ TheGioi.prototype.luu = function (tk, st) {
   var js = JSON.stringify(st);
   var self = this;
   kho.giaoDich(function () {
-    kho.q.dqLuu.run(js, diem, st.lastTick, Math.round(ke), st.lm ? st.lm.ten : null, st.planets.length, now, tk);
+    kho.q.dqLuu.run(js, diem, Math.round(dd.ct), Math.round(dd.nc), Math.round(dd.ham), Math.round(dd.thu),
+      st.lastTick, Math.round(ke), st.lm ? st.lm.ten : null, st.planets.length, now, tk);
     kho.q.htXoaCua.run(tk);
     for (var i = 0; i < st.planets.length; i++) {
       var p = st.planets[i];
@@ -424,11 +426,17 @@ function moTaRes(o) {
 }
 
 /* ------------------------------------------------------------- bảng xếp hạng */
-TheGioi.prototype.xepHangCho = function (st) {
-  var ds = this.kho.q.dqXepHang.all(200), out = [];
+TheGioi.prototype.xepHangCho = function (st, loai) {
+  var cot = { tong: 'diem', ct: 'diemCT', nc: 'diemNC', ham: 'diemHam', thu: 'diemThu' };
+  var c = cot[loai] || 'diem';
+  var ds = this.kho.q.dqXepHang.all(200).slice();
+  ds.sort(function (a, b) { return (b[c] || 0) - (a[c] || 0); });
+  var out = [];
   for (var i = 0; i < ds.length; i++) {
     out.push({
-      hang: i + 1, ten: ds[i].hienthi, lm: ds[i].lm || '', diem: ds[i].diem,
+      hang: i + 1, ten: ds[i].hienthi, lm: ds[i].lm || '',
+      diem: ds[i][c] || 0, tong: ds[i].diem,
+      ct: ds[i].diemCT, nc: ds[i].diemNC, ham: ds[i].diemHam, thu: ds[i].diemThu,
       ht: ds[i].soHT, ta: st && ds[i].hienthi === st.ten
     });
   }
@@ -519,11 +527,12 @@ TheGioi.prototype.taoDeQuoc = function (tk, hienthi) {
     'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
   var now = Math.floor(Date.now() / 1000);
   var kho = this.kho;
-  var diem = Math.round(G.diem(st).tong);
+  var dd0 = G.diem(st);
   var ke = G.sukienKe(st);
   if (!isFinite(ke)) ke = now + 3600;
   kho.giaoDich(function () {
-    kho.q.dqThem.run(tk, JSON.stringify(st), diem, st.lastTick, Math.round(Math.min(ke, now + 3600)), null, st.planets.length, now);
+    kho.q.dqThem.run(tk, JSON.stringify(st), Math.round(dd0.tong), Math.round(dd0.ct), Math.round(dd0.nc),
+      Math.round(dd0.ham), Math.round(dd0.thu), st.lastTick, Math.round(Math.min(ke, now + 3600)), null, st.planets.length, now);
     for (var i = 0; i < st.planets.length; i++)
       kho.q.htThem.run(G.tdKey(st.planets[i].c), tk, st.planets[i].ten, i, st.planets[i].thuDo ? 1 : 0);
     kho.q.btThem.run(now, 'tk', hienthi + ' vừa nhận quyền chỉ huy hành tinh tại ' + G.tdStr(nha) + '.');
@@ -584,6 +593,32 @@ TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi) {
     kho.q.lmDonRong.run();
     kho.q.btThem.run(now, 'tk', tenHienThi + ' đã rời khỏi vũ trụ, các hành tinh trở về trạng thái trống.');
   });
+  return null;
+};
+
+/* --------------------------------------------------------- thư người chơi */
+TheGioi.prototype.guiThu = function (tkGui, tenGui, denAi, noi) {
+  noi = String(noi || '').replace(/\r/g, '').slice(0, 1200).trim();
+  if (!noi) return 'Thư trống.';
+  var nhan = null;
+  if (/^\d+$/.test(String(denAi))) nhan = this.kho.q.tkTheoId.get(Math.floor(+denAi));
+  if (!nhan) nhan = this.kho.q.tkTheoHienThi.get(String(denAi || '').trim());
+  if (!nhan) return 'Không tìm thấy người chơi này.';
+  if (nhan.id === tkGui) return 'Không gửi thư cho chính mình.';
+  if (this.dangTick.has(nhan.id)) return 'Người nhận đang được xử lý, thử lại sau một nhịp.';
+
+  var d = this.nap(nhan.id);
+  if (!d) return 'Người nhận chưa có đế quốc.';
+  this.dangTick.add(nhan.id);
+  this.chuStack.push(nhan.id);
+  try {
+    G.tick(d.st, Math.floor(Date.now() / 1000));
+    G.tin(d.st, 'thu', 'Thư từ ' + tenGui, noi);
+    this.luu(nhan.id, d.st);
+  } finally {
+    this.chuStack.pop();
+    this.dangTick.delete(nhan.id);
+  }
   return null;
 };
 

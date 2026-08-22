@@ -310,6 +310,35 @@ G.huyNC = function (st) {
   st.ncQueue = null;
 };
 
+/* Bỏ hoang một thuộc địa. Xoá hành tinh khỏi danh sách thì mọi chỉ số hành
+ * tinh (hạm đội, nghiên cứu, đợt tấn công đang tới) phải được dời theo. */
+G.boHoang = function (st, pi) {
+  pi = Math.floor(pi);
+  var p = st.planets[pi];
+  if (!p) return 'Hành tinh không tồn tại.';
+  if (p.thuDo || pi === 0) return 'Không bỏ được hành tinh mẹ.';
+  if (st.planets.length <= 1) return 'Đây là hành tinh cuối cùng.';
+  var i;
+  for (i = 0; i < st.fleets.length; i++)
+    if (st.fleets[i].pi === pi) return 'Còn hạm đội xuất phát từ hành tinh này đang bay — gọi về đã.';
+  for (i = 0; i < (st.tenLua || []).length; i++)
+    if (st.tenLua[i].pi === pi) return 'Còn tên lửa phóng từ hành tinh này đang bay.';
+  for (i = 0; i < st.toi.length; i++)
+    if (st.toi[i].pi === pi) return 'Đang có hạm đội địch bay tới hành tinh này — không bỏ chạy giữa chừng được.';
+
+  var ten = p.ten;
+  st.planets.splice(pi, 1);
+  var doi = function (o) { if (o && o.pi > pi) o.pi--; };
+  for (i = 0; i < st.fleets.length; i++) doi(st.fleets[i]);
+  for (i = 0; i < (st.tenLua || []).length; i++) doi(st.tenLua[i]);
+  for (i = 0; i < st.toi.length; i++) doi(st.toi[i]);
+  if (st.ncQueue) { if (st.ncQueue.pi > pi) st.ncQueue.pi--; else if (st.ncQueue.pi === pi) st.ncQueue.pi = 0; }
+  G.tin(st, 'he', 'Đã bỏ hoang ' + ten,
+    'Toàn bộ công trình, tàu và tài nguyên trên ' + ten + ' ' + G.tdStr(p.c) + ' bị bỏ lại. ' +
+    'Ô toạ độ này giờ trống, ai cũng có thể tới chiếm.');
+  return null;
+};
+
 /* =======================================================================
  * ĐIỂM & XẾP HẠNG
  * ===================================================================== */
