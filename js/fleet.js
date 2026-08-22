@@ -365,8 +365,11 @@ G.hepRaid = function (st) {
   var key = null;
   if (st.hanThu && st.hanThu.length && Math.random() < 0.6) key = st.hanThu[Math.floor(Math.random() * st.hanThu.length)];
   var n;
-  if (key && st.npc[key]) n = st.npc[key];
-  else {
+  if (key) {
+    var cKey = G.tdParse(key);
+    if (cKey) { var oKey = G.oHanhTinh(st, cKey); if (oKey.loai === 'npc') n = oKey.npc; }
+  }
+  if (!n) {
     var home = st.planets[0].c;
     for (var t = 0; t < 40 && !n; t++) {
       var c = G.toaDo(home.g, Math.max(1, Math.min(G.C.SO_HE, home.h + Math.floor(Math.random() * 30) - 15)), 1 + Math.floor(Math.random() * G.C.SO_HANH_TINH));

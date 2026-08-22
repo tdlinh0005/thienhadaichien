@@ -513,6 +513,12 @@ TheGioi.prototype.lmTao = function (tk, ten, tag) {
   if (!/^[A-Z0-9]{2,6}$/.test(tag)) return 'Thẻ liên minh phải là 2–6 chữ/số.';
   var day = '[' + tag + '] ' + ten;
   if (this.kho.q.lmGet.get(day)) return 'Liên minh này đã tồn tại.';
+  /* tránh trùng tên với các liên minh NPC đang hiện trên bản đồ */
+  for (var i = 0; i < G.LIEN_MINH.length; i++) {
+    if (!G.LIEN_MINH[i]) continue;
+    if (G.LIEN_MINH[i].toLowerCase() === day.toLowerCase()) return 'Tên này đã có liên minh NPC dùng, chọn tên khác.';
+    if (G.LIEN_MINH[i].indexOf('[' + tag + ']') === 0) return 'Thẻ ' + tag + ' đã có liên minh NPC dùng, chọn thẻ khác.';
+  }
   var now = Math.floor(Date.now() / 1000), kho = this.kho;
   kho.giaoDich(function () {
     kho.q.lmThem.run(day, tag, tk, now, null);
@@ -529,7 +535,7 @@ TheGioi.prototype.lmThanhVien = function (ten, tk) {
 /* --------------------------------------------------------- vòng lặp scheduler */
 TheGioi.prototype.nhip = function (toiDa) {
   var now = Math.floor(Date.now() / 1000);
-  var ds = this.kho.q.dqDenHan.all(now, toiDa || 40);
+  var ds = this.kho.q.dqDenHan.all(now, toiDa || 60);
   var n = 0;
   for (var i = 0; i < ds.length; i++) {
     try { if (this.tick(ds[i].tk, now)) n++; }

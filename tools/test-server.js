@@ -293,11 +293,15 @@ function truyVan(sql, ...args) {
     ktra(he.o.some(o => o.loai === 'npc' || o.loai === 'trong'), 'bản đồ vẫn có NPC/ô trống');
 
     /* ---------- 10. liên minh ---------- */
-    var lm1 = await goi('/api/lmtao', { ten: 'Hồng Bàng Vệ', tag: 'HBV' }, a.token);
+    var lmTrung = await goi('/api/lmtao', { ten: 'Hồng Bàng Vệ', tag: 'HBV' }, a.token);
+    ktra(!!lmTrung.loi, 'không cho lập liên minh trùng tên/thẻ với liên minh NPC');
+    var lmXau = await goi('/api/lmtao', { ten: 'ab', tag: '@@' }, a.token);
+    ktra(!!lmXau.loi, 'chặn tên/thẻ liên minh không hợp lệ');
+    var lm1 = await goi('/api/lmtao', { ten: 'Đại Nam Vệ', tag: 'DNV' }, a.token);
     ktra(!lm1.loi, 'A lập được liên minh' + (lm1.loi ? ': ' + lm1.loi : ''));
     var lm2 = await goi('/api/lm', null, a.token);
     ktra(lm2.ds.length === 1 && lm2.ds[0].sl === 1, 'liên minh có 1 thành viên');
-    var lm3 = await goi('/api/lam', { ten: 'lmvao', dl: { ten: '[HBV] Hồng Bàng Vệ' } }, b.token);
+    var lm3 = await goi('/api/lam', { ten: 'lmvao', dl: { ten: '[DNV] Đại Nam Vệ' } }, b.token);
     ktra(!lm3.loi, 'B gia nhập liên minh' + (lm3.loi ? ': ' + lm3.loi : ''));
     var lm4 = await goi('/api/lm', null, b.token);
     ktra(lm4.tv.length === 2, 'liên minh có 2 thành viên (' + lm4.tv.length + ')');

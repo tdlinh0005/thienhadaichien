@@ -185,7 +185,9 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
       }
       self.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm', p.tkRow.hienthi + ' gia nhập ' + kq3.st.lm.ten + '.');
     }
-    return json(res, kq3.loi ? 200 : 200, { loi: kq3.loi, st: kq3.st, sv: self.thongTin() });
+    /* lỗi luật chơi (không đủ tài nguyên, chưa đủ điều kiện...) không phải lỗi
+       HTTP: vẫn trả 200 kèm state mới nhất để client vẽ lại cho khớp server. */
+    return json(res, 200, { loi: kq3.loi, st: kq3.st, sv: self.thongTin() });
   }
 
   if (duong === '/api/he') {

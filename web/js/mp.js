@@ -83,7 +83,7 @@
     xemHe: function (g, h) {
       if (MP.he && MP.he.g === g && MP.he.h === h) return MP.he.o;
       APP.taiHe(g, h);
-      return MP.he && MP.he.o ? [] : [];
+      return (MP.he && MP.he.o) || [];      /* giữ dữ liệu hệ cũ trong lúc chờ server */
     },
     xepHang: function () { return MP.xh || []; },
     dsLM: function () { return (MP.lm && MP.lm.ds) || []; },
@@ -199,6 +199,21 @@
       if (m === 'xephang') api('/api/xephang').then(function (r) { MP.xh = r.ds; U.ve(); }, function () { });
       if (m === 'lienminh') api('/api/lm').then(function (r) { MP.lm = r; U.ve(); }, function () { });
       if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
+    },
+    /* vào/ra liên minh xong phải nạp lại danh sách thành viên từ server */
+    'lm-vao': function (el) {
+      APP.lam('lmvao', { ten: el.getAttribute('data-ten') }, function (err) {
+        if (err) return U.toast(err, 'loi');
+        api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã gia nhập liên minh.', 'ok'); },
+          function () { U.ve(); });
+      });
+    },
+    'lm-ra': function () {
+      APP.lam('lmra', {}, function (err) {
+        if (err) return U.toast(err, 'loi');
+        api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã rời liên minh.', 'ok'); },
+          function () { U.ve(); });
+      });
     },
     'lm-tao': function () {
       var ten = (document.getElementById('lm-ten') || {}).value || '';

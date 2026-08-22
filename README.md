@@ -5,8 +5,11 @@ và nhóm 3 thành viên người Việt phát triển từ khoảng **2004**, �
 (VINASA) và vận hành tại `thienhadaichien.com` cho tới đầu thập niên 2010 — nay đã đóng cửa.
 
 Bản gốc là game **thuần text** (phiên bản 1.33f), lối chơi rất gần OGame nhưng có một số cơ
-chế riêng khá đặc biệt. Bản phục dựng này giữ đúng những cơ chế đó, chạy hoàn toàn trong
-trình duyệt, không cần server.
+chế riêng khá đặc biệt. Bản phục dựng này giữ đúng những cơ chế đó, và có hai cách chơi:
+
+- **Một người** — chạy hoàn toàn trong trình duyệt, không cần server, không cần mạng.
+- **Nhiều người** — máy chủ Node + SQLite: mỗi người một tài khoản, vũ trụ dùng chung,
+  đánh nhau giữa các tài khoản là thật (xem mục [Chơi nhiều người](#chơi-nhiều-người)).
 
 > Toàn bộ tư liệu tìm được, chỗ nào là sự thật và chỗ nào là suy luận: xem
 > [`docs/NGHIEN-CUU.md`](docs/NGHIEN-CUU.md).
@@ -23,17 +26,73 @@ xdg-open index.html          # hoặc mở file index.html bằng trình duyệt
 npx http-server . -p 8080    # rồi vào http://localhost:8080
 ```
 
-Kiểm thử phần lõi (không cần trình duyệt):
-
-```bash
-node tools/smoke.js          # 56 kiểm tra: sản xuất, bảo trì, chiến đấu, hạm đội, tua offline
-```
-
 Đóng gói thành **một file HTML duy nhất** để gửi đi hoặc up lên đâu cũng chạy:
 
 ```bash
 node tools/build.js          # -> dist/thien-ha-dai-chien.html
+npm run build                # + dist/artifact.html (bản nhúng)
 ```
+
+## Chơi nhiều người
+
+Ngoài bản một người chạy hẳn trong trình duyệt, repo còn có một **máy chủ nhiều
+người chơi** viết bằng Node thuần (`node:http` + `node:sqlite`, không cài gói nào):
+
+```bash
+node server/index.js                       # hoặc: npm start  ->  http://localhost:8080
+PORT=3000 THDC_DB=/var/lib/thdc/thdc.db node server/index.js
+```
+
+Cần **Node 22 trở lên** (vì `node:sqlite`, nên lúc chạy có một dòng
+`ExperimentalWarning` — bình thường, không phải lỗi).
+
+- **Tài khoản riêng**: đăng ký tên đăng nhập + mật khẩu (băm scrypt kèm muối),
+  nhận ngay một hành tinh ở một chỗ còn trống trong vũ trụ chung.
+- **Database SQLite**: toàn bộ đế quốc nằm trong một file `.db`. Đế quốc chạy
+  24/7 trên máy chủ — thoát ra thì mỏ vẫn đào, chu kỳ bảo trì vẫn trừ tiền, hạm
+  đội vẫn bay tới đích.
+- **PvP thật**: hành tinh màu cam trên bản đồ là người chơi khác. Đánh nhau là
+  thật — tài nguyên bị cướp khỏi kho của họ, phòng thủ của họ vỡ thật, cả hai bên
+  đều nhận báo cáo chiến đấu, và trận đánh hiện lên *Bảng Tin Vũ Trụ*. Họ cũng
+  đánh lại được. Do thám, phản tình báo, liên minh và bảng xếp hạng đều là dữ liệu
+  thật của server.
+
+| | bản một người | bản nhiều người |
+|---|---|---|
+| Vào ở | `index.html` (hoặc `/motnguoi`) | `http://localhost:8080/` |
+| Cần server | không | có (`node server/index.js`) |
+| Lưu ở | `localStorage` của trình duyệt | SQLite trên máy chủ |
+| Bên quyết định | chính trình duyệt | **máy chủ** — client chỉ vẽ và gửi yêu cầu |
+| Đối thủ | NPC sinh tất định từ hạt giống | người chơi thật + NPC dùng chung |
+| Thời gian khi thoát | tua bù lúc mở lại | chạy liên tục trên máy chủ |
+| Bảng xếp hạng, liên minh | sinh từ hạt giống | dữ liệu thật của server |
+
+Chi tiết kiến trúc, schema database, bảng API, luồng PvP, bảo mật và vận hành:
+[`docs/MAY-CHU.md`](docs/MAY-CHU.md).
+
+## Kiểm thử
+
+Bốn bộ kiểm thử, không cần cài gì (bộ giao diện cần Chromium của Playwright):
+
+```bash
+node tools/smoke.js          # 56 kiểm tra — phần luật: sản xuất, điện, lương thực, bảo trì,
+                             #   nghiên cứu trả góp, đóng tàu, phòng thủ 2 lớp, do thám,
+                             #   tấn công & cướp, đổi mục tiêu giữa đường, thực dân hoá,
+                             #   NPC đánh lại, tua offline 30 ngày, lưu/nạp JSON
+node tools/test-server.js    # 83 kiểm tra — máy chủ qua HTTP thật với nhiều tài khoản:
+                             #   đăng ký/đăng nhập/đổi mật khẩu, băm mật khẩu, chặn dữ liệu
+                             #   rác, sản xuất khi vắng mặt, do thám PvP, đánh nhau PvP
+                             #   (thắng & hoà), cướp tài nguyên thật, tiếp tế đồng minh,
+                             #   bảo vệ người chơi mới, liên minh, xếp hạng, bảng tin,
+                             #   và dữ liệu còn nguyên sau khi khởi động lại server
+node tools/test-tai.js 60    # 51 kiểm tra — tải: 60 đế quốc, tua 24 giờ toàn server,
+                             #   60 trận PvP đồng thời, chống đệ quy, dung lượng database
+node tools/test-mp-ui.mjs    # 86 kiểm tra — giao diện bản nhiều người trên Chromium thật:
+                             #   2 tài khoản độc lập, đủ 13 màn, thao tác thật, thấy nhau
+                             #   trên bản đồ, liên minh, và layout điện thoại
+```
+
+`npm test` chạy hai bộ đầu.
 
 ## Bối cảnh
 
@@ -88,27 +147,56 @@ biên Ngân Hà: khai thác, xây dựng, nghiên cứu, đóng hạm đội, v�
    không bao giờ bị bắn hạ.
 6. Thời gian vẫn chạy khi bạn tắt game. Mở lại, engine tua lại toàn bộ sản xuất, chuyến bay
    và các chu kỳ bảo trì đã diễn ra.
+7. *(bản nhiều người)* Đừng lao vào đánh người chơi có nhiều **Pháo Plasma** — trên mỗi đồng
+   bỏ ra, phòng thủ mặt đất bền hơn hạm đội rất nhiều, đánh vào là lỗ. Hạm đội để dành đi
+   cướp mục tiêu giàu mà phòng thủ mỏng. Muốn an toàn thì tự dựng plasma và một lớp quỹ đạo.
+8. *(bản nhiều người)* Vào liên minh rồi dùng nhiệm vụ **Tiếp tế** để chi viện tài nguyên cho
+   đồng minh — hàng bên nhận không chứa nổi sẽ được mang về, không mất.
 
 ## Cấu trúc mã nguồn
 
 ```
-index.html            khung trang, nạp 7 file script
+index.html            khung trang bản MỘT NGƯỜI, nạp 10 file script
 css/style.css         giao diện nhại webgame Việt 2009–2013
-js/data.js            bảng dữ liệu: công trình, nghiên cứu, tàu, phòng thủ, hằng số cân bằng
-js/util.js            định dạng số/thời gian, PRNG tất định, toạ độ, khoảng cách
-js/galaxy.js          sinh vũ trụ & NPC tất định từ hạt giống, bảng xếp hạng
-js/combat.js          bộ mô phỏng trận đánh 6 vòng, bắn nhanh, phòng thủ hai lớp
-js/engine.js          state, sản lượng, hàng đợi, chi phí, điểm
-js/fleet.js           hạm đội, nhiệm vụ, chu kỳ bảo trì, dòng thời gian (tua offline)
-js/ui.js              12 màn giao diện
-js/main.js            khởi động, lưu/nạp, xử lý thao tác
-tools/smoke.js        kiểm thử lõi bằng Node
-tools/build.js        gộp thành một file HTML duy nhất
+
+js/                   BỘ LUẬT DÙNG CHUNG — chạy cả trên trình duyệt lẫn trên server
+  data.js             bảng dữ liệu: công trình, nghiên cứu, tàu, phòng thủ, hằng số cân bằng
+  util.js             định dạng số/thời gian, PRNG tất định, toạ độ, khoảng cách
+  galaxy.js           sinh vũ trụ & NPC tất định từ hạt giống, bảng xếp hạng, móc nối G.HOOK
+  combat.js           bộ mô phỏng trận đánh 6 vòng, bắn nhanh, phòng thủ hai lớp
+  engine.js           state, sản lượng, hàng đợi, chi phí, điểm
+  fleet.js            hạm đội, nhiệm vụ, chu kỳ bảo trì, dòng thời gian (tua offline)
+  actions.js          bảng hành động — NƠI DUY NHẤT thao tác của người chơi được thực thi
+  ui.js               các màn giao diện
+  app.js              tầng thao tác giao diện, dùng chung cho cả hai bản
+  main.js             driver bản MỘT NGƯỜI: state trong localStorage, chạy tại chỗ
+
+server/               MÁY CHỦ NHIỀU NGƯỜI (Node thuần, không gói ngoài)
+  index.js            HTTP, phục vụ file tĩnh, scheduler, tắt máy êm
+  api.js              các đường dẫn /api/*, xác thực scrypt, giới hạn tần suất
+  world.js            thế giới dùng chung: nạp/lưu đế quốc, tua thời gian, PvP thật
+  db.js               schema SQLite + câu truy vấn
+  rules.js            nạp js/*.js vào tiến trình Node
+
+web/                  CLIENT BẢN NHIỀU NGƯỜI
+  index.html          màn đăng nhập/đăng ký + khung game
+  js/mp.js            driver: gọi API, đồng bộ, màn Bảng Tin Vũ Trụ & Tài Khoản
+
+tools/
+  smoke.js            kiểm thử lõi bằng Node
+  test-server.js      kiểm thử máy chủ: tài khoản, database, PvP giữa hai account
+  test-tai.js         kiểm thử tải: nhiều đế quốc, PvP chéo đồng thời
+  test-mp-ui.mjs      kiểm thử giao diện bản nhiều người bằng trình duyệt thật
+  build.js            gộp bản một người thành một file HTML duy nhất
+
+package.json          các lệnh npm (start / test / build), không có dependency nào
 docs/NGHIEN-CUU.md    tư liệu về game gốc + phần nào là suy luận
+docs/MAY-CHU.md       tài liệu kỹ thuật máy chủ nhiều người
 ```
 
-Không dùng framework, không phụ thuộc bên ngoài. Bàn chơi lưu trong `localStorage`
-(xuất/nạp được ra file JSON ở màn *Nhật Ký & Lưu*).
+Không dùng framework, không phụ thuộc bên ngoài. Bản một người lưu bàn chơi trong
+`localStorage` (xuất/nạp được ra file JSON ở màn *Nhật Ký & Lưu*); bản nhiều người
+lưu trên máy chủ sau mỗi thao tác.
 
 ## Ghi công
 

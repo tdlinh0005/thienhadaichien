@@ -138,6 +138,8 @@ td.c,th.c{text-align:center}
 .gal-dh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
 tr.trong td{color:#55617c}
 tr.toi td{background:#0f2a1c}
+tr.nguoi td{background:#241703}
+tr.nguoi:hover>td{background:#2f1e05}
 tr.npc-bo td{background:#231a0d}
 .tag-lm{color:var(--tim);font-size:11px}
 .pl{color:var(--vang);font-size:11px}

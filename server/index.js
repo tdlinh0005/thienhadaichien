@@ -101,7 +101,7 @@ var boDem = setInterval(function () {
   if (dangNhip) return;
   dangNhip = true;
   try {
-    var n = tg.nhip(60);
+    var n = tg.nhip();
     if (n > 0 && process.env.THDC_AM === '1') console.log('[nhip] đã tua ' + n + ' đế quốc');
   } catch (e) { console.error('[nhip]', e && e.stack || e); }
   dangNhip = false;

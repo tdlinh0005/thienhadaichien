@@ -53,7 +53,6 @@ var SCHEMA = [
      ten TEXT NOT NULL, pi INTEGER NOT NULL, thuDo INTEGER NOT NULL DEFAULT 0
    )`,
   "CREATE INDEX IF NOT EXISTS ht_tk ON ht(tk)",
-  "CREATE INDEX IF NOT EXISTS ht_gh ON ht(substr(td,1,instr(td,':')))",
 
   /* NPC dùng chung cả server */
   "CREATE TABLE IF NOT EXISTS npc (key TEXT PRIMARY KEY, data TEXT NOT NULL, t INTEGER NOT NULL)",
