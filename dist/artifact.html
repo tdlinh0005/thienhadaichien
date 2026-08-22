@@ -103,7 +103,7 @@ input[type=range]{padding:0}
 #menu a:hover{border-left-color:var(--lam);color:#fff}
 #menu a.on{border-left-color:var(--cam);background:linear-gradient(180deg,#1e2a44,#141d33);color:#fff;font-weight:600}
 #menu a .dem-nho{background:var(--cam2);color:#180b02;border-radius:8px;padding:0 6px;font-size:11px;font-weight:700}
-#noidung{flex:1;min-width:0}
+#noidung{flex:1;min-width:0;max-width:100%}
 
 #chan{padding:10px 14px 26px;color:var(--mo);font-size:11px;border-top:1px solid var(--vien);margin-top:20px}
 
@@ -112,8 +112,8 @@ input[type=range]{padding:0}
 .panel>h3{margin:0;padding:8px 12px;background:linear-gradient(180deg,#1a2540,#131c30);border-bottom:1px solid var(--vien);
   font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--cam)}
 .panel>.noi{padding:12px}
-.luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.luoi2{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px}
+.luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}
+.luoi2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:10px}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{padding:6px 8px;border-bottom:1px solid #1a2440;text-align:left;vertical-align:top}
@@ -180,19 +180,32 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------- form hạm đội ---------- */
-.hd-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.hd-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:8px}
 .hd-tau{display:flex;justify-content:space-between;align-items:center;gap:6px;background:#0c1220;border:1px solid var(--vien);padding:6px 8px;border-radius:3px}
 .hd-tau input{width:84px}
 .hd-td{display:flex;gap:4px;align-items:center}
 .hd-td input{width:56px;text-align:center}
 
 @media (max-width:860px){
+  /* màn nhỏ: mọi bảng tự cuộn ngang trong khung của nó, cả trang không bao giờ cuộn ngang */
+  .panel>.noi>table,.bc>table{display:block;overflow-x:auto;max-width:100%}
+  .the .cap{float:none;display:inline-block;margin-left:6px}
+  .gal-dh input{width:64px}
   .khung{flex-direction:column;padding:10px}
   #menu{width:100%;position:static;display:none;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}
   #menu.mo-ra{display:grid}
   #nut-menu{display:inline-block}
-  .tt-res{gap:10px}
-  .tt-res .o{min-width:78px}
+  /* thanh tài nguyên: lưới gọn, xuống hàng riêng thay vì mỗi thứ một dòng */
+  #thanh-tren{padding:6px 10px;gap:8px}
+  .tt-logo{font-size:12px;letter-spacing:1px}
+  .tt-res{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:4px 8px;flex-basis:100%;order:3}
+  .tt-res .o{min-width:0}
+  .tt-res .o .n{font-size:9px;letter-spacing:.5px}
+  .tt-res .o .v{font-size:12.5px}
+  .tt-res .o .r{font-size:9px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tt-res .o .v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .tt-phu{margin-left:auto}
+  #chon-ht{max-width:150px}
   .kd-logo,.kd-logo span{font-size:26px}
 }
 
@@ -557,6 +570,7 @@ G.C = {
   BAO_VE_MOI_DIEM: 5000,     // dưới mốc điểm này được bảo vệ người chơi mới
   BAO_VE_MOI_TY_LE: 5,       // không đánh được đối thủ lệch nhau quá 5 lần điểm
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
+  SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
   CUOP_TOI_DA: 0.5,
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,
@@ -1023,10 +1037,18 @@ G.danhTran = function (A, D, seed) {
   for (i2 = 0; i2 < atk.length; i2++) conA += atk[i2].n;
   for (i2 = 0; i2 < defAll.length; i2++) conD += defAll[i2].n;
 
-  var kq = conA > 0 && conD <= 0 ? 'thang' : (conA <= 0 && conD > 0 ? 'thua' : (conA <= 0 && conD <= 0 ? 'huyDiet' : 'hoa'));
+  var coA = false, coD = false;
+  for (i2 = 0; i2 < atk.length; i2++) if (atk[i2].n0 > 0) coA = true;
+  for (i2 = 0; i2 < defAll.length; i2++) if (defAll[i2].n0 > 0) coD = true;
+  var kq;
+  if (!coA && !coD) kq = 'hoa';                                  /* hai bên đều trống */
+  else if (conA > 0 && conD <= 0) kq = 'thang';
+  else if (conA <= 0 && conD > 0) kq = 'thua';
+  else if (conA <= 0 && conD <= 0) kq = 'huyDiet';
+  else kq = 'hoa';
 
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
-  var matA = {}, matD = {}, pl = { metal: 0, crystal: 0 };
+  var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
   var conShipsA = {}, conShipsD = {}, conDefD = {};
 
   for (i2 = 0; i2 < atk.length; i2++) {
@@ -1045,8 +1067,9 @@ G.danhTran = function (A, D, seed) {
         pl.metal += (d.cost.metal || 0) * m * G.C.PHE_LIEU;
         pl.crystal += (d.cost.crystal || 0) * m * G.C.PHE_LIEU;
       } else {           /* công sự: 70% được sửa lại sau trận [SUY LUẬN kiểu OGame] */
+        matDPha[d.id] = m;
         var sua = 0;
-        for (var k = 0; k < m; k++) if (rnd() < 0.7) sua++;
+        for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
         con += sua; m -= sua;
       }
       if (m > 0) matD[d.id] = m;
@@ -1058,7 +1081,7 @@ G.danhTran = function (A, D, seed) {
     kq: kq, vongDanh: nhatKy, seed: seed,
     tenA: A.ten, tenD: D.ten,
     conShipsA: conShipsA, conShipsD: conShipsD, conDefD: conDefD,
-    matA: matA, matD: matD,
+    matA: matA, matD: matD, matDPha: matDPha,
     pheLieu: { metal: Math.round(pl.metal), crystal: Math.round(pl.crystal) }
   };
 };
@@ -1218,7 +1241,11 @@ G.sanLuong = function (st, p) {
   if (vt) dienCo += vt * Math.max(6, Math.floor((p.temp + 160) / 5));
 
   var hs = dienDung > 0 ? Math.min(1, dienCo / dienDung) : 1;
-  var doi = (p.doi > 0 ? 0.5 : 1) * (st.noBaoTri > 0 ? 0.7 : 1) * (st.lm ? 1.05 : 1); // đói -50%, nợ bảo trì -30%, liên minh +5%
+  /* Hệ số ảnh hưởng: nợ bảo trì -30%, liên minh +5%. Riêng cái đói phạt -50%
+     nhưng KHÔNG phạt lên chính lương thực, nếu không hành tinh sẽ không bao giờ
+     tự thoát ra được khỏi cảnh đói. */
+  var chung = (st.noBaoTri > 0 ? 0.7 : 1) * (st.lm ? 1.05 : 1);
+  var doi = chung * (p.doi > 0 ? 0.5 : 1);
 
   var r = { metal: 30 * sp, crystal: 15 * sp, deut: 0, food: 10 * sp, tech: 0, galana: 0 };
   for (i = 0; i < G.BUILDINGS.length; i++) {
@@ -1228,7 +1255,7 @@ G.sanLuong = function (st, p) {
     if (o.metal) r.metal += o.metal * hs * sp * doi;
     if (o.crystal) r.crystal += o.crystal * hs * sp * doi;
     if (o.deut) r.deut += o.deut * hs * sp * doi;
-    if (o.food) r.food += o.food * hs * sp * doi;
+    if (o.food) r.food += o.food * hs * sp * chung;
     if (o.tech) r.tech += o.tech * hs * sp * doi;
   }
   /* lò nhiệt hạch đốt deuterium */
@@ -1679,11 +1706,9 @@ G.hamVeNha = function (st, f) {
   var p = st.planets[f.pi] || st.planets[0];
   var k;
   for (k in f.ships) p.ships[k] = (p.ships[k] || 0) + f.ships[k];
-  var cap = G.dungTich(p);
-  for (k in f.cargo) if (f.cargo[k] > 0) {
-    p.res[k] = (p.res[k] || 0) + f.cargo[k];
-    if (p.res[k] > cap[k] * 1.5) p.res[k] = cap[k] * 1.5;   // kho tràn: giữ tối đa 150% dung tích
-  }
+  /* Hàng trên tàu luôn được dỡ HẾT, kể cả khi vượt dung tích kho: dung tích chỉ
+     chặn phần SẢN XUẤT (xem G.sanXuat), không được ăn mất chiến lợi phẩm. */
+  for (k in f.cargo) if (f.cargo[k] > 0) p.res[k] = (p.res[k] || 0) + f.cargo[k];
   G.ghi(st, 'Hạm đội #' + f.id + ' đã về ' + p.ten + ' ' + G.tdStr(p.c) + '.');
   G.xoaHam(st, f);
 };
@@ -2906,7 +2931,11 @@ U.veBaoCao = function (d) {
   h += '<div class="luoi"><div><b>Bên tấn công mất</b><br>' + U.dsTau(kq.matA) +
     '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsA) + '</div>';
   h += '<div><b>Bên phòng thủ mất</b><br>' + U.dsTau(kq.matD) +
-    '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsD) + ' ' + U.dsTau(kq.conDefD) + '</div></div>';
+    '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsD) + ' ' + U.dsTau(kq.conDefD);
+  if (kq.matDPha && !G.trong(kq.matDPha))
+    h += '<br><span class="mo">Công sự bị phá trong trận: ' + U.dsTau(kq.matDPha) +
+      ' — ' + Math.round(G.C.SUA_CONG_SU * 100) + '% trong số đó được dựng lại sau trận.</span>';
+  h += '</div></div>';
 
   h += '<p><b>Cướp được:</b> ' + U.dsRes(d.cuop) + '<br>' +
     '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Tinh Thể ' +

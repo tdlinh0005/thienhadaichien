@@ -756,7 +756,11 @@ U.veBaoCao = function (d) {
   h += '<div class="luoi"><div><b>Bên tấn công mất</b><br>' + U.dsTau(kq.matA) +
     '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsA) + '</div>';
   h += '<div><b>Bên phòng thủ mất</b><br>' + U.dsTau(kq.matD) +
-    '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsD) + ' ' + U.dsTau(kq.conDefD) + '</div></div>';
+    '<br><b>Còn lại</b><br>' + U.dsTau(kq.conShipsD) + ' ' + U.dsTau(kq.conDefD);
+  if (kq.matDPha && !G.trong(kq.matDPha))
+    h += '<br><span class="mo">Công sự bị phá trong trận: ' + U.dsTau(kq.matDPha) +
+      ' — ' + Math.round(G.C.SUA_CONG_SU * 100) + '% trong số đó được dựng lại sau trận.</span>';
+  h += '</div></div>';
 
   h += '<p><b>Cướp được:</b> ' + U.dsRes(d.cuop) + '<br>' +
     '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Tinh Thể ' +

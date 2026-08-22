@@ -259,11 +259,9 @@ G.hamVeNha = function (st, f) {
   var p = st.planets[f.pi] || st.planets[0];
   var k;
   for (k in f.ships) p.ships[k] = (p.ships[k] || 0) + f.ships[k];
-  var cap = G.dungTich(p);
-  for (k in f.cargo) if (f.cargo[k] > 0) {
-    p.res[k] = (p.res[k] || 0) + f.cargo[k];
-    if (p.res[k] > cap[k] * 1.5) p.res[k] = cap[k] * 1.5;   // kho tràn: giữ tối đa 150% dung tích
-  }
+  /* Hàng trên tàu luôn được dỡ HẾT, kể cả khi vượt dung tích kho: dung tích chỉ
+     chặn phần SẢN XUẤT (xem G.sanXuat), không được ăn mất chiến lợi phẩm. */
+  for (k in f.cargo) if (f.cargo[k] > 0) p.res[k] = (p.res[k] || 0) + f.cargo[k];
   G.ghi(st, 'Hạm đội #' + f.id + ' đã về ' + p.ten + ' ' + G.tdStr(p.c) + '.');
   G.xoaHam(st, f);
 };

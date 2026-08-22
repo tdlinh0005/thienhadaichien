@@ -101,7 +101,7 @@ input[type=range]{padding:0}
 #menu a:hover{border-left-color:var(--lam);color:#fff}
 #menu a.on{border-left-color:var(--cam);background:linear-gradient(180deg,#1e2a44,#141d33);color:#fff;font-weight:600}
 #menu a .dem-nho{background:var(--cam2);color:#180b02;border-radius:8px;padding:0 6px;font-size:11px;font-weight:700}
-#noidung{flex:1;min-width:0}
+#noidung{flex:1;min-width:0;max-width:100%}
 
 #chan{padding:10px 14px 26px;color:var(--mo);font-size:11px;border-top:1px solid var(--vien);margin-top:20px}
 
@@ -110,8 +110,8 @@ input[type=range]{padding:0}
 .panel>h3{margin:0;padding:8px 12px;background:linear-gradient(180deg,#1a2540,#131c30);border-bottom:1px solid var(--vien);
   font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--cam)}
 .panel>.noi{padding:12px}
-.luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
-.luoi2{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px}
+.luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:10px}
+.luoi2{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:10px}
 
 table{width:100%;border-collapse:collapse;font-size:12.5px}
 th,td{padding:6px 8px;border-bottom:1px solid #1a2440;text-align:left;vertical-align:top}
@@ -178,18 +178,31 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------- form hạm đội ---------- */
-.hd-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.hd-luoi{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:8px}
 .hd-tau{display:flex;justify-content:space-between;align-items:center;gap:6px;background:#0c1220;border:1px solid var(--vien);padding:6px 8px;border-radius:3px}
 .hd-tau input{width:84px}
 .hd-td{display:flex;gap:4px;align-items:center}
 .hd-td input{width:56px;text-align:center}
 
 @media (max-width:860px){
+  /* màn nhỏ: mọi bảng tự cuộn ngang trong khung của nó, cả trang không bao giờ cuộn ngang */
+  .panel>.noi>table,.bc>table{display:block;overflow-x:auto;max-width:100%}
+  .the .cap{float:none;display:inline-block;margin-left:6px}
+  .gal-dh input{width:64px}
   .khung{flex-direction:column;padding:10px}
   #menu{width:100%;position:static;display:none;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}
   #menu.mo-ra{display:grid}
   #nut-menu{display:inline-block}
-  .tt-res{gap:10px}
-  .tt-res .o{min-width:78px}
+  /* thanh tài nguyên: lưới gọn, xuống hàng riêng thay vì mỗi thứ một dòng */
+  #thanh-tren{padding:6px 10px;gap:8px}
+  .tt-logo{font-size:12px;letter-spacing:1px}
+  .tt-res{display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:4px 8px;flex-basis:100%;order:3}
+  .tt-res .o{min-width:0}
+  .tt-res .o .n{font-size:9px;letter-spacing:.5px}
+  .tt-res .o .v{font-size:12.5px}
+  .tt-res .o .r{font-size:9px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tt-res .o .v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .tt-phu{margin-left:auto}
+  #chon-ht{max-width:150px}
   .kd-logo,.kd-logo span{font-size:26px}
 }

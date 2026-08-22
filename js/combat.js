@@ -144,10 +144,18 @@ G.danhTran = function (A, D, seed) {
   for (i2 = 0; i2 < atk.length; i2++) conA += atk[i2].n;
   for (i2 = 0; i2 < defAll.length; i2++) conD += defAll[i2].n;
 
-  var kq = conA > 0 && conD <= 0 ? 'thang' : (conA <= 0 && conD > 0 ? 'thua' : (conA <= 0 && conD <= 0 ? 'huyDiet' : 'hoa'));
+  var coA = false, coD = false;
+  for (i2 = 0; i2 < atk.length; i2++) if (atk[i2].n0 > 0) coA = true;
+  for (i2 = 0; i2 < defAll.length; i2++) if (defAll[i2].n0 > 0) coD = true;
+  var kq;
+  if (!coA && !coD) kq = 'hoa';                                  /* hai bên đều trống */
+  else if (conA > 0 && conD <= 0) kq = 'thang';
+  else if (conA <= 0 && conD > 0) kq = 'thua';
+  else if (conA <= 0 && conD <= 0) kq = 'huyDiet';
+  else kq = 'hoa';
 
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
-  var matA = {}, matD = {}, pl = { metal: 0, crystal: 0 };
+  var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
   var conShipsA = {}, conShipsD = {}, conDefD = {};
 
   for (i2 = 0; i2 < atk.length; i2++) {
@@ -166,8 +174,9 @@ G.danhTran = function (A, D, seed) {
         pl.metal += (d.cost.metal || 0) * m * G.C.PHE_LIEU;
         pl.crystal += (d.cost.crystal || 0) * m * G.C.PHE_LIEU;
       } else {           /* công sự: 70% được sửa lại sau trận [SUY LUẬN kiểu OGame] */
+        matDPha[d.id] = m;
         var sua = 0;
-        for (var k = 0; k < m; k++) if (rnd() < 0.7) sua++;
+        for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
         con += sua; m -= sua;
       }
       if (m > 0) matD[d.id] = m;
@@ -179,7 +188,7 @@ G.danhTran = function (A, D, seed) {
     kq: kq, vongDanh: nhatKy, seed: seed,
     tenA: A.ten, tenD: D.ten,
     conShipsA: conShipsA, conShipsD: conShipsD, conDefD: conDefD,
-    matA: matA, matD: matD,
+    matA: matA, matD: matD, matDPha: matDPha,
     pheLieu: { metal: Math.round(pl.metal), crystal: Math.round(pl.crystal) }
   };
 };

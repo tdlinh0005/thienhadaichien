@@ -304,6 +304,7 @@ G.C = {
   BAO_VE_MOI_DIEM: 5000,     // dưới mốc điểm này được bảo vệ người chơi mới
   BAO_VE_MOI_TY_LE: 5,       // không đánh được đối thủ lệch nhau quá 5 lần điểm
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
+  SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
   CUOP_TOI_DA: 0.5,
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,

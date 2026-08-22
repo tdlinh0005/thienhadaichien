@@ -140,7 +140,11 @@ G.sanLuong = function (st, p) {
   if (vt) dienCo += vt * Math.max(6, Math.floor((p.temp + 160) / 5));
 
   var hs = dienDung > 0 ? Math.min(1, dienCo / dienDung) : 1;
-  var doi = (p.doi > 0 ? 0.5 : 1) * (st.noBaoTri > 0 ? 0.7 : 1) * (st.lm ? 1.05 : 1); // đói -50%, nợ bảo trì -30%, liên minh +5%
+  /* Hệ số ảnh hưởng: nợ bảo trì -30%, liên minh +5%. Riêng cái đói phạt -50%
+     nhưng KHÔNG phạt lên chính lương thực, nếu không hành tinh sẽ không bao giờ
+     tự thoát ra được khỏi cảnh đói. */
+  var chung = (st.noBaoTri > 0 ? 0.7 : 1) * (st.lm ? 1.05 : 1);
+  var doi = chung * (p.doi > 0 ? 0.5 : 1);
 
   var r = { metal: 30 * sp, crystal: 15 * sp, deut: 0, food: 10 * sp, tech: 0, galana: 0 };
   for (i = 0; i < G.BUILDINGS.length; i++) {
@@ -150,7 +154,7 @@ G.sanLuong = function (st, p) {
     if (o.metal) r.metal += o.metal * hs * sp * doi;
     if (o.crystal) r.crystal += o.crystal * hs * sp * doi;
     if (o.deut) r.deut += o.deut * hs * sp * doi;
-    if (o.food) r.food += o.food * hs * sp * doi;
+    if (o.food) r.food += o.food * hs * sp * chung;
     if (o.tech) r.tech += o.tech * hs * sp * doi;
   }
   /* lò nhiệt hạch đốt deuterium */
