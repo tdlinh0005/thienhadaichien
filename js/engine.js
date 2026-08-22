@@ -26,7 +26,7 @@ G.moiGame = function (ten, seedStr, home) {
     planets: [],
     tech: {}, ncQueue: null,
     galana: 3000, techPts: 0,
-    fleets: [], toi: [],           // toi = hạm đội địch đang bay tới
+    fleets: [], toi: [], tenLua: [],   // toi = hạm đội địch đang bay tới; tenLua = tên lửa đang bay
     npc: {}, debris: {},
     msgs: [], nk: [],
     nextMaint: now + G.C.CHU_KY_BAO_TRI,

@@ -99,7 +99,8 @@ TheGioi.prototype.veHook = function () {
     xepHang: function (st) { return W.xepHangCho(st); },
     danhNguoi: function (st, f, o, veNha) { W.danhNguoi(st, f, o, veNha); },
     doThamNguoi: function (st, f, o) { W.doThamNguoi(st, f, o); },
-    tangNguoi: function (st, f, o, veNha) { W.tangNguoi(st, f, o, veNha); }
+    tangNguoi: function (st, f, o, veNha) { W.tangNguoi(st, f, o, veNha); },
+    tenLuaNguoi: function (st, tl, o) { W.tenLuaNguoi(st, tl, o); }
   };
 };
 
@@ -528,6 +529,47 @@ TheGioi.prototype.taoDeQuoc = function (tk, hienthi) {
     kho.q.btThem.run(now, 'tk', hienthi + ' vừa nhận quyền chỉ huy hành tinh tại ' + G.tdStr(nha) + '.');
   });
   return { st: st, nha: nha };
+};
+
+/* --------------------------------------------- tên lửa bắn người chơi khác */
+TheGioi.prototype.tenLuaNguoi = function (st, tl, o) {
+  var dTk = o.tk;
+  if (this.dangTick.has(dTk)) { tl.khi = st.now + 20; st.tenLua.push(tl); return; }
+  var d = this.nap(dTk);
+  if (!d) return;
+
+  this.dangTick.add(dTk);
+  this.chuStack.push(dTk);
+  try {
+    G.tick(d.st, st.now);
+    var pi = -1, i;
+    for (i = 0; i < d.st.planets.length; i++) if (G.tdKey(d.st.planets[i].c) === o.key) pi = i;
+    if (pi < 0) {
+      G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) + ' không còn là hành tinh của ' + o.ten + '.');
+      this.luu(dTk, d.st); return;
+    }
+    var dp = d.st.planets[pi];
+    var soChan = dp.mis.interceptor || 0;
+    var kq = G.noTenLua(tl.n, dp.def, soChan, st.tech, d.st.tech, G.hash('tl' + tl.id + st.now + o.key));
+    if (kq.chan > 0) {
+      dp.mis.interceptor -= kq.chan;
+      if (!dp.mis.interceptor) delete dp.mis.interceptor;
+    }
+
+    G.tin(st, 'tran', 'Kết quả bắn tên lửa ' + G.tdStr(tl.den) + ' — ' + o.ten, null,
+      { tl: kq, soBan: tl.n, td: tl.den, ten: o.ten, ben: 'ta', pvp: true });
+    G.tin(d.st, 'tran', 'BỊ BẮN TÊN LỬA tại ' + G.tdStr(dp.c) + ' — ' + st.ten, null,
+      { tl: kq, soBan: tl.n, td: dp.c, ten: st.ten, ben: 'dich', pvp: true });
+
+    var now = Math.floor(Date.now() / 1000);
+    var soPha = 0; for (var k in kq.pha) soPha += kq.pha[k];
+    this.kho.q.btThem.run(now, 'tran', st.ten + ' bắn ' + tl.n + ' tên lửa vào ' + o.ten + ' tại ' +
+      G.tdStr(tl.den) + ' — chặn được ' + kq.chan + ', phá ' + G.so(soPha) + ' công trình phòng thủ.');
+    this.luu(dTk, d.st);
+  } finally {
+    this.chuStack.pop();
+    this.dangTick.delete(dTk);
+  }
 };
 
 /* ------------------------------------------------------- xoá tài khoản */

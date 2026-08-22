@@ -442,6 +442,7 @@ G.sukienKe = function (st) {
     t = Math.min(t, f.pha === 'di' ? f.den_t : f.ve_t);
   }
   for (i = 0; i < st.toi.length; i++) t = Math.min(t, st.toi[i].den_t);
+  if (st.tenLua) for (i = 0; i < st.tenLua.length; i++) t = Math.min(t, st.tenLua[i].khi);
   t = Math.min(t, st.nextMaint, st.nextRaid);
   return t;
 };
@@ -568,9 +569,102 @@ G.xuLySuKien = function (st, t) {
     if (f.pha === 'di' && f.den_t <= t) G.hamToiDich(st, f);
     else if (f.pha === 've' && f.ve_t <= t) G.hamVeNha(st, f);
   }
+  /* tên lửa tới đích */
+  if (st.tenLua) for (i = st.tenLua.length - 1; i >= 0; i--) {
+    if (st.tenLua[i].khi <= t) { var tl = st.tenLua.splice(i, 1)[0]; G.tenLuaToiDich(st, tl); }
+  }
   /* địch tới */
   for (i = st.toi.length - 1; i >= 0; i--) if (st.toi[i].den_t <= t) G.dichToi(st, st.toi[i]);
   /* bảo trì & đợt đánh */
   if (st.nextMaint <= t) G.baoTri(st);
   if (st.nextRaid <= t) G.hepRaid(st);
+};
+
+/* =======================================================================
+ * TÊN LỬA LIÊN HÀNH TINH
+ * Không phải hạm đội: bắn thẳng, không quay về, chỉ phá phòng thủ MẶT ĐẤT.
+ * Bên bị bắn dùng Tên Lửa Đánh Chặn để hạ 1 đổi 1.
+ * ===================================================================== */
+G.tamTenLua = function (st) {
+  var c = (st.tech.impulse || 0) * 5 - 1;
+  return c > 0 ? c : 0;
+};
+G.tgTenLua = function (soHe) {
+  return Math.max(20, Math.round(Math.max(1, soHe) * G.C.TOC_TEN_LUA / G.C.TOC_DO_BAY));
+};
+
+G.banTenLua = function (st, pi, den, n) {
+  var p = st.planets[pi];
+  if (!p) return 'Hành tinh không tồn tại.';
+  n = Math.max(0, Math.floor(n || 0));
+  if (!n) return 'Chưa chọn số tên lửa.';
+  if ((p.mis.icbm || 0) < n) return 'Chỉ có ' + G.so(p.mis.icbm || 0) + ' Tên Lửa Liên Hành Tinh.';
+  if (den.g !== p.c.g) return 'Tên lửa chỉ bay được trong cùng thiên hà.';
+  if (G.bang(den, p.c)) return 'Không bắn vào chính hành tinh của mình.';
+  var tam = G.tamTenLua(st);
+  if (!tam) return 'Cần Động Cơ Xung cấp 1 trở lên mới có tầm bắn.';
+  var soHe = Math.abs(den.h - p.c.h);
+  if (soHe > tam) return 'Ngoài tầm: xa ' + soHe + ' hệ, tầm bắn hiện tại ' + tam + ' hệ (nâng Động Cơ Xung).';
+  if (st.noBaoTri > 0) return 'Đang nợ phí bảo trì: hầm tên lửa bị niêm phong.';
+
+  p.mis.icbm -= n;
+  if (!p.mis.icbm) delete p.mis.icbm;
+  if (!st.tenLua) st.tenLua = [];
+  var tl = {
+    id: st.fleetIdSeq++, pi: pi, tu: { g: p.c.g, h: p.c.h, p: p.c.p },
+    den: { g: den.g, h: den.h, p: den.p }, n: n, khi: st.now + G.tgTenLua(soHe)
+  };
+  st.tenLua.push(tl);
+  G.ghi(st, 'Phóng ' + n + ' Tên Lửa Liên Hành Tinh từ ' + G.tdStr(p.c) + ' → ' + G.tdStr(den) +
+    ', tới sau ' + G.tg(tl.khi - st.now) + '.');
+  return null;
+};
+
+/* Tính kết quả một loạt tên lửa lên phòng thủ mặt đất */
+G.noTenLua = function (soBan, def, soChan, techBan, techThu, seed) {
+  var rnd = G.rng(seed || 1);
+  var chan = Math.min(soBan, Math.max(0, Math.floor(soChan || 0)));
+  var con = soBan - chan;
+  var dmg = con * G.C.SAT_THUONG_ICBM * (1 + 0.1 * ((techBan || {}).weapon || 0));
+  var giapThu = 1 + 0.1 * ((techThu || {}).armor || 0);
+  var ds = [], k;
+  for (k in def) {
+    var u = G.D(k);
+    if (!u || u.lop !== 'dat' || !def[k]) continue;
+    ds.push({ id: k, vo: u.hull * giapThu, n: def[k] });
+  }
+  ds.sort(function (a, b) { return a.vo - b.vo; });          /* phá cái yếu trước */
+  var pha = {};
+  for (var i = 0; i < ds.length && dmg > 0; i++) {
+    var so = Math.min(ds[i].n, Math.floor(dmg / ds[i].vo));
+    if (so > 0) { pha[ds[i].id] = so; dmg -= so * ds[i].vo; def[ds[i].id] -= so; if (!def[ds[i].id]) delete def[ds[i].id]; }
+  }
+  void rnd;
+  return { chan: chan, no: con, pha: pha, duSatThuong: Math.round(dmg) };
+};
+
+G.moTaPha = function (o) {
+  var ra = [];
+  for (var k in o) if (o[k]) { var u = G.UNIT(k); ra.push((u ? u.ten : k) + ' ×' + G.so(o[k])); }
+  return ra.length ? ra.join(', ') : 'không phá được gì';
+};
+
+G.tenLuaToiDich = function (st, tl) {
+  var o = G.oHanhTinh(st, tl.den);
+
+  if (o.loai === 'nguoi' && G.HOOK && G.HOOK.tenLuaNguoi) { G.HOOK.tenLuaNguoi(st, tl, o); return; }
+
+  if (o.loai === 'trong') {
+    G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) + ' là ô trống — ' + tl.n + ' quả tên lửa nổ trong chân không.');
+    return;
+  }
+  if (o.loai === 'toi') return;
+
+  var n = o.npc;
+  /* NPC cũng có tên lửa đánh chặn, tỷ lệ theo quy mô [SUY LUẬN] */
+  var soChan = n.bo ? 0 : Math.floor(n.diem / 2500);
+  var kq = G.noTenLua(tl.n, n.def, soChan, st.tech, n.tech, G.hash('tl' + tl.id + st.now));
+  G.tin(st, 'tran', 'Kết quả bắn tên lửa ' + G.tdStr(tl.den), null, { tl: kq, soBan: tl.n, td: tl.den, ten: n.ten, ben: 'ta' });
+  if (!st.hanThu) st.hanThu = [];
+  if (st.hanThu.indexOf(o.key) < 0) st.hanThu.push(o.key);
 };

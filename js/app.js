@@ -55,11 +55,13 @@ var ACT = {
   /* ---------- chợ ---------- */
   ban: function (el) {
     var r = el.getAttribute('data-res');
-    lam('ban', { pi: U.pi, res: r, n: soO('cho-' + r) });
+    U.cho[r] = soO('cho-' + r);
+    lam('ban', { pi: U.pi, res: r, n: U.cho[r] });
   },
   mua: function (el) {
     var r = el.getAttribute('data-res');
-    lam('mua', { pi: U.pi, res: r, n: soO('cho-' + r) });
+    U.cho[r] = soO('cho-' + r);
+    lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
   },
 
   /* ---------- bản đồ thiên hà ---------- */
@@ -130,6 +132,12 @@ var ACT = {
     });
   },
   goive: function (el) { lam('goive', { fid: +el.getAttribute('data-fid') }, 'Đã phát lệnh gọi về.'); },
+  'ban-ten-lua': function () {
+    lam('banTenLua', {
+      pi: U.pi, n: soO('tl-n'),
+      den: { g: soO('tl-g'), h: soO('tl-h'), p: soO('tl-p') }
+    }, 'Tên lửa đã rời bệ phóng.');
+  },
   doihuong: function (el) {
     var fid = +el.getAttribute('data-fid'), st = U.st(), f = null;
     for (var i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
@@ -147,6 +155,17 @@ var ACT = {
       fid: +el.getAttribute('data-fid'),
       den: { g: soO('dh-g'), h: soO('dh-h'), p: soO('dh-p') }
     }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi hướng.'); });
+  },
+
+  /* ---------- máy tính trận đánh ---------- */
+  'mp-chay': function () { U.mpDoc(); U.mpChay(); U.ve(); window.scrollTo(0, 0); },
+  'mp-nap-ham': function () { U.mpDoc(); U.mp.A.ships = G.clone(U.ht().ships || {}); U.ve(); },
+  'mp-xoa': function () { U.mp = U.mpMoi(); U.mp.A.ships = {}; U.ve(); },
+  'mp-nap-bc': function () {
+    U.mpDoc();
+    var s = document.getElementById('mp-bc');
+    if (s && s.value) { U.mpNapDoTham(s.value); U.ve(); }
+    else U.toast('Chọn một báo cáo do thám đã.', 'loi');
   },
 
   /* ---------- tin nhắn ---------- */
@@ -199,6 +218,7 @@ document.addEventListener('input', function (e) {
   if (!window.ST) return;
   var id = e.target.id || '';
   if (id === 'f-pct') { var v = document.getElementById('f-pct-v'); if (v) v.textContent = e.target.value + '%'; }
+  if (/^cho-/.test(id)) U.cho[id.slice(4)] = Math.max(0, Math.floor(+e.target.value || 0));
   if (/^(f-|ft-|fc-)/.test(id)) {
     U.capNhatForm();
     var tt = document.getElementById('hd-tt');

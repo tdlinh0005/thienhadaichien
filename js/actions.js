@@ -101,6 +101,12 @@ G.HANHDONG = {
     return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu);
   },
   goive: function (st, d) { return G.goiVe(st, Math.floor(+d.fid)); },
+  banTenLua: function (st, d) {
+    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
+    var den = G.tdParse((d.den || {}).g + ':' + (d.den || {}).h + ':' + (d.den || {}).p);
+    if (!den) return 'Toạ độ mục tiêu không hợp lệ.';
+    return G.banTenLua(st, st.planets.indexOf(p), den, soDuong(d.n, 100000));
+  },
   doihuong: function (st, d) {
     var den = G.tdParse((d.den || {}).g + ':' + (d.den || {}).h + ':' + (d.den || {}).p);
     if (!den) return 'Toạ độ không hợp lệ.';

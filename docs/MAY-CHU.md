@@ -101,6 +101,8 @@ Yêu cầu **Node 22 trở lên** (vì `node:sqlite`).
 | `THDC_DB` | `server/data/thdc.db` | đường dẫn file SQLite. Thư mục cha được tạo tự động. `:memory:` chạy được (dùng cho test) |
 | `THDC_NHIP` | `3000` | chu kỳ scheduler, tính bằng **milli-giây** |
 | `THDC_AM` | *(tắt)* | đặt `=1` để in `[nhip] đã tua N đế quốc` mỗi vòng có việc |
+| `THDC_GIOI_HAN` | `40` | số yêu cầu tối đa của một phiên trong 10 giây |
+| `THDC_GIOI_HAN_DN` | `8` | số lần đăng nhập/đăng ký tối đa của một IP trong 10 giây (thấp vì scrypt nặng CPU) |
 | `THDC_PROXY` | *(tắt)* | đặt `=1` khi đứng sau reverse proxy, để tin header `x-forwarded-for` khi tính giới hạn tần suất. Không có proxy mà bật là tự mở đường cho việc né giới hạn |
 
 ### Đường dẫn

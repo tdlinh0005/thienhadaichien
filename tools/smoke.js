@@ -175,6 +175,59 @@ now += 12 * 3600; G.tick(st, now);
 ktra(st.toi.length === 0, 'đợt tấn công của NPC đã được xử lý');
 ktra(st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }), 'có báo cáo trận phòng thủ');
 
+/* ---- 10d. tên lửa liên hành tinh ---- */
+ncDen('impulse', 5);
+xayDen('missileSilo', 5);
+p.res.metal += 5e6; p.res.crystal += 2e6; p.res.deut += 3e6;
+ktra(!G.xepTau(st, p, 'icbm', 12), 'đóng được Tên Lửa Liên Hành Tinh');
+ktra(!G.xepTau(st, p, 'interceptor', 6), 'đóng được Tên Lửa Đánh Chặn');
+now += 6 * 3600; G.tick(st, now);
+ktra((p.mis.icbm || 0) === 12, 'có 12 tên lửa trong hầm (' + (p.mis.icbm || 0) + ')');
+ktra(G.tamTenLua(st) === (st.tech.impulse * 5 - 1), 'tầm bắn = (Động Cơ Xung × 5) − 1 = ' + G.tamTenLua(st) + ' hệ');
+
+/* ngoài tầm và khác thiên hà thì phải bị chặn */
+var xa = G.toaDo(p.c.g, Math.min(G.C.SO_HE, p.c.h + G.tamTenLua(st) + 5), 4);
+ktra(!!G.banTenLua(st, 0, xa, 1), 'chặn bắn ra ngoài tầm');
+ktra(!!G.banTenLua(st, 0, G.toaDo(p.c.g === 9 ? 8 : p.c.g + 1, p.c.h, 4), 1), 'chặn bắn sang thiên hà khác');
+ktra(!!G.banTenLua(st, 0, p.c, 1), 'chặn tự bắn vào mình');
+ktra(!!G.banTenLua(st, 0, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 999), 'chặn bắn nhiều hơn số tên lửa đang có');
+
+/* bắn vào một NPC trong tầm */
+var mucTL = null;
+for (var hT = Math.max(1, p.c.h - G.tamTenLua(st)); hT <= p.c.h + G.tamTenLua(st) && !mucTL; hT++) {
+  if (hT < 1 || hT > G.C.SO_HE) continue;
+  var heT = G.xemHe(st, p.c.g, hT);
+  for (var kT = 0; kT < heT.length; kT++) {
+    var oT = heT[kT];
+    if (oT.loai === 'npc' && !oT.npc.bo) {
+      var coDat = false;
+      for (var dk in oT.npc.def) { var dd = G.D(dk); if (dd && dd.lop === 'dat' && oT.npc.def[dk] > 0) coDat = true; }
+      if (coDat) { mucTL = oT; break; }
+    }
+  }
+}
+ktra(!!mucTL, 'tìm được mục tiêu có phòng thủ mặt đất trong tầm tên lửa');
+if (mucTL) {
+  var thuTruoc = 0, dk2;
+  for (dk2 in mucTL.npc.def) { var d2 = G.D(dk2); if (d2 && d2.lop === 'dat') thuTruoc += mucTL.npc.def[dk2]; }
+  var quyDaoTruoc = (mucTL.npc.def.satellite || 0) + (mucTL.npc.def.orbitalStation || 0);
+  var eTL = G.banTenLua(st, 0, mucTL.c, 10);
+  ktra(!eTL, 'phóng được tên lửa' + (eTL ? ': ' + eTL : ''));
+  ktra(st.tenLua.length === 1 && (p.mis.icbm || 0) === 2, 'tên lửa rời hầm và đang bay');
+  now += 3600; G.tick(st, now);
+  ktra(st.tenLua.length === 0, 'tên lửa đã nổ');
+  var bcTL = st.msgs.find(function (m) { return m.data && m.data.tl; });
+  ktra(!!bcTL, 'có báo cáo kết quả bắn tên lửa');
+  if (bcTL) {
+    var thuSau = 0, dk3;
+    for (dk3 in mucTL.npc.def) { var d3 = G.D(dk3); if (d3 && d3.lop === 'dat') thuSau += mucTL.npc.def[dk3]; }
+    var quyDaoSau = (mucTL.npc.def.satellite || 0) + (mucTL.npc.def.orbitalStation || 0);
+    console.log('  · tên lửa: bắn 10, bị chặn ' + bcTL.data.tl.chan + ', phá ' + G.moTaPha(bcTL.data.tl.pha));
+    ktra(thuSau < thuTruoc || bcTL.data.tl.chan === 10, 'phòng thủ mặt đất của mục tiêu bị phá thật');
+    ktra(quyDaoSau === quyDaoTruoc, 'lớp quỹ đạo KHÔNG bị tên lửa đụng tới');
+  }
+}
+
 /* ---- 11. tua offline dài ---- */
 var truocChuKy = st.soChuKy;
 var t0 = Date.now();

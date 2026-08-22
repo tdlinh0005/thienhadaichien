@@ -110,7 +110,7 @@ var sv = null, browser = null;
 async function chay() {
   /* ---------- 1. dựng máy chủ riêng cho bài test ---------- */
   sv = spawn(process.execPath, [path.join(GOC, 'server', 'index.js')], {
-    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '60000' }),
+    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '60000', THDC_GIOI_HAN: '5000' }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
   var raSV = '';
@@ -163,8 +163,9 @@ async function chay() {
   var dsMan = await p1.$$eval('#menu [data-man]', function (els) {
     return els.map(function (e) { return e.getAttribute('data-man'); });
   });
-  ktra(dsMan.length === 14, 'menu có đủ 14 mục (' + dsMan.length + ')');
+  ktra(dsMan.length === 15, 'menu có đủ 15 mục (' + dsMan.length + ')');
   ktra(dsMan.indexOf('huongdan') >= 0, 'menu có mục Hướng Dẫn');
+  ktra(dsMan.indexOf('mophong') >= 0, 'menu có mục Máy Tính Trận');
   var CHO_API = { thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm', bangtin: '/api/bangtin' };
   for (var j = 0; j < dsMan.length; j++) {
     var m = dsMan[j];

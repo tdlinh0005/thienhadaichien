@@ -75,7 +75,12 @@
 
   function dongBo() {
     if (!token) return;
-    api('/api/state').then(function (r) { apDung(r); U.ve(); }, function () { });
+    api('/api/state').then(function (r) {
+      apDung(r);
+      /* Chỉ vẽ lại khi có gì đó thật sự đổi. Vẽ lại vô điều kiện mỗi 8 giây sẽ
+         xoá mất những gì người chơi đang gõ dở trong các ô nhập. */
+      if (U.sig() !== U.sigCu) U.ve(); else U.live();
+    }, function () { });
   }
 
   /* -------------------------------------------------- nguồn dữ liệu ---- */
@@ -103,6 +108,7 @@
     { id: 'lienminh', ten: 'Liên Minh' },
     { id: 'xephang', ten: 'Bảng Xếp Hạng' },
     { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
+    { id: 'mophong', ten: 'Máy Tính Trận' },
     { id: 'tinnhan', ten: 'Tin Nhắn' },
     { id: 'huongdan', ten: 'Hướng Dẫn' },
     { id: 'taikhoan', ten: 'Tài Khoản' }

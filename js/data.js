@@ -278,7 +278,8 @@ G.MISSILES = [
     req: { b: { missileSilo: 2 } }, mota: 'Bắn hạ tên lửa liên hành tinh đang bay tới.' },
   { id: 'icbm', ten: 'Tên Lửa Liên Hành Tinh', cost: { metal: 12500, crystal: 2500, deut: 10000 }, o: 2,
     req: { b: { missileSilo: 4 }, r: { impulse: 1 } },
-    mota: 'Phóng từ hành tinh này sang hành tinh khác, phá phòng thủ mặt đất mà không cần cho hạm đội bay.' }
+    mota: 'Phóng thẳng sang hành tinh khác phá phòng thủ MẶT ĐẤT mà không cần cho hạm đội bay. ' +
+      'Tầm bắn = (cấp Động Cơ Xung × 5) − 1 hệ, chỉ trong cùng thiên hà. Bắn xong là mất, không thu hồi.' }
 ];
 
 /* --- Nhiệm vụ hạm đội -------------------------------------------------- */
@@ -305,6 +306,8 @@ G.C = {
   BAO_VE_MOI_TY_LE: 5,       // không đánh được đối thủ lệch nhau quá 5 lần điểm
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
   SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
+  SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
+  TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
   CUOP_TOI_DA: 0.5,
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,

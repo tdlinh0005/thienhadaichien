@@ -66,7 +66,7 @@ function truyVan(sql, ...args) {
 
 (async function () {
   var sv = spawn(process.execPath, [path.join(GOC, 'server', 'index.js')], {
-    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '60000' }),
+    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '60000', THDC_GIOI_HAN: '5000' }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
   var raSV = '';
@@ -307,6 +307,52 @@ function truyVan(sql, ...args) {
     epToiDich(idA);
     await goi('/api/state', null, a.token);
 
+    /* ---------- 7d. bắn tên lửa liên hành tinh vào người thật ---------- */
+    var cungHe = (a.nha.g === b.nha.g);
+    suaState(idA, function (st) {
+      st.planets[0].b.missileSilo = 6;
+      st.planets[0].mis = { icbm: 12 };
+      st.tech.impulse = 20;                      /* tầm 99 hệ cho chắc trong bài test */
+      st.tech.weapon = 8;
+    });
+    suaState(idB, function (st) {
+      st.planets[0].b.missileSilo = 6;
+      st.planets[0].mis = { interceptor: 4 };
+      st.planets[0].def = { missileLauncher: 40, laserS: 30, gauss: 10, satellite: 12, orbitalStation: 4 };
+    });
+    await goi('/api/state', null, a.token);
+    await goi('/api/state', null, b.token);
+    var thuB0 = docState(idB).planets[0].def;
+    var quyDao0 = (thuB0.satellite || 0) + (thuB0.orbitalStation || 0);
+    var datB0 = (thuB0.missileLauncher || 0) + (thuB0.laserS || 0) + (thuB0.gauss || 0);
+
+    var tl1 = await goi('/api/lam', { ten: 'banTenLua', dl: { pi: 0, n: 10, den: b.nha } }, a.token);
+    ktra(cungHe ? !tl1.loi : !!tl1.loi, 'bắn tên lửa' + (cungHe ? '' : ' khác thiên hà bị chặn') + (tl1.loi ? ': ' + tl1.loi : ''));
+    if (cungHe) {
+      ktra(tl1.st.tenLua && tl1.st.tenLua.length === 1, 'loạt tên lửa đang bay');
+      ktra((tl1.st.planets[0].mis.icbm || 0) === 2, 'hầm chỉ còn 2 quả');
+      suaState(idA, function (st) { st.lastTick = st.now - 5; st.tenLua.forEach(function (t) { t.khi = st.now - 2; }); });
+      await goi('/api/state', null, a.token);
+      var stA4 = docState(idA), stB4 = docState(idB);
+      var bcA = stA4.msgs.find(m => m.data && m.data.tl && m.data.ben === 'ta');
+      var bcB = stB4.msgs.find(m => m.data && m.data.tl && m.data.ben === 'dich');
+      ktra(!!bcA, 'A có báo cáo kết quả bắn tên lửa');
+      ktra(!!bcB, 'B nhận được báo cáo BỊ BẮN TÊN LỬA');
+      if (bcA) {
+        log('tên lửa PvP: bắn 10, B chặn ' + bcA.data.tl.chan + ', nổ trúng ' + bcA.data.tl.no);
+        ktra(bcA.data.tl.chan === 4, 'B dùng đúng 4 Tên Lửa Đánh Chặn (' + bcA.data.tl.chan + ')');
+        ktra(!stB4.planets[0].mis.interceptor, 'đánh chặn của B đã bị tiêu hao hết');
+        var thuB1 = stB4.planets[0].def;
+        var quyDao1 = (thuB1.satellite || 0) + (thuB1.orbitalStation || 0);
+        var datB1 = (thuB1.missileLauncher || 0) + (thuB1.laserS || 0) + (thuB1.gauss || 0);
+        ktra(datB1 < datB0, 'phòng thủ mặt đất của B bị phá thật (' + datB0 + ' → ' + datB1 + ')');
+        ktra(quyDao1 === quyDao0, 'lớp quỹ đạo của B không bị đụng tới');
+        ktra(truyVan("SELECT * FROM bangtin WHERE noi LIKE '%tên lửa%'").length >= 1, 'bảng tin ghi lại vụ bắn tên lửa');
+      }
+      var tl2 = await goi('/api/lam', { ten: 'banTenLua', dl: { pi: 0, n: 99, den: b.nha } }, a.token);
+      ktra(!!tl2.loi, 'không bắn được nhiều hơn số tên lửa đang có');
+    }
+
     /* ---------- 8. bảo vệ người chơi mới ---------- */
     var c = await goi('/api/dangky', { ten: 'tanbinh', hienthi: 'Tân Binh', mk: 'matkhau789' });
     var idC = truyVan("SELECT id FROM tk WHERE ten='tanbinh'")[0].id;
@@ -425,7 +471,6 @@ function truyVan(sql, ...args) {
       if (rIP.status !== 429) choLot++;
     }
     ktra(choLot < 25, 'giả mạo x-forwarded-for không né được giới hạn đoán mật khẩu (' + choLot + '/25 lọt)');
-    await nghi(11000);   /* chờ hết cửa sổ giới hạn tần suất */
     await goi('/api/dangxuat', {}, a.token);
     var sauThoat = await goi('/api/state', null, a.token);
     ktra(sauThoat.__ma === 401, 'token bị vô hiệu sau khi đăng xuất');
@@ -458,7 +503,7 @@ function truyVan(sql, ...args) {
     sv.kill('SIGTERM');
     await nghi(700);
     var sv2 = spawn(process.execPath, [path.join(GOC, 'server', 'index.js')], {
-      env: Object.assign({}, process.env, { PORT: String(CONG + 1), THDC_DB: DB, THDC_NHIP: '60000' }),
+      env: Object.assign({}, process.env, { PORT: String(CONG + 1), THDC_DB: DB, THDC_NHIP: '60000', THDC_GIOI_HAN: '5000' }),
       stdio: ['ignore', 'pipe', 'pipe']
     });
     var raSV2 = ''; sv2.stdout.on('data', d => raSV2 += d); sv2.stderr.on('data', d => raSV2 += d);

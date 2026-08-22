@@ -7,9 +7,9 @@ var G = require('./rules.js').G;
 
 var PHIEN_HAN = 30 * 86400;
 var BODY_MAX = 96 * 1024;
-var NHIP_TOI_DA = 40;          // số yêu cầu tối đa trong NHIP_CUA giây
+var NHIP_TOI_DA = parseInt(process.env.THDC_GIOI_HAN || '40', 10);   // yêu cầu tối đa / NHIP_CUA giây
 var NHIP_CUA = 10;
-var NHIP_XAC_THUC = 8;         // đăng nhập/đăng ký nặng CPU (scrypt) -> siết chặt hơn
+var NHIP_XAC_THUC = parseInt(process.env.THDC_GIOI_HAN_DN || '8', 10); // đăng nhập/đăng ký nặng CPU (scrypt)
 /* Chỉ tin header x-forwarded-for khi thật sự đứng sau reverse proxy (THDC_PROXY=1).
    Nếu tin vô điều kiện, ai cũng tự khai IP giả để né giới hạn đoán mật khẩu. */
 var TIN_PROXY = process.env.THDC_PROXY === '1';
