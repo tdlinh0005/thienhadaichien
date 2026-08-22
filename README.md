@@ -85,7 +85,7 @@ node tools/test-server.js    # 108 kiểm tra — máy chủ qua HTTP thật v�
                              #   (thắng & hoà), cướp tài nguyên thật, tiếp tế đồng minh,
                              #   bảo vệ người chơi mới, liên minh, xếp hạng, bảng tin,
                              #   và dữ liệu còn nguyên sau khi khởi động lại server
-node tools/test-tai.js 60    # 51 kiểm tra — tải: 60 đế quốc, tua 24 giờ toàn server,
+node tools/test-tai.js 60    # 71 kiểm tra — tải: 60 đế quốc, tua 24 giờ toàn server,
                              #   60 trận PvP đồng thời, chống đệ quy, dung lượng database
 node tools/test-mp-ui.mjs    # 90 kiểm tra — giao diện bản nhiều người trên Chromium thật:
                              #   2 tài khoản độc lập, đủ 13 màn, thao tác thật, thấy nhau
