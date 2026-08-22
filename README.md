@@ -79,7 +79,7 @@ node tools/smoke.js          # 56 kiểm tra — phần luật: sản xuất, đ
                              #   nghiên cứu trả góp, đóng tàu, phòng thủ 2 lớp, do thám,
                              #   tấn công & cướp, đổi mục tiêu giữa đường, thực dân hoá,
                              #   NPC đánh lại, tua offline 30 ngày, lưu/nạp JSON
-node tools/test-server.js    # 83 kiểm tra — máy chủ qua HTTP thật với nhiều tài khoản:
+node tools/test-server.js    # 91 kiểm tra — máy chủ qua HTTP thật với nhiều tài khoản:
                              #   đăng ký/đăng nhập/đổi mật khẩu, băm mật khẩu, chặn dữ liệu
                              #   rác, sản xuất khi vắng mặt, do thám PvP, đánh nhau PvP
                              #   (thắng & hoà), cướp tài nguyên thật, tiếp tế đồng minh,
@@ -87,7 +87,7 @@ node tools/test-server.js    # 83 kiểm tra — máy chủ qua HTTP thật vớ
                              #   và dữ liệu còn nguyên sau khi khởi động lại server
 node tools/test-tai.js 60    # 51 kiểm tra — tải: 60 đế quốc, tua 24 giờ toàn server,
                              #   60 trận PvP đồng thời, chống đệ quy, dung lượng database
-node tools/test-mp-ui.mjs    # 86 kiểm tra — giao diện bản nhiều người trên Chromium thật:
+node tools/test-mp-ui.mjs    # 90 kiểm tra — giao diện bản nhiều người trên Chromium thật:
                              #   2 tài khoản độc lập, đủ 13 màn, thao tác thật, thấy nhau
                              #   trên bản đồ, liên minh, và layout điện thoại
 ```
@@ -111,7 +111,7 @@ biên Ngân Hà: khai thác, xây dựng, nghiên cứu, đóng hạm đội, v�
 | **Nghiên cứu trả góp** | Mỗi đề tài có **vốn đầu tư** bị trừ dần qua từng chu kỳ bảo trì. Hết Galana giữa kỳ là đề tài **bị treo** |
 | **Phòng thủ hai lớp** | Lớp **quỹ đạo** giao chiến từ vòng 1; hạm đội địch chỉ xuống tầng khí quyển và đụng lớp **mặt đất** từ vòng 3 |
 | **Đổi mục tiêu giữa đường** | Hạm đội đang bay có thể **đổi mục tiêu ngay trên đường**: trả Galana + nhiên liệu phụ trội, thời gian bay tính lại từ vị trí hiện tại |
-| **Tình báo & phản tình báo** | Tàu do thám mang về báo cáo; Trung Tâm Tình Báo của đối phương có thể bắn hạ chúng. Độ chi tiết báo cáo phụ thuộc chênh lệch cấp Công Nghệ Tình Báo |
+| **Tình báo & phản tình báo** | Tàu do thám mang về báo cáo; Trung Tâm Tình Báo của đối phương có thể bắn hạ chúng. Độ chi tiết báo cáo phụ thuộc chênh lệch cấp Công Nghệ Tình Báo. Bị đánh thì được báo động trước kèm đồng hồ, nhưng không thấy đội hình địch — còn nhiệm vụ do thám thì đi lén |
 | **Liên minh** | Gia nhập liên minh để nhận +5% sản lượng và danh nghĩa trên bảng xếp hạng |
 | **Bảo vệ người chơi mới** | Dưới 5.000 điểm thì không bị NPC đánh, và cũng không đánh được đối thủ mạnh hơn 5 lần |
 | **Không có level nhân vật** | Sức mạnh = số lượng công trình, nghiên cứu và tàu — đúng như thiết kế "ưu tiên số lượng thay vì thăng cấp" của bản gốc |
@@ -132,6 +132,8 @@ biên Ngân Hà: khai thác, xây dựng, nghiên cứu, đóng hạm đội, v�
   hành tinh **bỏ hoang** ít phòng thủ nhưng nhiều tài nguyên (nông trại kinh điển của thể loại).
 - **Bãi phế liệu**: 30% xác tàu bị bắn hạ đọng lại trên quỹ đạo, vét bằng Tàu Thu Hồi.
 - **Chợ Thiên Hà**: quy đổi tài nguyên ↔ Galana khi cần tiền trả bảo trì.
+- **Màn Hướng Dẫn ngay trong game**: 6 bước mở đầu, bốn cơ chế đặc trưng, cách trận
+  đánh diễn ra, hệ toạ độ — mọi con số đọc trực tiếp từ bảng luật nên không lệch.
 
 ## Mẹo cho người mới
 

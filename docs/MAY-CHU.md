@@ -142,11 +142,13 @@ Lớp `Kho` mở database rồi `prepare` sẵn toàn bộ câu truy vấn vào 
 
 ```
 tk ──1:1── dq            (đế quốc: state JSON của riêng từng người)
- │   └─1:n─ ht           (hành tinh đang giữ — chỉ mục sở hữu, dùng chung)
+ │   ├─1:n─ ht           (hành tinh đang giữ — chỉ mục sở hữu)
+ │   └─1:n─ hamdang      (hạm đội đang bay tới hành tinh người khác)
  ├──1:n── phien          (token đăng nhập)
  └──n:1── lm             (liên minh, qua cột dq.lm là TÊN liên minh)
 
-npc  pl  bangtin  tran   (không thuộc riêng ai — tài sản chung của server)
+riêng từng người : tk  dq  phien
+dùng chung       : ht  hamdang  npc  pl  lm  bangtin  tran
 ```
 
 ### Bảng riêng từng người
@@ -197,7 +199,28 @@ thay vì phải mở state của tất cả mọi người.
 | `pi` | chỉ số hành tinh trong `st.planets` của chủ (0 = hành tinh mẹ) |
 | `thuDo` | 1 nếu là thủ đô |
 
-Chỉ mục: `ht_tk(tk)`, và `ht_gh` trên biểu thức `substr(td,1,instr(td,':'))` (tiền tố thiên hà).
+Chỉ mục: `ht_tk(tk)`. Tra cứu theo hệ dùng `td LIKE 'g:h:%'` nên đi bằng chỉ mục
+khoá chính trên `td`.
+
+**`hamdang`** — chỉ mục hạm đội đang bay tới hành tinh của **người khác**, để bên
+phòng thủ được báo động trước. Cùng cơ chế với `ht`: mỗi lần `TheGioi.luu()` chạy,
+xoá hết dòng của tài khoản đó rồi ghi lại từ `st.fleets`, nên gọi hạm đội về hay
+đổi mục tiêu giữa đường thì báo động tự cập nhật theo.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `tkA` / `fid` | khoá chính: chủ hạm đội và id hạm đội trong state của họ |
+| `tkD` | chủ hành tinh đang bị nhắm tới |
+| `tu` / `den` | toạ độ xuất phát / toạ độ đích, dạng `"g:h:p"` |
+| `nv` | nhiệm vụ — chỉ ghi `attack` và `transport` |
+| `denT` | mốc thời gian tới đích |
+| `tenA` / `lmA` | tên và liên minh của bên tấn công (để hiện ngay, không phải join) |
+
+Chỉ mục `hamdang_tkd(tkD, denT)`. **Nhiệm vụ do thám cố tình KHÔNG được ghi vào
+đây** — do thám là đi lén. `TheGioi.hamDangToi(tk)` đọc bảng này và trả về danh
+sách gắn vào `st.pvpToi` khi client gọi `/api/state` hoặc `/api/lam`; danh sách đó
+**không chứa đội hình hạm đội** — muốn biết địch mang gì thì phải do thám ngược lại.
+Dòng cũ hơn 24 giờ được dọn mỗi giờ (`hdDonRac`).
 
 **`npc`** — trạng thái các đế quốc NPC: `key` (toạ độ `"g:h:p"`), `data` (JSON của
 NPC: tên, liên minh, điểm, công nghệ, hạm đội, phòng thủ, tài nguyên), `t` (lần ghi
@@ -377,10 +400,11 @@ duy nhất** ghi vào file database. Không chạy hai instance trên cùng mộ
   điểm muộn hơn** — B có thể đã kịp xây thêm phòng thủ hoặc đã tiêu bớt tài nguyên
   trong khoảng lệch đó. Sai lệch bị chặn trên bởi nhịp scheduler (`THDC_NHIP`) và
   bởi việc `keTiep` luôn khớp mốc sự kiện gần nhất, nên thực tế thường là vài giây.
-- **Bên phòng thủ không được báo động trước.** Cơ chế `st.toi` (đồng hồ "hạm đội
-  địch đang bay tới") hiện chỉ dùng cho đợt tấn công của NPC (`G.hepRaid`).
-  PvP giữa hai người chơi thật thì B chỉ biết mình bị đánh **sau khi trận đã xong**,
-  qua tin nhắn trong hộp tin và bảng tin vũ trụ.
+- **Báo động trước không lộ đội hình.** Bên phòng thủ thấy được ai đang đánh mình,
+  từ toạ độ nào và còn bao lâu (bảng `hamdang` → `st.pvpToi`), nhưng **không** thấy
+  địch mang những tàu gì — muốn biết thì phải do thám ngược lại. Nhiệm vụ do thám
+  của đối phương thì không hiện ở đây. Riêng đợt tấn công của NPC vẫn đi qua `st.toi`
+  của `G.hepRaid`, là một cơ chế khác nằm trong state.
 - **Không có tấn công phối hợp.** Mỗi hạm đội tới đích là một trận riêng, đánh xong
   là xong; không có cơ chế gộp nhiều hạm đội đến gần nhau thành một trận.
 - **Chiếm hành tinh chưa có.** PvP chỉ cướp tài nguyên và phá phòng thủ; không có
