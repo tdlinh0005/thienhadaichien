@@ -141,6 +141,7 @@ TheGioi.prototype.luu = function (tk, st) {
   ke = Math.min(ke, st.lastTick + 3600);           // tick định kỳ ít nhất 1 giờ/lần
   st.npc = {}; st.debris = {};
   var js = JSON.stringify(st);
+  var self = this;
   kho.giaoDich(function () {
     kho.q.dqLuu.run(js, diem, st.lastTick, Math.round(ke), st.lm ? st.lm.ten : null, st.planets.length, now, tk);
     kho.q.htXoaCua.run(tk);
@@ -148,8 +149,36 @@ TheGioi.prototype.luu = function (tk, st) {
       var p = st.planets[i];
       kho.q.htThem.run(G.tdKey(p.c), tk, p.ten, i, p.thuDo ? 1 : 0);
     }
+    /* chỉ mục hạm đội đang bay tới người khác, để họ được báo động trước */
+    kho.q.hdXoaCua.run(tk);
+    for (var j = 0; j < st.fleets.length; j++) {
+      var f = st.fleets[j];
+      if (f.pha !== 'di') continue;
+      if (f.mission !== 'attack' && f.mission !== 'transport') continue;   // do thám vẫn là đi lén
+      var chu = kho.q.htGet.get(G.tdKey(f.den));
+      if (!chu || chu.tk === tk) continue;
+      kho.q.hdThem.run(tk, f.id, chu.tk, G.tdKey(f.tu), G.tdKey(f.den), f.mission,
+        Math.round(f.den_t), st.ten, st.lm ? st.lm.ten : null);
+    }
   });
+  void self;
   return diem;
+};
+
+/* Hạm đội của người khác đang bay tới hành tinh của tài khoản này.
+   Không lộ đội hình — muốn biết địch mang gì thì phải do thám. */
+TheGioi.prototype.hamDangToi = function (tk) {
+  var now = Math.floor(Date.now() / 1000);
+  var ds = this.kho.q.hdToi.all(tk, now - 30);
+  var out = [];
+  for (var i = 0; i < ds.length; i++) {
+    var r = ds[i];
+    out.push({
+      id: r.tkA + ':' + r.fid, ten: r.tenA, lm: r.lmA || '',
+      tu: r.tu, den: r.den, nv: r.nv, den_t: r.denT
+    });
+  }
+  return out;
 };
 
 /* Tua một đế quốc tới mốc `now` (mặc định: bây giờ) */

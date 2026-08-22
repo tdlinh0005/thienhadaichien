@@ -99,6 +99,8 @@ API.prototype.goiState = function (p) {
     st = r ? r.st : null;
   }
   if (!st) return null;
+  /* gắn thêm thông tin chỉ có server biết (không nằm trong state đã lưu) */
+  st.pvpToi = this.tg.hamDangToi(p.tk);
   return {
     st: st,
     sv: this.thongTin(),
@@ -187,6 +189,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     }
     /* lỗi luật chơi (không đủ tài nguyên, chưa đủ điều kiện...) không phải lỗi
        HTTP: vẫn trả 200 kèm state mới nhất để client vẽ lại cho khớp server. */
+    kq3.st.pvpToi = self.tg.hamDangToi(p.tk);
     return json(res, 200, { loi: kq3.loi, st: kq3.st, sv: self.thongTin() });
   }
 

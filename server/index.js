@@ -109,7 +109,11 @@ var boDem = setInterval(function () {
 
 /* dọn phiên hết hạn mỗi giờ */
 var boDon = setInterval(function () {
-  try { kho.q.phienDonRac.run(Math.floor(Date.now() / 1000)); } catch (e) { }
+  try {
+    var gio = Math.floor(Date.now() / 1000);
+    kho.q.phienDonRac.run(gio);
+    kho.q.hdDonRac.run(gio - 86400);
+  } catch (e) { }
 }, 3600 * 1000);
 
 function tat() {

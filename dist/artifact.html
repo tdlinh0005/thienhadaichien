@@ -2207,6 +2207,11 @@ U.dsRes = function (o, chiSo) {
   }
   return out.length ? out.join(' &middot; ') : '<span class="mo">—</span>';
 };
+U.htTheoKey = function (key) {
+  var st = U.st();
+  for (var i = 0; i < st.planets.length; i++) if (G.tdKey(st.planets[i].c) === key) return st.planets[i];
+  return null;
+};
 U.dsTau = function (o) {
   var out = [], k;
   for (k in o) if (o[k]) { var u = G.UNIT(k); out.push(U.esc(u ? u.ten : k) + ' <b>×' + G.so(o[k]) + '</b>'); }
@@ -2280,6 +2285,19 @@ U.veCanh = function () {
     var w = st.toi[i], p = st.planets[w.pi] || st.planets[0];
     h += '<div class="canh">BÁO ĐỘNG — ' + U.esc(w.ten) + ' ' + U.esc(w.lm || '') + ' từ ' + G.tdStr(w.tu) +
       ' đánh vào ' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + ' trong ' + U.dem(w.den_t) + '.</div>';
+  }
+  /* hạm đội của người chơi thật đang bay tới (bản nhiều người) */
+  var pv = st.pvpToi || [];
+  for (i = 0; i < pv.length; i++) {
+    var q = pv[i], pt = U.htTheoKey(q.den);
+    var tenHT = pt ? pt.ten + ' [' + q.den + ']' : '[' + q.den + ']';
+    if (q.nv === 'attack')
+      h += '<div class="canh">BÁO ĐỘNG ĐỎ — <b>' + U.esc(q.ten) + '</b> ' + U.esc(q.lm || '') + ' từ [' + U.esc(q.tu) +
+        '] đang tấn công ' + U.esc(tenHT) + ', tới trong ' + U.dem(q.den_t) +
+        '. Dựng thêm phòng thủ, hoặc cho hạm đội bay đi để khỏi bị bắn hạ.</div>';
+    else
+      h += '<div class="canh ok">' + U.esc(q.ten) + ' ' + U.esc(q.lm || '') + ' đang chở hàng tới ' +
+        U.esc(tenHT) + ', tới trong ' + U.dem(q.den_t) + '.</div>';
   }
   document.getElementById('thanh-canh').innerHTML = h;
 };
@@ -2668,15 +2686,27 @@ U.m_hamdoi = function () {
   }
   h += '</div></div>';
 
-  if (st.toi.length) {
-    h += '<div class="panel"><h3>Hạm đội địch đang bay tới</h3><div class="noi bang-cuon"><table>' +
-      '<tr><th>Chỉ huy</th><th>Từ</th><th>Đánh vào</th><th>Còn</th></tr>';
+  var pvToi = st.pvpToi || [];
+  if (st.toi.length || pvToi.length) {
+    h += '<div class="panel"><h3>Hạm đội đang bay tới hành tinh của ta</h3><div class="noi bang-cuon"><table>' +
+      '<tr><th>Chỉ huy</th><th>Từ</th><th>Nhiệm vụ</th><th>Tới</th><th>Còn</th></tr>';
     for (i = 0; i < st.toi.length; i++) {
       var w = st.toi[i], pt = st.planets[w.pi] || st.planets[0];
-      h += '<tr><td>' + U.esc(w.ten) + ' <span class="tag-lm">' + U.esc(w.lm || '') + '</span></td><td class="sz">' +
-        G.tdStr(w.tu) + '</td><td>' + U.esc(pt.ten) + ' ' + G.tdStr(pt.c) + '</td><td class="sz do">' + U.dem(w.den_t) + '</td></tr>';
+      h += '<tr><td>' + U.esc(w.ten) + ' <span class="tag-lm">' + U.esc(w.lm || '') + '</span> <span class="mo">(NPC)</span></td>' +
+        '<td class="sz">' + G.tdStr(w.tu) + '</td><td class="do">Tấn Công</td><td>' + U.esc(pt.ten) + ' ' + G.tdStr(pt.c) +
+        '</td><td class="sz do">' + U.dem(w.den_t) + '</td></tr>';
     }
-    h += '</table><p class="mo">Hạm đội đang bay thì không bị bắn hạ — nếu không đỡ được, hãy cho hạm đội bay đi trước khi địch tới.</p></div></div>';
+    for (i = 0; i < pvToi.length; i++) {
+      var q2 = pvToi[i], p2 = U.htTheoKey(q2.den);
+      h += '<tr><td><b class="cam">' + U.esc(q2.ten) + '</b> <span class="tag-lm">' + U.esc(q2.lm || '') + '</span></td>' +
+        '<td class="sz">[' + U.esc(q2.tu) + ']</td><td class="' + (q2.nv === 'attack' ? 'do' : 'luc') + '">' +
+        (q2.nv === 'attack' ? 'Tấn Công' : 'Vận Chuyển') + '</td><td>' +
+        U.esc(p2 ? p2.ten : '') + ' [' + U.esc(q2.den) + ']</td><td class="sz do">' + U.dem(q2.den_t) + '</td></tr>';
+    }
+    h += '</table><p class="mo">Hạm đội đang bay thì không bao giờ bị bắn hạ — nếu không đỡ được, hãy cho hạm đội của mình ' +
+      'bay đi trước khi địch tới (nhiệm vụ Giữ Chỗ hoặc Vận Chuyển sang hành tinh khác). ' +
+      'Muốn biết địch mang những gì thì phải gửi tàu do thám. Nhiệm vụ do thám của đối phương thì không hiện ở đây.</p>' +
+      '</div></div>';
   }
 
   /* --- form điều hạm --- */

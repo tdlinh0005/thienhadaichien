@@ -268,6 +268,45 @@ function truyVan(sql, ...args) {
       ktra(stF.msgs.some(m => m.loai === 'tran' && m.data && m.data.ben === 'dich'), 'mục tiêu nhận được báo cáo bị đánh');
     }
 
+    /* ---------- 7c. bên phòng thủ được báo động trước ---------- */
+    suaState(idA, function (st) {
+      st.planets[0].ships = { cruiser: 20, cargoL: 10 };
+      st.planets[0].res.deut = 2e6;
+    });
+    await goi('/api/state', null, a.token);
+    var bao1 = await goi('/api/lam', {
+      ten: 'gui', dl: { pi: 0, ships: { cruiser: 20 }, den: b.nha, mission: 'attack', cargo: {}, pct: 10 }
+    }, a.token);
+    ktra(!bao1.loi, 'gửi hạm đội tấn công (tốc độ chậm để còn kịp xem báo động)' + (bao1.loi ? ': ' + bao1.loi : ''));
+    var sB = await goi('/api/state', null, b.token);
+    ktra(sB.st.pvpToi && sB.st.pvpToi.length === 1, 'B thấy hạm đội địch đang bay tới (' +
+      ((sB.st.pvpToi || []).length) + ')');
+    if (sB.st.pvpToi && sB.st.pvpToi.length) {
+      var canh = sB.st.pvpToi[0];
+      ktra(canh.ten === 'Quốc Bình' && canh.nv === 'attack', 'báo động ghi đúng tên người đánh và nhiệm vụ');
+      ktra(canh.den_t > Math.floor(Date.now() / 1000), 'báo động có mốc thời gian tới trong tương lai');
+      ktra(canh.ships === undefined, 'báo động KHÔNG lộ đội hình hạm đội (phải do thám mới biết)');
+    }
+    var sA = await goi('/api/state', null, a.token);
+    ktra(!sA.st.pvpToi || !sA.st.pvpToi.length, 'bên tấn công không thấy báo động của chính mình');
+
+    /* gọi hạm đội về -> báo động phải biến mất */
+    var idF2 = sA.st.fleets[sA.st.fleets.length - 1].id;
+    await goi('/api/lam', { ten: 'goive', dl: { fid: idF2 } }, a.token);
+    var sB2 = await goi('/api/state', null, b.token);
+    ktra(!sB2.st.pvpToi || !sB2.st.pvpToi.length, 'gọi hạm đội về thì báo động của B mất theo');
+    epToiDich(idA);
+    await goi('/api/state', null, a.token);
+
+    /* do thám thì KHÔNG báo trước */
+    await goi('/api/lam', {
+      ten: 'gui', dl: { pi: 0, ships: { probe: 2 }, den: b.nha, mission: 'spy', cargo: {}, pct: 10 }
+    }, a.token);
+    var sB3 = await goi('/api/state', null, b.token);
+    ktra(!sB3.st.pvpToi || !sB3.st.pvpToi.length, 'nhiệm vụ do thám đi lén, không báo trước cho đối phương');
+    epToiDich(idA);
+    await goi('/api/state', null, a.token);
+
     /* ---------- 8. bảo vệ người chơi mới ---------- */
     var c = await goi('/api/dangky', { ten: 'tanbinh', hienthi: 'Tân Binh', mk: 'matkhau789' });
     var idC = truyVan("SELECT id FROM tk WHERE ten='tanbinh'")[0].id;

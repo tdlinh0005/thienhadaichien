@@ -54,6 +54,18 @@ var SCHEMA = [
    )`,
   "CREATE INDEX IF NOT EXISTS ht_tk ON ht(tk)",
 
+  /* hạm đội đang bay tới hành tinh NGƯỜI CHƠI KHÁC — chỉ mục để bên phòng thủ
+     được báo động trước. Ghi lại mỗi lần lưu đế quốc, y như bảng ht. */
+  `CREATE TABLE IF NOT EXISTS hamdang (
+     tkA INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     fid INTEGER NOT NULL,
+     tkD INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     tu TEXT NOT NULL, den TEXT NOT NULL, nv TEXT NOT NULL,
+     denT INTEGER NOT NULL, tenA TEXT NOT NULL, lmA TEXT,
+     PRIMARY KEY (tkA, fid)
+   )`,
+  "CREATE INDEX IF NOT EXISTS hamdang_tkd ON hamdang(tkD, denT)",
+
   /* NPC dùng chung cả server */
   "CREATE TABLE IF NOT EXISTS npc (key TEXT PRIMARY KEY, data TEXT NOT NULL, t INTEGER NOT NULL)",
 
@@ -125,6 +137,11 @@ function Kho(duong) {
     htTrongHe: d.prepare(`SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht
                           JOIN tk ON tk.id=ht.tk JOIN dq ON dq.tk=ht.tk WHERE ht.td LIKE ?`),
     htDem: d.prepare('SELECT COUNT(*) n FROM ht'),
+
+    hdXoaCua: d.prepare('DELETE FROM hamdang WHERE tkA=?'),
+    hdThem: d.prepare('INSERT INTO hamdang(tkA,fid,tkD,tu,den,nv,denT,tenA,lmA) VALUES(?,?,?,?,?,?,?,?,?)'),
+    hdToi: d.prepare('SELECT * FROM hamdang WHERE tkD=? AND denT>? ORDER BY denT'),
+    hdDonRac: d.prepare('DELETE FROM hamdang WHERE denT<?'),
 
     npcGet: d.prepare('SELECT data FROM npc WHERE key=?'),
     npcSet: d.prepare('INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,t=excluded.t'),
