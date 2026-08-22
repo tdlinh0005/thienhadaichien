@@ -24,6 +24,28 @@ G.RES = [
 G.RES_HANH_TINH = ['metal', 'crystal', 'deut', 'food'];  // chứa ở kho hành tinh
 G.RES_DE_QUOC   = ['galana', 'tech'];                    // chung toàn đế quốc
 
+/* --- 5 loại hành tinh (tư liệu gốc: thread GVN của người chơi Nazgul) ----
+ * Nguyên văn mô tả từng loại nằm trong docs/NGHIEN-CUU.md; các HỆ SỐ dưới đây
+ * là [SUY LUẬN] dịch mô tả chữ thành con số.                               */
+G.LOAI_HT = [
+  { id: 'onhoa', ten: 'Ôn Hoà', mau: '#7fe0a0',
+    mota: 'Hành tinh hoàn hảo với các điều kiện như Trái Đất. Không mạnh mặt nào nhưng cũng không yếu mặt nào.',
+    oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00, temp: [20, 60] },
+  { id: 'runggia', ten: 'Rừng Già', mau: '#8fd14f',
+    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Lương thực dồi dào, đất rộng.',
+    oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00, temp: [10, 45] },
+  { id: 'nuoc', ten: 'Nước – Đầm Lầy', mau: '#57c8ff',
+    mota: '90% bề mặt là biển, còn lại là đầm lầy. Khó kiến thiết (ít ô đất) nhưng KHÓ TẤN CÔNG và rất nhiều nhiên liệu.',
+    oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25, temp: [5, 40] },
+  { id: 'samac', ten: 'Sa Mạc', mau: '#ffb45e',
+    mota: 'Gần Mặt Trời, nóng khủng khiếp, nghèo nàn về sự sống nhưng tài nguyên phong phú và dễ khai thác.',
+    oDat: 1.00, kl: 1.35, tt: 1.25, dt: 0.60, lt: 0.55, dien: 1.35, thuDat: 0.90, temp: [80, 140] },
+  { id: 'banghai', ten: 'Băng Hà', mau: '#bcd9ff',
+    mota: 'Xa Mặt Trời, ánh sáng hạn chế, khắc nghiệt hơn Nam Cực. Được chọn vì PHÒNG THỦ MẶT ĐẤT MẠNH và nhiều nhiên liệu.',
+    oDat: 0.90, kl: 0.90, tt: 1.00, dt: 1.45, lt: 0.70, dien: 0.60, thuDat: 1.50, temp: [-130, -40] }
+];
+G.LHT = function (id) { return G.byId(G.LOAI_HT, id) || G.LOAI_HT[0]; };
+
 /* --- Công trình -------------------------------------------------------- */
 /* prod(l, ctx) -> {metal|crystal|deut|food|energy|galana|tech}
  * use(l)      -> năng lượng tiêu thụ                                     */
@@ -170,41 +192,53 @@ G.SHIPS = [
     req: { b: { shipyard: 2 }, r: { combustion: 2 } },
     mota: 'Con la thồ của thiên hà. Chở tài nguyên, chở lính, chở của cướp được.' },
   { id: 'cargoL', ten: 'Tàu Vận Tải Lớn', cost: { metal: 6000, crystal: 6000 },
-    atk: 5, shield: 25, hull: 12000, speed: 7500, cargo: 25000, fuel: 50, crew: 8, dc: 'combustion',
+    atk: 5, shield: 25, hull: 12000, speed: 7500, cargo: 25000, fuel: 50, crew: 8, choLinh: 300, dc: 'combustion',
     req: { b: { shipyard: 4 }, r: { combustion: 6 } },
     mota: 'Khoang hàng gấp năm lần tàu nhỏ mà vẫn bay nhanh hơn.' },
-  { id: 'fighterL', ten: 'Phi Thuyền Nhẹ', cost: { metal: 3000, crystal: 1000 },
+  { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 },
     atk: 50, shield: 10, hull: 4000, speed: 12500, cargo: 50, fuel: 20, crew: 2, dc: 'combustion',
     req: { b: { shipyard: 1 }, r: { combustion: 1 } },
-    mota: 'Rẻ, nhanh, chết cũng nhanh. Sức mạnh nằm ở số lượng.' },
-  { id: 'fighterH', ten: 'Phi Thuyền Nặng', cost: { metal: 6000, crystal: 4000 },
+    mota: 'MBCD — xương sống của mọi hạm đội quỹ đạo trong bản gốc, đếm bằng hàng triệu chiếc. Rẻ, nhanh, chết cũng nhanh.' },
+  { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 },
     atk: 150, shield: 25, hull: 10000, speed: 10000, cargo: 100, fuel: 75, crew: 4, dc: 'impulse',
     req: { b: { shipyard: 3 }, r: { armor: 2, impulse: 2 } },
-    mota: 'Phi thuyền nhẹ mặc thêm giáp và gắn laser.' },
-  { id: 'cruiser', ten: 'Tuần Dương Hạm', cost: { metal: 20000, crystal: 7000, deut: 2000 },
+    mota: 'MBTK — bản nặng của Máy Bay Chiến Đấu, mặc thêm giáp và gắn laser.' },
+  { id: 'cruiser', ten: 'Tiểu Chiến Hạm', cost: { metal: 20000, crystal: 7000, deut: 2000 },
     atk: 400, shield: 50, hull: 27000, speed: 15000, cargo: 800, fuel: 300, crew: 12, dc: 'impulse',
     req: { b: { shipyard: 5 }, r: { impulse: 4, ion: 2 } },
-    mota: 'Xương sống hạm đội giữa game. Nghiền phi thuyền nhẹ và bệ tên lửa.' },
-  { id: 'battleship', ten: 'Chiến Hạm', cost: { metal: 45000, crystal: 15000 },
+    mota: 'TiCH — chiến hạm hạng nhẹ. Nghiền máy bay và bệ tên lửa.' },
+  { id: 'battleship', ten: 'Trung Chiến Hạm', cost: { metal: 45000, crystal: 15000 },
     atk: 1000, shield: 200, hull: 60000, speed: 10000, cargo: 1500, fuel: 500, crew: 30, dc: 'hyperdrive',
     req: { b: { shipyard: 7 }, r: { hyperdrive: 4 } },
-    mota: 'Pháo hạm chủ lực, đủ vỏ thép để đứng trụ tới vòng cuối.' },
+    mota: 'TCH — chủ lực đánh quỹ đạo trong bản gốc, các tướng điều hàng chục fleet mỗi fleet vài nghìn chiếc.' },
   { id: 'battlecruiser', ten: 'Khu Trục Hạm', cost: { metal: 30000, crystal: 40000, deut: 15000 },
     atk: 700, shield: 400, hull: 70000, speed: 10000, cargo: 750, fuel: 250, crew: 25, dc: 'hyperdrive',
     req: { b: { shipyard: 8 }, r: { hyperspace: 5, hyperdrive: 5, laser: 12 } },
     mota: 'Sinh ra để xé nát hạm đội hạng nhẹ. Kém hiệu quả trước phòng thủ mặt đất.' },
-  { id: 'bomber', ten: 'Tàu Bom', cost: { metal: 50000, crystal: 25000, deut: 15000 },
-    atk: 1000, shield: 500, hull: 75000, speed: 4000, cargo: 500, fuel: 700, crew: 30, dc: 'impulse',
+  { id: 'bomber', ten: 'Boom', cost: { metal: 50000, crystal: 25000, deut: 15000 },
+    atk: 1000, shield: 500, hull: 75000, speed: 4000, cargo: 500, fuel: 700, crew: 30, choLinh: 400, dc: 'impulse',
     req: { b: { shipyard: 8 }, r: { impulse: 6, plasma: 5 } },
-    mota: 'Chuyên trị công sự: cày phẳng pháo và khiên trên mặt đất.' },
-  { id: 'destroyer', ten: 'Chiến Hạm Hủy Diệt', cost: { metal: 60000, crystal: 50000, deut: 15000 },
-    atk: 2000, shield: 500, hull: 110000, speed: 5000, cargo: 2000, fuel: 1000, crew: 50, dc: 'hyperdrive',
+    mota: 'Boom — chuyên trị công sự: cày phẳng pháo và khiên trên mặt đất.' },
+  { id: 'destroyer', ten: 'Đại Chiến Hạm', cost: { metal: 60000, crystal: 50000, deut: 15000 },
+    atk: 2000, shield: 500, hull: 110000, speed: 5000, cargo: 2000, fuel: 1000, crew: 50, choLinh: 2000, dc: 'hyperdrive',
     req: { b: { shipyard: 9 }, r: { hyperdrive: 6, plasma: 5 } },
-    mota: 'Nắm đấm cuối game. Chậm, đắt, và gần như không có gì đứng vững trước nó.' },
+    mota: 'DCH — tàu lớn nhất còn bay được, vừa đánh vừa CHỞ QUÂN ĐỔ BỘ xuống hành tinh sau khi quỹ đạo vỡ.' },
   { id: 'fortress', ten: 'Pháo Đài Di Động', cost: { metal: 5000000, crystal: 4000000, deut: 1000000 },
-    atk: 200000, shield: 50000, hull: 9000000, speed: 100, cargo: 1000000, fuel: 1, crew: 500, dc: 'hyperdrive',
+    atk: 200000, shield: 50000, hull: 9000000, speed: 100, cargo: 1000000, fuel: 1, crew: 500, choLinh: 120000, dc: 'hyperdrive',
     req: { b: { shipyard: 12 }, r: { graviton: 1, hyperspace: 6, hyperdrive: 7 } },
     mota: 'Một hành tinh nhân tạo có động cơ. Bay chậm như rùa nhưng bất tử.' },
+  { id: 'hoaTien', ten: 'Hoả Tiễn', cost: { metal: 400, crystal: 100 },
+    atk: 12, shield: 2, hull: 500, speed: 9000, cargo: 0, fuel: 2, crew: 0, dc: 'combustion',
+    req: { b: { shipyard: 1 }, r: { combustion: 1 } },
+    mota: 'Đạn tự hành không người lái, bay kèm hạm đội. Trong bản gốc mỗi Trung Chiến Hạm đi kèm ' +
+      'khoảng 100 quả — một trận lớn ngốn hàng chục triệu quả. Rẻ và đông, nhưng chiến hạm lớn xé nát.' },
+
+  { id: 'tauDau', ten: 'Tàu Dầu', cost: { metal: 8000, crystal: 3000, deut: 1000 },
+    atk: 2, shield: 20, hull: 14000, speed: 4500, cargo: 12000, fuel: 40, crew: 5, dc: 'combustion',
+    req: { b: { shipyard: 4 }, r: { combustion: 5 } },
+    mota: 'Tiếp nhiên liệu cho cả hạm đội giữa đường: mỗi chiếc bù 600 deuterium cho chuyến bay ' +
+      '(giảm tối đa 60% tiêu hao). Trong bản gốc, thiếu tàu dầu là cả đạo quân phải quay đầu.' },
+
   { id: 'probe', ten: 'Tàu Do Thám', cost: { crystal: 1000 },
     atk: 0, shield: 0, hull: 1000, speed: 100000, cargo: 5, fuel: 1, crew: 1, dc: 'combustion',
     req: { b: { shipyard: 3 }, r: { combustion: 3, spy: 2 } },
@@ -214,7 +248,7 @@ G.SHIPS = [
     req: { b: { shipyard: 4 }, r: { combustion: 6, shield: 2 } },
     mota: 'Hót xác tàu ở bãi phế liệu sau mỗi trận đánh. Kẻ thắng thật sự của chiến tranh.' },
   { id: 'colony', ten: 'Tàu Thực Dân', cost: { metal: 10000, crystal: 20000, deut: 10000 },
-    atk: 50, shield: 100, hull: 30000, speed: 2500, cargo: 7500, fuel: 1000, crew: 20, dc: 'impulse',
+    atk: 50, shield: 100, hull: 30000, speed: 2500, cargo: 7500, fuel: 1000, crew: 20, choLinh: 200, dc: 'impulse',
     req: { b: { shipyard: 4 }, r: { impulse: 3 } },
     mota: 'Mang theo một thành phố gấp gọn. Bay tới ô đất trống và dựng hành tinh mới.' }
 ];
@@ -225,12 +259,12 @@ G.RAPIDFIRE = {
   cargoL:        { probe: 5 },
   fighterL:      { probe: 5 },
   fighterH:      { probe: 5, cargoS: 3 },
-  cruiser:       { probe: 5, fighterL: 6, missileLauncher: 10 },
-  battleship:    { probe: 5 },
-  battlecruiser: { probe: 5, cargoS: 3, cargoL: 3, fighterH: 4, cruiser: 4, battleship: 7 },
+  cruiser:       { probe: 5, fighterL: 6, missileLauncher: 10, hoaTien: 8 },
+  battleship:    { probe: 5, hoaTien: 10 },
+  battlecruiser: { probe: 5, cargoS: 3, cargoL: 3, fighterH: 4, cruiser: 4, battleship: 7, hoaTien: 12 },
   bomber:        { probe: 5, missileLauncher: 20, laserS: 20, laserL: 10, ion: 10, plasma: 5 },
-  destroyer:     { probe: 5, battlecruiser: 2, laserL: 10 },
-  fortress:      { probe: 1250, cargoS: 250, cargoL: 250, fighterL: 200, fighterH: 100,
+  destroyer:     { probe: 5, battlecruiser: 2, laserL: 10, hoaTien: 15, tauDau: 3 },
+  fortress:      { probe: 1250, hoaTien: 500, tauDau: 100, cargoS: 250, cargoL: 250, fighterL: 200, fighterH: 100,
                    cruiser: 33, battleship: 30, battlecruiser: 15, bomber: 25, destroyer: 5,
                    recycler: 250, colony: 250, missileLauncher: 200, laserS: 200, laserL: 100,
                    gauss: 50, ion: 100, plasma: 50 },
@@ -273,6 +307,21 @@ G.DEFENSES = [
     mota: 'Vòm khiên cấp hai. Cũng chỉ một cái.' }
 ];
 
+/* --- Quân đổ bộ (tư liệu gốc: Robot, Tank do Đại Chiến Hạm chở xuống) ---
+ * Chỉ đánh khi hạm đội đã làm chủ quỹ đạo. Thắng thì PHÁ CÔNG TRÌNH — đúng
+ * như trận Start War III: "phá hủy toàn bộ những công trình của MiMi".     */
+G.BOBINH = [
+  { id: 'robot', ten: 'Robot', lop: 'bo', cost: { metal: 220, crystal: 80 },
+    atk: 10, shield: 2, hull: 450, cho: 2, crew: 0,
+    req: { b: { robot: 2, shipyard: 2 } },
+    mota: 'Bộ binh máy, đổ bộ theo bầy hàng triệu con. Rẻ, không cần nuôi ăn, và là thứ thực sự phá công trình.' },
+  { id: 'tank', ten: 'Tank', lop: 'bo', cost: { metal: 700, crystal: 240, deut: 60 },
+    atk: 34, shield: 8, hull: 1900, cho: 6, crew: 1,
+    req: { b: { robot: 4, shipyard: 4 }, r: { armor: 3 } },
+    mota: 'Thiết giáp hạng nặng. Chiếm chỗ gấp ba Robot nhưng cày phẳng công sự mặt đất nhanh hơn hẳn.' }
+];
+G.BB = function (id) { return G.byId(G.BOBINH, id); };
+
 G.MISSILES = [
   { id: 'interceptor', ten: 'Tên Lửa Đánh Chặn', cost: { metal: 8000, deut: 2000 }, o: 1,
     req: { b: { missileSilo: 2 } }, mota: 'Bắn hạ tên lửa liên hành tinh đang bay tới.' },
@@ -309,8 +358,12 @@ G.C = {
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
   SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
   SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
+  PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số cấp công trình
+  SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
+  TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu deuterium cho chuyến bay
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
   CUOP_TOI_DA: 0.5,
+  CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,
   THUE_CO_BAN: 8,            // Galana/giờ mỗi cấp công trình dân sự
@@ -325,4 +378,4 @@ G.R = function (id) { return G.byId(G.RESEARCH, id); };
 G.S = function (id) { return G.byId(G.SHIPS, id); };
 G.D = function (id) { return G.byId(G.DEFENSES, id); };
 G.M = function (id) { return G.byId(G.MISSILES, id); };
-G.UNIT = function (id) { return G.S(id) || G.D(id); };
+G.UNIT = function (id) { return G.S(id) || G.D(id) || G.BB(id); };

@@ -48,7 +48,7 @@ G.HANHDONG = {
   dong: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     var id = chuoi(d.id, 30);
-    if (!(G.S(id) || G.D(id) || G.M(id))) return 'Không có đơn vị này.';
+    if (!(G.S(id) || G.D(id) || G.M(id) || G.BB(id))) return 'Không có đơn vị này.';
     var n = soDuong(d.n, 100000);
     if (!n) return 'Số lượng không hợp lệ.';
     return G.xepTau(st, p, id, n);
@@ -93,12 +93,13 @@ G.HANHDONG = {
     var den = G.tdParse((d.den || {}).g + ':' + (d.den || {}).h + ':' + (d.den || {}).p);
     if (!den) return 'Toạ độ mục tiêu không hợp lệ.';
     if (!G.byId(G.MISSIONS, chuoi(d.mission, 20))) return 'Nhiệm vụ không hợp lệ.';
-    var ships = {}, cargo = {}, k;
+    var ships = {}, cargo = {}, linh = {}, k;
     for (k in (d.ships || {})) if (G.S(k)) { var n = soDuong(d.ships[k]); if (n) ships[k] = n; }
+    for (k in (d.linh || {})) if (G.BB(k)) { var nb = soDuong(d.linh[k]); if (nb) linh[k] = nb; }
     for (k in (d.cargo || {})) if (G.RES_HANH_TINH.indexOf(k) >= 0) { var v = soDuong(d.cargo[k]); if (v) cargo[k] = v; }
     var pct = Math.max(10, Math.min(100, Math.round((+d.pct || 100) / 10) * 10));
     var giu = Math.max(1, Math.min(24, Math.floor(+d.giu || 1)));
-    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu);
+    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh);
   },
   goive: function (st, d) { return G.goiVe(st, Math.floor(+d.fid)); },
   banTenLua: function (st, d) {

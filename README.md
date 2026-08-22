@@ -114,6 +114,9 @@ biên Ngân Hà: khai thác, xây dựng, nghiên cứu, đóng hạm đội, v�
 | **Tình báo & phản tình báo** | Tàu do thám mang về báo cáo; Trung Tâm Tình Báo của đối phương có thể bắn hạ chúng. Độ chi tiết báo cáo phụ thuộc chênh lệch cấp Công Nghệ Tình Báo. Bị đánh thì được báo động trước kèm đồng hồ, nhưng không thấy đội hình địch — còn nhiệm vụ do thám thì đi lén |
 | **Liên minh** | Gia nhập liên minh để nhận +5% sản lượng và danh nghĩa trên bảng xếp hạng |
 | **Bảo vệ người chơi mới** | Dưới 5.000 điểm thì không bị NPC đánh, và cũng không đánh được đối thủ mạnh hơn 5 lần |
+| **5 loại hành tinh** | Ôn Hoà, Rừng Già, Nước – Đầm Lầy, Sa Mạc, Băng Hà — mô tả nguyên văn trong tư liệu: Sa Mạc "tài nguyên phong phú và dễ khai thác" nhưng "nghèo nàn về sự sống"; Nước "không dễ tấn công và có rất nhiều nhiên liệu"; Băng Hà được chọn vì "phòng thủ mặt đất mạnh" |
+| **Đổ bộ mặt đất** | Hạm đội chỉ chiếm được quỹ đạo; **Robot** và **Tank** do **Đại Chiến Hạm** chở xuống mới san phẳng được công trình — đúng như trận Start War III 16/10/2006 |
+| **Tên đơn vị gốc** | Máy Bay Chiến Đấu, Máy Bay Tiêm Kích, Tiểu / Trung / Đại Chiến Hạm, Hoả Tiễn, Boom, Tàu Dầu, Robot, Tank |
 | **Không có level nhân vật** | Sức mạnh = số lượng công trình, nghiên cứu và tàu — đúng như thiết kế "ưu tiên số lượng thay vì thăng cấp" của bản gốc |
 
 ## Nội dung

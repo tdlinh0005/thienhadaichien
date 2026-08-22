@@ -173,13 +173,27 @@ G.xemHe = function (st, g, h) {
   return out;
 };
 
-/* --- Nhiệt độ & số ô đất của hành tinh theo vị trí -------------------- */
+/* --- Loại, nhiệt độ & số ô đất của hành tinh -------------------------
+ * Loại hành tinh phụ thuộc vị trí trong hệ: gần Mặt Trời thì Sa Mạc, xa thì
+ * Băng Hà, khoảng giữa thì Ôn Hoà / Rừng Già / Nước – Đầm Lầy.            */
+G.loaiTheoViTri = function (seed, c) {
+  var r = G.rng(G.hash(seed + '%' + G.tdKey(c)));
+  var v = r();
+  if (c.p <= 3) return v < 0.72 ? 'samac' : (v < 0.9 ? 'onhoa' : 'nuoc');
+  if (c.p >= 13) return v < 0.72 ? 'banghai' : (v < 0.9 ? 'nuoc' : 'onhoa');
+  if (c.p <= 5 || c.p >= 11) return v < 0.35 ? (c.p <= 5 ? 'samac' : 'banghai')
+    : (v < 0.6 ? 'onhoa' : (v < 0.82 ? 'nuoc' : 'runggia'));
+  return v < 0.34 ? 'onhoa' : (v < 0.62 ? 'runggia' : (v < 0.84 ? 'nuoc' : (v < 0.93 ? 'samac' : 'banghai')));
+};
+
 G.dacTinh = function (st, c) {
   var r = G.rng(G.hash(st.seed + '$' + G.tdKey(c)));
+  var loai = G.loaiTheoViTri(st.seed, c);
+  var L = G.LHT(loai);
+  var temp = Math.round(L.temp[0] + r() * (L.temp[1] - L.temp[0]));
   var giua = 8, lech = Math.abs(c.p - giua);
-  var temp = Math.round(120 - lech * 22 + (r() * 30 - 15));
-  var oDat = Math.round(90 + (giua - lech) * 14 + r() * 60);
-  return { temp: temp, oDat: oDat };
+  var oDat = Math.round((90 + (giua - lech) * 14 + r() * 60) * L.oDat);
+  return { loai: loai, temp: temp, oDat: oDat };
 };
 
 /* --- Bảng xếp hạng: sinh tất định, điểm tăng dần theo thời gian ------- */

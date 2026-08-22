@@ -36,7 +36,13 @@ G.moiGame = function (ten, seedStr, home) {
     stats: { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 },
     fleetIdSeq: 1
   };
-  st.planets.push(G.htMoi(st, home, 'Hành Tinh Mẹ', true));
+  var htMe = G.htMoi(st, home, 'Hành Tinh Mẹ', true);
+  /* Hành tinh mẹ luôn là Ôn Hoà — nơi loài người khởi đầu được */
+  htMe.loai = 'onhoa';
+  var Lme = G.LHT('onhoa');
+  htMe.temp = Math.round((Lme.temp[0] + Lme.temp[1]) / 2);
+  htMe.oDat = Math.max(150, htMe.oDat);
+  st.planets.push(htMe);
   G.tin(st, 'he', 'Chào mừng tới năm ' + G.NAM_BOI_CANH,
     'Hạm đội thuộc địa đã hạ cánh tại ' + G.tdStr(home) + '. Bộ Chỉ Huy Liên Hành Tinh giao cho ' +
     st.ten + ' quyền toàn quyền phát triển hành tinh này.\n\n' +
@@ -50,9 +56,9 @@ G.htMoi = function (st, c, ten, thuDo) {
   var d = G.dacTinh(st, c);
   return {
     c: { g: c.g, h: c.h, p: c.p }, ten: ten || 'Thuộc Địa', thuDo: !!thuDo,
-    temp: d.temp, oDat: d.oDat,
+    loai: d.loai, temp: d.temp, oDat: d.oDat,
     b: {}, res: { metal: thuDo ? 1500 : 500, crystal: thuDo ? 800 : 300, deut: thuDo ? 200 : 100, food: thuDo ? 1200 : 400 },
-    ships: {}, def: {}, mis: {},
+    ships: {}, def: {}, mis: {}, linh: {},
     qB: [], qS: [],
     doi: 0                     // số giờ bị bỏ đói cộng dồn
   };
@@ -124,15 +130,21 @@ G.dungTich = function (p) {
 };
 
 /* Trả về sản lượng/giờ đã tính hiệu suất điện, đói ăn, thuế... */
+G.loaiHT = function (st, p) {
+  if (!p.loai) p.loai = G.loaiTheoViTri(st.seed, p.c);   /* bàn chơi cũ chưa có loại */
+  return G.LHT(p.loai);
+};
+
 G.sanLuong = function (st, p) {
   var sp = G.C.TOC_DO_SERVER;
+  var L = G.loaiHT(st, p);
   var ctx = { temp: p.temp, tech: st.tech };
   var dienCo = 0, dienDung = 0, i, b, lv;
 
   for (i = 0; i < G.BUILDINGS.length; i++) {
     b = G.BUILDINGS[i]; lv = p.b[b.id] || 0;
     if (!lv) continue;
-    if (b.prod) { var pr = b.prod(lv, ctx); if (pr.energy) dienCo += pr.energy; }
+    if (b.prod) { var pr = b.prod(lv, ctx); if (pr.energy) dienCo += pr.energy * (b.id === 'solar' ? L.dien : 1); }
     if (b.use) dienDung += b.use(lv);
   }
   /* vệ tinh phòng thủ vừa bắn vừa phát điện [SUY LUẬN] */
@@ -151,10 +163,10 @@ G.sanLuong = function (st, p) {
     b = G.BUILDINGS[i]; lv = p.b[b.id] || 0;
     if (!lv || !b.prod) continue;
     var o = b.prod(lv, ctx);
-    if (o.metal) r.metal += o.metal * hs * sp * doi;
-    if (o.crystal) r.crystal += o.crystal * hs * sp * doi;
-    if (o.deut) r.deut += o.deut * hs * sp * doi;
-    if (o.food) r.food += o.food * hs * sp * chung;
+    if (o.metal) r.metal += o.metal * hs * sp * doi * L.kl;
+    if (o.crystal) r.crystal += o.crystal * hs * sp * doi * L.tt;
+    if (o.deut) r.deut += o.deut * hs * sp * doi * L.dt;
+    if (o.food) r.food += o.food * hs * sp * chung * L.lt;
     if (o.tech) r.tech += o.tech * hs * sp * doi;
   }
   /* lò nhiệt hạch đốt deuterium */
@@ -170,7 +182,7 @@ G.sanLuong = function (st, p) {
   /* Thuế: Galana chảy về từ dân cư trên hành tinh */
   r.galana = G.C.THUE_CO_BAN * G.tongCapCT(p) * sp * (p.doi > 0 ? 0.5 : 1);
 
-  return { r: r, dienCo: dienCo, dienDung: dienDung, hs: hs, dotDT: dotDT, anUong: anUong, doi: p.doi > 0 };
+  return { r: r, dienCo: dienCo, dienDung: dienDung, hs: hs, dotDT: dotDT, anUong: anUong, doi: p.doi > 0, loai: L };
 };
 
 /* Cộng tài nguyên trong dt giây */
@@ -250,7 +262,7 @@ G.oDaDung = function (p) { var n = 0; for (var k in p.b) if (p.b[k] > 0) n++; re
 
 G.xepTau = function (st, p, id, n) {
   n = Math.max(1, Math.floor(n));
-  var d = G.S(id) || G.D(id) || G.M(id);
+  var d = G.S(id) || G.D(id) || G.M(id) || G.BB(id);
   if (!d) return 'Không có đơn vị này.';
   if (!p.b.shipyard && !G.M(id)) return 'Cần Xưởng Đóng Tàu.';
   if (!G.thoaDK(st, p, d)) return 'Chưa đủ điều kiện: ' + G.thieuDK(st, p, d).join(', ') + '.';
@@ -278,7 +290,7 @@ G.dangDong = function (p, id) {
 G.huyDong = function (st, p, i) {
   if (i < 0 || i >= p.qS.length) return;
   var m = p.qS.splice(i, 1)[0];
-  G.hoanTien(st, p, G.giaDonVi(G.S(m.id) || G.D(m.id) || G.M(m.id), m.n), 1);
+  G.hoanTien(st, p, G.giaDonVi(G.UNIT(m.id) || G.M(m.id), m.n), 1);
 };
 
 /* --- Nghiên cứu: chi phí trả ngay + VỐN ĐẦU TƯ trừ dần mỗi chu kỳ ----- */

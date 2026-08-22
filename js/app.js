@@ -99,6 +99,13 @@ var ACT = {
     U.man = 'hamdoi'; U.ve(); window.scrollTo(0, 0);
     U.toast('Đã nạp mục tiêu ' + G.tdStr(U.form.den) + ' — chọn tàu rồi xuất kích.');
   },
+  'max-linh': function (el) {
+    U.capNhatForm();
+    var id = el.getAttribute('data-id');
+    if (!U.form.linh) U.form.linh = {};
+    U.form.linh[id] = (U.ht().linh || {})[id] || 0;
+    U.ve();
+  },
   'max-tau': function (el) {
     U.capNhatForm();
     var id = el.getAttribute('data-id');
@@ -123,7 +130,7 @@ var ACT = {
     U.capNhatForm();
     var f = U.form;
     APP.lam('gui', {
-      pi: U.pi, ships: G.clone(f.ships), den: f.den, mission: f.mission,
+      pi: U.pi, ships: G.clone(f.ships), linh: G.clone(f.linh || {}), den: f.den, mission: f.mission,
       cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu
     }, function (err) {
       if (err) return U.toast(err, 'loi');
@@ -244,7 +251,7 @@ document.addEventListener('input', function (e) {
   var id = e.target.id || '';
   if (id === 'f-pct') { var v = document.getElementById('f-pct-v'); if (v) v.textContent = e.target.value + '%'; }
   if (/^cho-/.test(id)) U.cho[id.slice(4)] = Math.max(0, Math.floor(+e.target.value || 0));
-  if (/^(f-|ft-|fc-)/.test(id)) {
+  if (/^(f-|ft-|fc-|fl-)/.test(id)) {
     U.capNhatForm();
     var tt = document.getElementById('hd-tt');
     if (tt) tt.innerHTML = U.ttBay();

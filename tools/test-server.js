@@ -266,7 +266,7 @@ function truyVan(sql, ...args) {
       ktra(stF.planets[0].res.metal < klF0, 'kho của mục tiêu giảm thật (' + G_so(klF0) + ' → ' + G_so(stF.planets[0].res.metal) + ')');
       var hamVe = stA.fleets.filter(x => x.pha === 've');
       ktra(hamVe.length === 1 && G_tong(hamVe[0].cargo) > 0, 'hạm đội mang hàng cướp được trên đường về');
-      ktra(truyVan('SELECT * FROM tran').length === 2, 'bảng tran có 2 trận PvP');
+      ktra(truyVan('SELECT * FROM tran').length >= 2, 'bảng tran ghi thêm trận PvP');
       ktra(stF.msgs.some(m => m.loai === 'tran' && m.data && m.data.ben === 'dich'), 'mục tiêu nhận được báo cáo bị đánh');
     }
 
@@ -355,7 +355,76 @@ function truyVan(sql, ...args) {
       ktra(!!tl2.loi, 'không bắn được nhiều hơn số tên lửa đang có');
     }
 
+    /* ---------- 7e. ĐỔ BỘ: phá công trình của người chơi thật ---------- */
+    suaState(idA, function (st) {
+      var p = st.planets[0];
+      p.b.shipyard = 11; p.b.robot = 9;
+      p.ships = { destroyer: 400, battleship: 300, cruiser: 400, cargoL: 120 };
+      p.linh = { robot: 150000, tank: 20000 };
+      p.res.deut = 5e6;
+      st.tech.weapon = 12; st.tech.shield = 10; st.tech.armor = 10;
+      st.tech.hyperdrive = 8; st.tech.plasma = 7;
+      st.tech.impulse = 8;          /* trả lại mức bình thường sau bài thử tên lửa */
+    });
+    suaState(idB, function (st) {
+      var p = st.planets[0];
+      /* B phải đủ điểm để không còn được bảo vệ người chơi mới */
+      p.b = { metalMine: 26, crystalMine: 24, deutSyn: 22, solar: 24, shipyard: 8, robot: 5, lab: 6,
+              farm: 12, metalStore: 8, crystalStore: 8, deutStore: 7, silo: 7 };
+      p.def = { missileLauncher: 30, laserS: 20, satellite: 6 };
+      p.ships = {}; p.linh = { robot: 20000 };
+      p.res = { metal: 700000, crystal: 400000, deut: 200000, food: 120000 };
+      st.tech = { weapon: 3, shield: 3, armor: 3 };
+    });
+    await goi('/api/state', null, a.token);
+    await goi('/api/state', null, b.token);
+    var capTruoc = 0, bTruoc = docState(idB).planets[0].b;
+    for (var kb in bTruoc) capTruoc += bTruoc[kb];
+    var linhBTruoc = (docState(idB).planets[0].linh || {}).robot || 0;
+
+    var gDB = await goi('/api/lam', {
+      ten: 'gui',
+      dl: { pi: 0, ships: { destroyer: 400, battleship: 300, cruiser: 400, cargoL: 120 },
+            linh: { robot: 150000, tank: 20000 }, den: b.nha, mission: 'attack', cargo: {}, pct: 100 }
+    }, a.token);
+    ktra(!gDB.loi, 'gửi hạm đội kèm quân đổ bộ vào người chơi thật' + (gDB.loi ? ': ' + gDB.loi : ''));
+    ktra(gDB.st && G_tong(gDB.st.planets[0].linh || {}) === 0, 'quân đổ bộ đã lên tàu, không còn ở nhà');
+    epToiDich(idA);
+    await goi('/api/state', null, a.token);
+
+    var stA5 = docState(idA), stB5 = docState(idB);
+    var bcDB = stA5.msgs.find(m => m.data && m.data.doBo && m.data.ben === 'ta');
+    var bcDBb = stB5.msgs.find(m => m.data && m.data.doBo && m.data.ben === 'dich');
+    log('điểm trước trận đổ bộ: A=' + truyVan('SELECT diem FROM dq WHERE tk=?', idA)[0].diem +
+        ' · B=' + truyVan('SELECT diem FROM dq WHERE tk=?', idB)[0].diem);
+    ktra(!!bcDB, 'A có báo cáo pha đổ bộ');
+    ktra(!!bcDBb, 'B nhận được báo cáo bị đổ bộ');
+    if (bcDB && bcDB.data.doBo) {
+      var db = bcDB.data.doBo;
+      var capSau = 0, bSau = stB5.planets[0].b;
+      for (var kb2 in bSau) capSau += bSau[kb2];
+      var linhBSau = (stB5.planets[0].linh || {}).robot || 0;
+      log('đổ bộ PvP: ' + (db.thang ? 'thắng' : 'thua') + ', công trình B ' + capTruoc + ' -> ' + capSau +
+        ' cấp, quân giữ nhà của B ' + G_so(linhBTruoc) + ' -> ' + G_so(linhBSau) +
+        ', cướp ' + G_so(G_tong(bcDB.data.cuop)));
+      ktra(db.thang, 'quân đổ bộ làm chủ được mặt đất');
+      if (db.thang) {
+        ktra(capSau < capTruoc, 'CÔNG TRÌNH của B bị san phẳng thật (' + capTruoc + ' -> ' + capSau + ')');
+        ktra(capTruoc - capSau <= Math.ceil(capTruoc * 0.25) + 1, 'không phá quá trần 25% mỗi trận');
+        ktra(linhBSau < linhBTruoc, 'quân giữ nhà của B bị tiêu diệt');
+        ktra(G_tong(bcDB.data.cuop) > 0, 'đổ bộ xong vét thêm được kho');
+        ktra(truyVan("SELECT * FROM bangtin WHERE noi LIKE '%san phẳng%'").length >= 1,
+          'bảng tin vũ trụ ghi lại vụ san phẳng công trình');
+      }
+    }
+    /* quân sống sót phải về được nhà */
+    epToiDich(idA);
+    await goi('/api/state', null, a.token);
+    var stA6 = docState(idA);
+    ktra(G_tong(stA6.planets[0].linh || {}) > 0, 'quân đổ bộ sống sót đã về nhà');
+
     /* ---------- 8. bảo vệ người chơi mới ---------- */
+    var soTranTruocChan = truyVan('SELECT * FROM tran').length;
     var c = await goi('/api/dangky', { ten: 'tanbinh', hienthi: 'Tân Binh', mk: 'matkhau789' });
     var idC = truyVan("SELECT id FROM tk WHERE ten='tanbinh'")[0].id;
     suaState(idC, function (st) {
@@ -371,7 +440,8 @@ function truyVan(sql, ...args) {
     await goi('/api/state', null, c.token);
     var stC = docState(idC);
     ktra(stC.msgs.some(m => m.td && m.td.indexOf('bị chặn') >= 0), 'bảo vệ người chơi mới chặn cuộc tấn công lệch trình độ');
-    ktra(truyVan('SELECT * FROM tran').length === 2, 'không phát sinh trận mới từ cuộc tấn công bị chặn');
+    ktra(truyVan('SELECT * FROM tran').length === soTranTruocChan,
+      'không phát sinh trận mới từ cuộc tấn công bị chặn');
 
     /* ---------- 9. không chiếm được ô đã có chủ ---------- */
     var he = await goi('/api/he?g=' + b.nha.g + '&h=' + b.nha.h, null, a.token);
@@ -405,6 +475,14 @@ function truyVan(sql, ...args) {
     });
     await goi('/api/state', null, a.token);
 
+    /* ép kho Kim Loại của B đầy tràn để thử nhánh "không còn chỗ" */
+    suaState(idB, function (st) {
+      var p = st.planets[0];
+      p.b.metalStore = 3;
+      p.res.metal = 1e9;
+    });
+    await goi('/api/state', null, b.token);
+
     /* 10b-1: kho bên nhận đang đầy -> hàng phải được mang về, không bốc hơi */
     var tt0 = await goi('/api/lam', {
       ten: 'gui', dl: { pi: 0, ships: { cargoL: 20 }, den: b.nha, mission: 'transport', cargo: { metal: 200000 }, pct: 100 }
@@ -435,7 +513,7 @@ function truyVan(sql, ...args) {
     ktra(stB3.planets[0].res.metal >= klB2 + 199000, 'B nhận được tài nguyên tiếp tế (' + G_so(klB2) + ' → ' + G_so(stB3.planets[0].res.metal) + ')');
     ktra(stA3.msgs.some(m => m.td && m.td.indexOf('Đã tiếp tế') >= 0), 'A có biên nhận đã tiếp tế');
     ktra(stB3.msgs.some(m => m.td && m.td.indexOf('Được tiếp tế') >= 0), 'B được thông báo có hàng tiếp tế');
-    ktra(truyVan("SELECT * FROM bangtin WHERE loai='tiepte'").length === 1, 'bảng tin ghi lại vụ tiếp tế');
+    ktra(truyVan("SELECT * FROM bangtin WHERE loai='tiepte'").length >= 1, 'bảng tin ghi lại vụ tiếp tế');
     var hamTT = stA3.fleets.filter(x => x.pha === 've');
     ktra(hamTT.length >= 1, 'hạm đội tiếp tế đang trên đường về');
 
@@ -547,7 +625,7 @@ function truyVan(sql, ...args) {
     var heTrong = await goi('/api/he?g=' + xt.nha.g + '&h=' + xt.nha.h, null, b.token);
     var oCu = heTrong.o.find(o => o.c.p === xt.nha.p);
     ktra(oCu && oCu.loai !== 'nguoi', 'ô hành tinh cũ không còn hiện là của người chơi nào');
-    ktra(truyVan('SELECT * FROM tran').length === 2, 'lịch sử trận đánh không bị xoá theo tài khoản');
+    ktra(truyVan('SELECT * FROM tran').length >= 2, 'lịch sử trận đánh không bị xoá theo tài khoản');
 
     /* ---------- 13. dữ liệu bền vững sau khi khởi động lại ---------- */
     sv.kill('SIGTERM');

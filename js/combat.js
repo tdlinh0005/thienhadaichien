@@ -8,9 +8,11 @@ var G = window.G = window.G || {};
 
 G.VONG_XUONG_DAT = 3;
 
-function nhom(id, n, tech, ben) {
+function nhom(id, n, tech, ben, thuDat) {
   var u = G.UNIT(id);
   var w = 1 + 0.1 * (tech.weapon || 0), s = 1 + 0.1 * (tech.shield || 0), a = 1 + 0.1 * (tech.armor || 0);
+  /* Loại hành tinh làm phòng thủ MẶT ĐẤT dày thêm (Băng Hà, Nước – Đầm Lầy) */
+  if (u.lop === 'dat' && thuDat) { s *= thuDat; a *= thuDat; }
   return {
     id: id, ten: u.ten, n: n, n0: n, ben: ben,
     atk: u.atk * w,
@@ -22,11 +24,12 @@ function nhom(id, n, tech, ben) {
   };
 }
 
-function gomBen(ships, def, tech, ben) {
+function gomBen(ships, def, tech, ben, thuDat, bo) {
   var out = [];
-  var i, id;
+  var id;
   if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben));
-  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben));
+  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat));
+  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat));
   return out;
 }
 
@@ -96,12 +99,13 @@ function tinhLuc(gs) {
  * --------------------------------------------------------------------- */
 G.danhTran = function (A, D, seed) {
   var rnd = G.rng(seed || (Date.now() >>> 0));
-  var atk = gomBen(A.ships, null, A.tech || {}, 'A');
-  var defAll = gomBen(D.ships, D.def, D.tech || {}, 'D');
+  var doBo = !!A.doBo;                 /* trận đổ bộ: không chia lớp, đánh hết từ vòng 1 */
+  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo);
+  var defAll = gomBen(D.ships, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo);
 
   var quyDao = [], mDat = [];
   for (var i = 0; i < defAll.length; i++) {
-    if (defAll[i].lop === 'dat') mDat.push(defAll[i]); else quyDao.push(defAll[i]);
+    if (!doBo && defAll[i].lop === 'dat') mDat.push(defAll[i]); else quyDao.push(defAll[i]);
   }
 
   var nhatKy = [];
@@ -156,21 +160,24 @@ G.danhTran = function (A, D, seed) {
 
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
   var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
-  var conShipsA = {}, conShipsD = {}, conDefD = {};
+  var conShipsA = {}, conShipsD = {}, conDefD = {}, conBoA = {}, conBoD = {};
 
   for (i2 = 0; i2 < atk.length; i2++) {
     var g = atk[i2], mat = g.n0 - g.n;
     if (mat > 0) {
       matA[g.id] = mat;
-      pl.metal += (g.cost.metal || 0) * mat * G.C.PHE_LIEU;
-      pl.crystal += (g.cost.crystal || 0) * mat * G.C.PHE_LIEU;
+      if (!G.BB(g.id)) {          /* bộ binh chết trên mặt đất, không thành phế liệu quỹ đạo */
+        pl.metal += (g.cost.metal || 0) * mat * G.C.PHE_LIEU;
+        pl.crystal += (g.cost.crystal || 0) * mat * G.C.PHE_LIEU;
+      }
     }
-    if (g.n > 0) conShipsA[g.id] = g.n;
+    if (g.n > 0) { if (G.BB(g.id)) conBoA[g.id] = g.n; else conShipsA[g.id] = g.n; }
   }
   for (i2 = 0; i2 < defAll.length; i2++) {
     var d = defAll[i2], m = d.n0 - d.n, con = d.n;
     if (m > 0) {
-      if (G.S(d.id)) {   /* tàu bị bắn hạ -> phế liệu */
+      if (G.BB(d.id)) {  /* bộ binh chết không thành phế liệu bay */ }
+      else if (G.S(d.id)) {   /* tàu bị bắn hạ -> phế liệu */
         pl.metal += (d.cost.metal || 0) * m * G.C.PHE_LIEU;
         pl.crystal += (d.cost.crystal || 0) * m * G.C.PHE_LIEU;
       } else {           /* công sự: 70% được sửa lại sau trận [SUY LUẬN kiểu OGame] */
@@ -181,13 +188,18 @@ G.danhTran = function (A, D, seed) {
       }
       if (m > 0) matD[d.id] = m;
     }
-    if (con > 0) { if (G.S(d.id)) conShipsD[d.id] = con; else conDefD[d.id] = con; }
+    if (con > 0) {
+      if (G.BB(d.id)) conBoD[d.id] = con;
+      else if (G.S(d.id)) conShipsD[d.id] = con;
+      else conDefD[d.id] = con;
+    }
   }
 
   return {
     kq: kq, vongDanh: nhatKy, seed: seed,
-    tenA: A.ten, tenD: D.ten,
+    tenA: A.ten, tenD: D.ten, thuDat: D.thuDat || 1, loaiHT: D.loaiHT || null,
     conShipsA: conShipsA, conShipsD: conShipsD, conDefD: conDefD,
+    conBoA: conBoA, conBoD: conBoD, doBo: doBo,
     matA: matA, matD: matD, matDPha: matDPha,
     pheLieu: { metal: Math.round(pl.metal), crystal: Math.round(pl.crystal) }
   };

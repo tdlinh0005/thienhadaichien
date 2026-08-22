@@ -35,11 +35,14 @@ G.nhienLieu = function (st, ships, kc, pct) {
   var base = 0;
   for (var id in ships) { var s = G.S(id); if (s) base += s.fuel * ships[id]; }
   var m = 1 + Math.pow(pct / 100, 2);
-  return Math.ceil(base * kc / 35000 * m) + 1;
+  var can = Math.ceil(base * kc / 35000 * m) + 1;
+  /* Tàu Dầu tiếp nhiên liệu giữa đường — giảm tối đa 60% tiêu hao */
+  var bu = (ships.tauDau || 0) * G.C.TAU_DAU_BU;
+  return Math.max(Math.ceil(can * 0.4), can - bu);
 };
 
 /* --- Gửi hạm đội ------------------------------------------------------- */
-G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio) {
+G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var p = st.planets[pi];
   if (!p) return 'Hành tinh không tồn tại.';
   if (G.trong(ships)) return 'Chưa chọn tàu nào.';
@@ -72,6 +75,25 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio) {
   var nl = G.nhienLieu(st, ships, kc, pct);
   if ((p.res.deut || 0) < nl) return 'Không đủ deuterium (cần ' + G.so(nl) + ').';
 
+  /* quân đổ bộ: chỉ theo nhiệm vụ Tấn Công / Triển Khai / Vận Chuyển, cần chỗ chở */
+  linh = linh || {};
+  var sachLinh = {}, idL;
+  for (idL in linh) {
+    var nL = Math.max(0, Math.floor(linh[idL] || 0));
+    if (!nL || !G.BB(idL)) continue;
+    if ((p.linh && p.linh[idL] ? p.linh[idL] : 0) < nL) return 'Không đủ ' + G.BB(idL).ten + '.';
+    sachLinh[idL] = nL;
+  }
+  linh = sachLinh;
+  if (!G.trong(linh)) {
+    if (['attack', 'deploy', 'transport'].indexOf(mission) < 0)
+      return 'Chỉ nhiệm vụ Tấn Công, Triển Khai hoặc Vận Chuyển mới chở được quân đổ bộ.';
+    var canCho = G.choLinhCan(linh), coCho = G.sucChoLinh(ships);
+    if (canCho > coCho)
+      return 'Không đủ chỗ chở quân: cần ' + G.so(canCho) + ', hạm đội chở được ' + G.so(coCho) +
+        ' (Đại Chiến Hạm chở được nhiều nhất).';
+  }
+
   cargo = cargo || {};
   var suc = G.khoangHang(ships);
   var tongHang = 0;
@@ -79,14 +101,16 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio) {
   if (tongHang > suc - (mission === 'attack' ? 0 : 0)) return 'Khoang hàng chỉ chứa được ' + G.so(suc) + '.';
   for (id in cargo) if ((p.res[id] || 0) < cargo[id] + (id === 'deut' ? nl : 0)) return 'Không đủ ' + G.byId(G.RES, id).ten + ' để xếp hàng.';
 
-  /* trừ tàu, hàng, nhiên liệu */
+  /* trừ tàu, quân, hàng, nhiên liệu */
   for (id in ships) p.ships[id] -= ships[id];
+  if (!p.linh) p.linh = {};
+  for (idL in linh) { p.linh[idL] -= linh[idL]; if (!p.linh[idL]) delete p.linh[idL]; }
   p.res.deut -= nl;
   for (id in cargo) if (cargo[id] > 0) p.res[id] -= cargo[id];
 
   var f = {
     id: st.fleetIdSeq++, pi: pi, tu: { g: p.c.g, h: p.c.h, p: p.c.p }, den: { g: den.g, h: den.h, p: den.p },
-    mission: mission, ships: ships, cargo: cargo, pct: pct || 100,
+    mission: mission, ships: ships, linh: linh, cargo: cargo, pct: pct || 100,
     diLuc: st.now, den_t: st.now + tg, ve_t: null, pha: 'di',
     giu: (mission === 'hold') ? (giuGio || 1) * 3600 : 0,
     nl: nl, kc: kc, doiHuong: 0
@@ -173,6 +197,11 @@ G.hamToiDich = function (st, f) {
     if (o.loai !== 'toi') { veNha('Hạm đội #' + f.id + ': ' + G.tdStr(f.den) + ' không phải hành tinh của ta, hàng được mang về.'); return; }
     var pt = o.p, k;
     for (k in f.cargo) if (f.cargo[k] > 0) pt.res[k] = (pt.res[k] || 0) + f.cargo[k];
+    if (f.linh && !G.trong(f.linh)) {
+      if (!pt.linh) pt.linh = {};
+      for (k in f.linh) pt.linh[k] = (pt.linh[k] || 0) + f.linh[k];
+      f.linh = {};
+    }
     if (f.mission === 'deploy') {
       for (k in f.ships) pt.ships[k] = (pt.ships[k] || 0) + f.ships[k];
       G.tin(st, 'ham', 'Triển khai xong', 'Hạm đội #' + f.id + ' đã nhập biên chế tại ' + pt.ten + ' ' + G.tdStr(pt.c) + '.');
@@ -236,9 +265,11 @@ G.hamToiDich = function (st, f) {
       G.tin(st, 'he', 'Bảo vệ người chơi mới', 'Mục tiêu mạnh hơn ta quá ' + G.C.BAO_VE_MOI_TY_LE + ' lần, hệ thống chặn cuộc tấn công. Hạm đội quay về.');
       return;
     }
+    var Lmuc = G.LHT(G.loaiTheoViTri(st.seed, f.den));
     var kq = G.danhTran(
       { ten: st.ten, tech: st.tech, ships: f.ships },
-      { ten: n.ten + ' — ' + n.htTen, tech: n.tech, ships: n.ships, def: n.def },
+      { ten: n.ten + ' — ' + n.htTen, tech: n.tech, ships: n.ships, def: n.def,
+        thuDat: Lmuc.thuDat, loaiHT: Lmuc.ten },
       G.hash(f.id + ':' + st.now + ':' + o.key));
 
     f.ships = kq.conShipsA;
@@ -254,13 +285,35 @@ G.hamToiDich = function (st, f) {
       st.stats.thang++; st.stats.cuop += G.tongRes(cuop);
     } else if (kq.kq === 'thua' || kq.kq === 'huyDiet') st.stats.thua++;
 
+    /* --- ĐỔ BỘ: quỹ đạo vỡ rồi mới thả quân xuống --- */
+    var doBo = null;
+    if (kq.kq === 'thang' && f.linh && !G.trong(f.linh)) {
+      if (!n.linh) n.linh = { robot: Math.round(n.diem * (n.bo ? 0.6 : 3)), tank: Math.round(n.diem * (n.bo ? 0.08 : 0.4)) };
+      var thuDat0 = G.thuMatDat(n.def);
+      doBo = G.doBoXuong(st, f, { ten: n.ten, tech: n.tech, linh: n.linh, def: thuDat0, thuDat: Lmuc.thuDat });
+      G.gopThuMatDat(n.def, thuDat0);
+      if (doBo.thang) {
+        /* vét thêm phần kho mà đánh từ quỹ đạo không với tới — CỘNG THÊM vào
+           chỗ đã cướp được, không ghi đè */
+        var themCuop = G.chiaHang(n.res, G.khoangHang(f.ships) - G.tongRes(f.cargo), G.C.CUOP_DO_BO);
+        for (var rk2 in themCuop) {
+          if (!themCuop[rk2]) continue;
+          n.res[rk2] -= themCuop[rk2];
+          f.cargo[rk2] = (f.cargo[rk2] || 0) + themCuop[rk2];
+          cuop[rk2] = (cuop[rk2] || 0) + themCuop[rk2];
+          st.stats.cuop += themCuop[rk2];
+        }
+      }
+      st.stats.doBo = (st.stats.doBo || 0) + 1;
+    }
+
     var pl = G.pheLieu(st, o.key);
     pl.metal += kq.pheLieu.metal; pl.crystal += kq.pheLieu.crystal;
     for (var kx in kq.matA) st.stats.tauMat += kq.matA[kx];
     for (var ky in kq.matD) st.stats.tauDietDich += kq.matD[ky];
 
     G.tin(st, 'tran', 'Báo cáo chiến đấu ' + G.tdStr(f.den), null,
-      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: f.den, ben: 'ta' });
+      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: f.den, ben: 'ta', doBo: doBo });
     n.cuopLuc = st.now;
     if (!st.hanThu) st.hanThu = [];
     if (st.hanThu.indexOf(o.key) < 0) st.hanThu.push(o.key);
@@ -277,6 +330,7 @@ G.hamVeNha = function (st, f) {
   var p = st.planets[f.pi] || st.planets[0];
   var k;
   for (k in f.ships) p.ships[k] = (p.ships[k] || 0) + f.ships[k];
+  if (f.linh) { if (!p.linh) p.linh = {}; for (k in f.linh) p.linh[k] = (p.linh[k] || 0) + f.linh[k]; }
   /* Hàng trên tàu luôn được dỡ HẾT, kể cả khi vượt dung tích kho: dung tích chỉ
      chặn phần SẢN XUẤT (xem G.sanXuat), không được ăn mất chiến lợi phẩm. */
   for (k in f.cargo) if (f.cargo[k] > 0) p.res[k] = (p.res[k] || 0) + f.cargo[k];
@@ -422,9 +476,11 @@ G.hepRaid = function (st) {
 
 G.dichToi = function (st, w) {
   var p = st.planets[w.pi] || st.planets[0];
+  var Lp = G.loaiHT(st, p);
   var kq = G.danhTran(
     { ten: w.ten, tech: w.tech, ships: w.ships },
-    { ten: st.ten + ' — ' + p.ten, tech: st.tech, ships: p.ships, def: p.def },
+    { ten: st.ten + ' — ' + p.ten, tech: st.tech, ships: p.ships, def: p.def,
+      thuDat: Lp.thuDat, loaiHT: Lp.ten },
     G.hash('def' + w.id + st.now));
 
   p.ships = kq.conShipsD; p.def = kq.conDefD;
@@ -444,6 +500,35 @@ G.dichToi = function (st, w) {
   if (j >= 0) st.toi.splice(j, 1);
 };
 
+/* Xưởng đóng tàu chạy liên tục theo LÔ: bản gốc đếm quân bằng hàng triệu,
+ * nếu cộng từng chiếc một thì vòng lặp sự kiện không kham nổi.            */
+G.congDonVi = function (st, p, id, n) {
+  if (n <= 0) return;
+  if (G.M(id)) p.mis[id] = (p.mis[id] || 0) + n;
+  else if (G.S(id)) p.ships[id] = (p.ships[id] || 0) + n;
+  else if (G.BB(id)) { if (!p.linh) p.linh = {}; p.linh[id] = (p.linh[id] || 0) + n; }
+  else p.def[id] = (p.def[id] || 0) + n;
+};
+
+G.chayXuong = function (st, p, dt) {
+  var guard = 0;
+  while (dt > 0 && p.qS.length && guard++ < 200) {
+    var q = p.qS[0];
+    if (dt < q.tLeft) { q.tLeft -= dt; return; }
+    dt -= q.tLeft;                       /* chiếc kế tiếp xong */
+    G.congDonVi(st, p, q.id, 1);
+    q.n--;
+    if (q.n > 0) {
+      var them = Math.min(q.n, Math.floor(dt / q.tEach));
+      if (them > 0) { G.congDonVi(st, p, q.id, them); q.n -= them; dt -= them * q.tEach; }
+    }
+    if (q.n > 0) { q.tLeft = q.tEach - dt; return; }
+    G.ghi(st, p.ten + ': hoàn thành lô ' + (G.UNIT(q.id) || G.M(q.id)).ten + '.');
+    p.qS.shift();
+    if (p.qS.length) p.qS[0].tLeft = p.qS[0].tEach;
+  }
+};
+
 /* =======================================================================
  * DÒNG THỜI GIAN — tua lại toàn bộ sự kiện theo đúng thứ tự
  * ===================================================================== */
@@ -452,7 +537,7 @@ G.sukienKe = function (st) {
   for (i = 0; i < st.planets.length; i++) {
     var p = st.planets[i];
     if (p.qB.length && p.qB[0].xong) t = Math.min(t, p.qB[0].xong);
-    if (p.qS.length) t = Math.min(t, st.lastTick + p.qS[0].tLeft);
+    if (p.qS.length) t = Math.min(t, st.lastTick + p.qS[0].tLeft + (p.qS[0].n - 1) * p.qS[0].tEach);
   }
   if (st.ncQueue && !st.ncQueue.treo) t = Math.min(t, st.lastTick + st.ncQueue.conLai);
   for (i = 0; i < st.fleets.length; i++) {
@@ -476,7 +561,7 @@ G.tick = function (st, now) {
     var dtn = now - st.lastTick;
     for (var i0 = 0; i0 < st.planets.length; i0++) {
       G.sanXuat(st, st.planets[i0], dtn);
-      if (st.planets[i0].qS.length) st.planets[i0].qS[0].tLeft -= dtn;
+      G.chayXuong(st, st.planets[i0], dtn);
     }
     if (st.ncQueue && !st.ncQueue.treo) st.ncQueue.conLai -= dtn;
     st.lastTick = now; st.now = now;
@@ -490,7 +575,7 @@ G.tick = function (st, now) {
     if (dt > 0) {
       for (var i = 0; i < st.planets.length; i++) {
         G.sanXuat(st, st.planets[i], dt);
-        if (st.planets[i].qS.length) st.planets[i].qS[0].tLeft -= dt;
+        G.chayXuong(st, st.planets[i], dt);
       }
       if (st.ncQueue && !st.ncQueue.treo) st.ncQueue.conLai -= dt;
       st.lastTick = t; st.now = t;
@@ -551,22 +636,6 @@ G.xuLySuKien = function (st, t) {
       p.b[m.id] = m.lv;
       G.ghi(st, p.ten + ': ' + G.B(m.id).ten + ' hoàn thành cấp ' + m.lv + '.');
       if (p.qB.length) p.qB[0].xong = t + p.qB[0].tg;
-    }
-    /* xưởng đóng tàu */
-    var an = 0;
-    while (p.qS.length && p.qS[0].tLeft <= 0 && an++ < 100000) {
-      var q = p.qS[0];
-      if (G.M(q.id)) p.mis[q.id] = (p.mis[q.id] || 0) + 1;
-      else if (G.S(q.id)) p.ships[q.id] = (p.ships[q.id] || 0) + 1;
-      else p.def[q.id] = (p.def[q.id] || 0) + 1;
-      q.n--;
-      if (q.n <= 0) {
-        p.qS.shift();
-        G.ghi(st, p.ten + ': hoàn thành lô ' + (G.S(q.id) || G.D(q.id) || G.M(q.id)).ten + '.');
-        if (p.qS.length) p.qS[0].tLeft = p.qS[0].tEach;
-      } else {
-        q.tLeft += q.tEach;
-      }
     }
   }
   /* nghiên cứu */
@@ -810,4 +879,86 @@ G.thamHiem = function (st, f) {
   if (loai !== 'quai' || noi) {
     G.tin(st, 'ham', 'Nhật ký thám hiểm ' + G.tdStr(f.den), noi);
   }
+};
+
+/* =======================================================================
+ * ĐỔ BỘ — cơ chế đặc trưng nhất của bản gốc
+ * Quỹ đạo vỡ rồi thì Đại Chiến Hạm mới thả Robot/Tank xuống. Thắng trận
+ * dưới mặt đất thì PHÁ CÔNG TRÌNH của đối phương (trận Start War III:
+ * "phá hủy toàn bộ những công trình… chỉ chừa lại đúng 1.000 Nhà Máy Tàu Bay").
+ * ===================================================================== */
+G.sucChoLinh = function (ships) {
+  var t = 0;
+  for (var id in ships) { var s = G.S(id); if (s && s.choLinh) t += s.choLinh * ships[id]; }
+  return t;
+};
+G.choLinhCan = function (linh) {
+  var t = 0;
+  for (var id in linh) { var b = G.BB(id); if (b) t += b.cho * linh[id]; }
+  return t;
+};
+G.sucPhaCT = function (linh) {
+  var t = 0;
+  for (var id in linh) { var b = G.BB(id); if (b) t += (b.atk + b.hull * 0.05) * linh[id]; }
+  return t;
+};
+
+/* Phá công trình bằng sức đổ bộ còn lại. Phá từ công trình ĐẮT nhất xuống,
+ * và không bao giờ phá quá G.C.PHA_CT_TOI_DA phần tổng số cấp trong một trận. */
+G.phaCongTrinh = function (st, p, suc) {
+  var tongCap = G.tongCapCT(p);
+  var conPha = Math.max(1, Math.floor(tongCap * G.C.PHA_CT_TOI_DA));
+  var pha = {}, soPha = 0;
+  var guard = 0;
+  while (suc > 0 && soPha < conPha && guard++ < 500) {
+    /* tìm cấp đắt nhất còn đứng */
+    var chon = null, giaChon = -1;
+    for (var k in p.b) {
+      if (!p.b[k]) continue;
+      var gia = G.giaTriDiem(G.giaXay(G.B(k), p.b[k])) * 1000;
+      if (gia > giaChon) { giaChon = gia; chon = k; }
+    }
+    if (!chon) break;
+    var canSuc = giaChon * G.C.SUC_PHA_MOI_TAI_NGUYEN;
+    if (suc < canSuc) break;
+    suc -= canSuc;
+    p.b[chon]--;
+    if (!p.b[chon]) delete p.b[chon];
+    pha[chon] = (pha[chon] || 0) + 1;
+    soPha++;
+  }
+  return { pha: pha, soCap: soPha, chamTran: soPha >= conPha };
+};
+
+G.moTaPhaCT = function (o) {
+  var ra = [];
+  for (var k in o) if (o[k]) ra.push(G.B(k).ten + ' −' + o[k] + ' cấp');
+  return ra.length ? ra.join(', ') : 'không phá được cấp công trình nào';
+};
+
+/* Chạy pha đổ bộ. Trả về mô tả kết quả (hoặc null nếu không có quân đổ bộ). */
+/* tách phần phòng thủ MẶT ĐẤT ra khỏi bảng phòng thủ chung */
+G.thuMatDat = function (def) {
+  var ra = {};
+  for (var k in def) { var d = G.D(k); if (d && d.lop === 'dat' && def[k] > 0) ra[k] = def[k]; }
+  return ra;
+};
+G.gopThuMatDat = function (def, con) {
+  for (var k in def) { var d = G.D(k); if (d && d.lop === 'dat') delete def[k]; }
+  G.cong(def, con);
+};
+
+G.doBoXuong = function (st, f, ben) {
+  if (!f.linh || G.trong(f.linh)) return null;
+  var kq = G.danhTran(
+    { ten: st.ten + ' (quân đổ bộ)', tech: st.tech, bo: f.linh, doBo: true },
+    { ten: ben.ten, tech: ben.tech || {}, bo: ben.linh || {}, def: ben.def || {}, thuDat: ben.thuDat || 1 },
+    G.hash('dobo' + f.id + ':' + st.now));
+  f.linh = kq.conBoA;
+  if (ben.linh) { for (var k in ben.linh) delete ben.linh[k]; G.cong(ben.linh, kq.conBoD); }
+  if (ben.def) { for (var k2 in ben.def) delete ben.def[k2]; G.cong(ben.def, kq.conDefD); }
+  var thang = kq.kq === 'thang';
+  var phaCT = null;
+  if (thang && ben.p) phaCT = G.phaCongTrinh(st, ben.p, G.sucPhaCT(f.linh));
+  return { kq: kq, thang: thang, phaCT: phaCT };
 };

@@ -258,19 +258,35 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
       veNha(null); return;
     }
 
+    var Ld = G.loaiHT(d.st, dp);
     var kq = G.danhTran(
       { ten: st.ten, tech: st.tech, ships: f.ships },
-      { ten: o.ten + ' — ' + dp.ten, tech: d.st.tech, ships: dp.ships, def: dp.def },
+      { ten: o.ten + ' — ' + dp.ten, tech: d.st.tech, ships: dp.ships, def: dp.def,
+        thuDat: Ld.thuDat, loaiHT: Ld.ten },
       G.hash(f.id + ':' + st.now + ':' + o.key));
 
     f.ships = kq.conShipsA;
     dp.ships = kq.conShipsD;
     dp.def = kq.conDefD;
 
+    /* --- ĐỔ BỘ: quỹ đạo vỡ rồi mới thả Robot/Tank xuống phá công trình --- */
+    var doBo = null;
+    if (kq.kq === 'thang' && f.linh && !G.trong(f.linh)) {
+      if (!dp.linh) dp.linh = {};
+      var thuDatD = G.thuMatDat(dp.def);
+      doBo = G.doBoXuong(st, f, {
+        ten: o.ten + ' — ' + dp.ten, tech: d.st.tech, linh: dp.linh,
+        def: thuDatD, thuDat: Ld.thuDat, p: dp
+      });
+      G.gopThuMatDat(dp.def, thuDatD);
+      st.stats.doBo = (st.stats.doBo || 0) + 1;
+    }
+
     /* cướp */
     var cuop = { metal: 0, crystal: 0, deut: 0, food: 0 };
     if (kq.kq === 'thang') {
-      cuop = G.chiaHang(dp.res, G.khoangHang(f.ships) - G.tongRes(f.cargo), G.C.CUOP_TOI_DA);
+      var tyLe = (doBo && doBo.thang) ? Math.min(0.85, G.C.CUOP_TOI_DA + G.C.CUOP_DO_BO) : G.C.CUOP_TOI_DA;
+      cuop = G.chiaHang(dp.res, G.khoangHang(f.ships) - G.tongRes(f.cargo), tyLe);
       for (var rk in cuop) {
         dp.res[rk] -= cuop[rk];
         f.cargo[rk] = (f.cargo[rk] || 0) + cuop[rk];
@@ -293,16 +309,18 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
 
     /* báo cáo cho cả hai bên */
     G.tin(st, 'tran', 'Báo cáo chiến đấu ' + G.tdStr(f.den) + ' — ' + o.ten, null,
-      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: f.den, ben: 'ta', pvp: true, doiThu: o.ten });
-    G.tin(d.st, 'tran', 'BỊ TẤN CÔNG tại ' + G.tdStr(dp.c) + ' — ' + st.ten, null,
-      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: dp.c, ben: 'dich', pvp: true, doiThu: st.ten });
+      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: f.den, ben: 'ta', pvp: true, doiThu: o.ten, doBo: doBo });
+    G.tin(d.st, 'tran', (doBo && doBo.thang ? 'BỊ ĐỔ BỘ tại ' : 'BỊ TẤN CÔNG tại ') + G.tdStr(dp.c) + ' — ' + st.ten, null,
+      { kq: kq, cuop: cuop, pl: kq.pheLieu, td: dp.c, ben: 'dich', pvp: true, doiThu: st.ten, doBo: doBo });
 
     var now = Math.floor(Date.now() / 1000);
     kho.q.tranThem.run(now, this.chuStack[0] || null, dTk, o.key, kq.kq, Math.round(G.tongRes(cuop)), matA, matD);
     kho.q.btThem.run(now, 'tran',
       st.ten + ' đánh ' + o.ten + ' tại ' + G.tdStr(f.den) + ' — ' +
       (kq.kq === 'thang' ? 'bên tấn công thắng, cướp ' + G.so(G.tongRes(cuop)) + ' tài nguyên'
-        : (kq.kq === 'thua' ? 'bên phòng thủ đứng vững' : 'hai bên cầm cự')));
+        : (kq.kq === 'thua' ? 'bên phòng thủ đứng vững' : 'hai bên cầm cự')) +
+      (doBo && doBo.thang && doBo.phaCT && doBo.phaCT.soCap
+        ? ' — quân đổ bộ san phẳng ' + doBo.phaCT.soCap + ' cấp công trình' : ''));
 
     this.luu(dTk, d.st);
 

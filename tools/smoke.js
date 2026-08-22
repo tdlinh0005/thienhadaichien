@@ -292,6 +292,108 @@ ktra(Object.keys(loaiKQ).length >= 3, 'thám hiểm cho nhiều loại kết qu�
 ktra(st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0, 'không còn đoàn nào kẹt ngoài đó');
 void matHet; void ketQua;
 
+/* ---- 10g. 5 loại hành tinh (tư liệu gốc) ---- */
+ktra(G.LOAI_HT.length === 5, 'có đủ 5 loại hành tinh');
+ktra(st.planets[0].loai === 'onhoa', 'hành tinh mẹ luôn là Ôn Hoà');
+var sanLuongTheoLoai = {};
+G.LOAI_HT.forEach(function (L) {
+  var pt = G.htMoi(st, G.toaDo(1, 60, 8), 'x', false);
+  pt.loai = L.id; pt.temp = Math.round((L.temp[0] + L.temp[1]) / 2);
+  pt.b = { metalMine: 15, crystalMine: 14, deutSyn: 12, farm: 12, solar: 16 };
+  sanLuongTheoLoai[L.id] = G.sanLuong(st, pt).r;
+});
+ktra(sanLuongTheoLoai.samac.metal > sanLuongTheoLoai.onhoa.metal * 1.3,
+  'Sa Mạc giàu Kim Loại hơn hẳn ("tài nguyên phong phú và dễ khai thác")');
+ktra(sanLuongTheoLoai.samac.food < sanLuongTheoLoai.onhoa.food * 0.8,
+  'Sa Mạc nghèo Lương Thực ("nghèo nàn về sự sống")');
+ktra(sanLuongTheoLoai.runggia.food > sanLuongTheoLoai.onhoa.food * 1.2,
+  'Rừng Già nhiều Lương Thực nhất');
+ktra(sanLuongTheoLoai.nuoc.deut > sanLuongTheoLoai.onhoa.deut * 1.3,
+  'Nước – Đầm Lầy nhiều nhiên liệu ("có rất nhiều nhiên liệu")');
+ktra(G.LHT('nuoc').oDat < 0.85, 'Nước – Đầm Lầy ít ô đất ("không dễ dàng kiến thiết")');
+ktra(G.LHT('banghai').thuDat > G.LHT('onhoa').thuDat && G.LHT('nuoc').thuDat > 1,
+  'Băng Hà và Nước phòng thủ mặt đất mạnh hơn');
+/* hệ số phòng thủ mặt đất có tác dụng thật trong trận đánh */
+var thuMau = { gauss: 80, plasma: 25 };
+var kqOn = G.danhTran({ ten: 'A', tech: { weapon: 8 }, ships: { destroyer: 250 } },
+  { ten: 'D', tech: {}, ships: {}, def: G.clone(thuMau), thuDat: 1 }, 4242);
+var kqBang = G.danhTran({ ten: 'A', tech: { weapon: 8 }, ships: { destroyer: 250 } },
+  { ten: 'D', tech: {}, ships: {}, def: G.clone(thuMau), thuDat: G.LHT('banghai').thuDat }, 4242);
+var phaOn = 0, phaBang = 0, kk1;
+for (kk1 in kqOn.matDPha) phaOn += kqOn.matDPha[kk1];
+for (kk1 in kqBang.matDPha) phaBang += kqBang.matDPha[kk1];
+ktra(phaBang < phaOn, 'đánh xuống Băng Hà phá được ít công sự hơn Ôn Hoà (' + phaBang + ' < ' + phaOn + ')');
+
+/* ---- 10h. quân đổ bộ Robot/Tank ---- */
+p.res.metal += 8e7; p.res.crystal += 4e7; p.res.deut += 2e7;
+xayDen('robot', 8); xayDen('shipyard', 9);
+xayDen('lab', 8);
+ncDen('armor', 3); ncDen('energy', 8); ncDen('shield', 5); ncDen('laser', 10);
+ncDen('ion', 5); ncDen('hyperspace', 3); ncDen('hyperdrive', 6); ncDen('plasma', 5);
+p.res.metal += 8e7; p.res.crystal += 6e7; p.res.deut += 3e7;
+ktra(!G.xepTau(st, p, 'robot', 120000), 'đóng được Robot');
+var eTk = G.xepTau(st, p, 'tank', 15000); ktra(!eTk, 'đóng được Tank' + (eTk ? ': ' + eTk : ''));
+var eDc = G.xepTau(st, p, 'destroyer', 200); ktra(!eDc, 'đóng được Đại Chiến Hạm' + (eDc ? ': ' + eDc : ''));
+var tDB = Date.now();
+now += 600 * 3600; G.tick(st, now);
+ktra(Date.now() - tDB < 5000, 'đóng hàng trăm nghìn quân không làm treo engine (' + (Date.now() - tDB) + 'ms)');
+ktra((p.linh.robot || 0) === 120000, 'có 120.000 Robot (' + (p.linh.robot || 0) + ')');
+ktra((p.linh.tank || 0) === 15000, 'có 15.000 Tank');
+ktra(G.sucChoLinh({ destroyer: 200 }) === 200 * G.S('destroyer').choLinh, 'Đại Chiến Hạm chở được quân');
+ktra(!!G.guiHam(st, 0, { cruiser: 1 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'attack', {}, 100, 1, { robot: 100000 }),
+  'chặn khi hạm đội không đủ chỗ chở quân');
+ktra(!!G.guiHam(st, 0, { destroyer: 50 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'spy', {}, 100, 1, { robot: 100 }),
+  'chỉ Tấn Công / Triển Khai / Vận Chuyển mới chở được quân');
+
+/* đánh một NPC có phòng thủ mặt đất, mang theo quân đổ bộ */
+st.nextRaid = st.now + 9e6;
+var mucDB = null;
+for (var hD = p.c.h; hD < p.c.h + 60 && !mucDB; hD++) {
+  var heD = G.xemHe(st, p.c.g, hD);
+  for (var kD = 0; kD < heD.length; kD++) {
+    var oD = heD[kD];
+    if (oD.loai === 'npc' && !oD.npc.bo && oD.npc.diem > 2000 && oD.npc.diem < 15000) { mucDB = oD; break; }
+  }
+}
+ktra(!!mucDB, 'tìm được mục tiêu để đổ bộ');
+if (mucDB) {
+  var thuDatTruoc = 0, kD2;
+  for (kD2 in mucDB.npc.def) { var dD = G.D(kD2); if (dD && dD.lop === 'dat') thuDatTruoc += mucDB.npc.def[kD2]; }
+  var doiHT = { destroyer: Math.min(200, p.ships.destroyer || 0) };
+  ['cruiser', 'battleship', 'fighterH', 'cargoL'].forEach(function (x) {
+    if (p.ships[x]) doiHT[x] = p.ships[x];
+  });
+  var eDB = G.guiHam(st, 0, doiHT, mucDB.c, 'attack', {}, 100, 1, { robot: 120000, tank: 15000 });
+  ktra(!eDB, 'gửi được hạm đội kèm quân đổ bộ' + (eDB ? ': ' + eDB : ''));
+  ktra(G.trong(p.linh), 'quân đã rời hành tinh, không còn ở nhà');
+  now += 30 * 3600; G.tick(st, now);
+  var bcDB = st.msgs.filter(function (m) { return m.data && m.data.kq && m.data.ben === 'ta'; })[0];
+  ktra(!!bcDB, 'có báo cáo trận đánh');
+  if (bcDB && bcDB.data.kq.kq === 'thang') {
+    ktra(!!bcDB.data.doBo, 'báo cáo có pha đổ bộ');
+    if (bcDB.data.doBo) {
+      var thuDatSau = 0, kD3;
+      for (kD3 in mucDB.npc.def) { var dD3 = G.D(kD3); if (dD3 && dD3.lop === 'dat') thuDatSau += mucDB.npc.def[kD3]; }
+      console.log('  · đổ bộ: ' + (bcDB.data.doBo.thang ? 'thắng' : 'thua') +
+        ', phòng thủ mặt đất địch ' + thuDatTruoc + ' -> ' + thuDatSau +
+        ', cướp ' + G.so(G.tongRes(bcDB.data.cuop)));
+      ktra(bcDB.data.doBo.thang ? thuDatSau < thuDatTruoc : true, 'đổ bộ thắng thì phòng thủ mặt đất địch bị xoá');
+      ktra(G.tongRes(bcDB.data.cuop) > 0, 'cướp được tài nguyên');
+    }
+  }
+  now += 30 * 3600; G.tick(st, now);
+  ktra(!G.trong(p.linh) || st.fleets.length === 0, 'quân sống sót đã về nhà');
+}
+
+/* phá công trình */
+var htThu = G.htMoi(st, G.toaDo(1, 70, 7), 'Bia', false);
+htThu.b = { metalMine: 12, crystalMine: 10, solar: 11, shipyard: 6, lab: 5 };
+var capTruoc = G.tongCapCT(htThu);
+var kqPha = G.phaCongTrinh(st, htThu, 1e7);
+ktra(G.tongCapCT(htThu) < capTruoc, 'quân đổ bộ phá được cấp công trình (' + capTruoc + ' -> ' + G.tongCapCT(htThu) + ')');
+ktra(capTruoc - G.tongCapCT(htThu) <= Math.ceil(capTruoc * G.C.PHA_CT_TOI_DA),
+  'không phá quá trần ' + Math.round(G.C.PHA_CT_TOI_DA * 100) + '% mỗi trận');
+
 /* ---- 11. tua offline dài ---- */
 var truocChuKy = st.soChuKy;
 var t0 = Date.now();
