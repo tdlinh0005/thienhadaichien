@@ -104,6 +104,7 @@
     { id: 'xephang', ten: 'Bảng Xếp Hạng' },
     { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
     { id: 'tinnhan', ten: 'Tin Nhắn' },
+    { id: 'huongdan', ten: 'Hướng Dẫn' },
     { id: 'taikhoan', ten: 'Tài Khoản' }
   ];
 

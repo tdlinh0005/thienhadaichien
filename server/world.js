@@ -514,7 +514,8 @@ TheGioi.prototype.taoDeQuoc = function (tk, hienthi) {
   G.tin(st, 'he', 'Vũ trụ này có người thật',
     'Đây là máy chủ nhiều người chơi: những hành tinh màu cam trên bản đồ là người chơi khác. ' +
     'Họ đánh được ta và ta đánh được họ. Dưới ' + G.so(G.C.BAO_VE_MOI_DIEM) +
-    ' điểm thì ta được bảo vệ người chơi mới.');
+    ' điểm thì ta được bảo vệ người chơi mới.\n\n' +
+    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
   var now = Math.floor(Date.now() / 1000);
   var kho = this.kho;
   var diem = Math.round(G.diem(st).tong);

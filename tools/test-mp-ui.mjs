@@ -159,11 +159,12 @@ async function chay() {
   ktra(ten1 === 'Quốc Bình', 'giao diện nhận đúng tên chỉ huy từ máy chủ (' + ten1 + ')');
   await chup(p1, 'tongquan');
 
-  /* ---------- 3. bấm đủ 13 mục menu ---------- */
+  /* ---------- 3. bấm đủ các mục menu ---------- */
   var dsMan = await p1.$$eval('#menu [data-man]', function (els) {
     return els.map(function (e) { return e.getAttribute('data-man'); });
   });
-  ktra(dsMan.length === 13, 'menu có đủ 13 mục (' + dsMan.length + ')');
+  ktra(dsMan.length === 14, 'menu có đủ 14 mục (' + dsMan.length + ')');
+  ktra(dsMan.indexOf('huongdan') >= 0, 'menu có mục Hướng Dẫn');
   var CHO_API = { thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm', bangtin: '/api/bangtin' };
   for (var j = 0; j < dsMan.length; j++) {
     var m = dsMan[j];

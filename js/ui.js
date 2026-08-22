@@ -106,6 +106,7 @@ U.MAN = [
   { id: 'lienminh', ten: 'Liên Minh' },
   { id: 'xephang', ten: 'Bảng Xếp Hạng' },
   { id: 'tinnhan', ten: 'Tin Nhắn' },
+  { id: 'huongdan', ten: 'Hướng Dẫn' },
   { id: 'nhatky', ten: 'Nhật Ký & Lưu' }
 ];
 
@@ -846,6 +847,111 @@ U.m_nhatky = function () {
   else for (var i = 0; i < st.nk.length; i++)
     h += '<div><span class="hu sz">' + G.gio(st.nk[i].t * 1000) + '</span> ' + U.esc(st.nk[i].s) + '</div>';
   h += '</div></div>';
+  return h;
+};
+
+/* ======================================================================
+ * MÀN: HƯỚNG DẪN
+ * ==================================================================== */
+U.m_huongdan = function () {
+  var st = U.st(), p = U.ht();
+  var h = '';
+
+  h += '<div class="panel"><h3>Bắt đầu từ đâu</h3><div class="noi">';
+  h += '<p class="mo">Không có nhiệm vụ dẫn dắt, không có level nhân vật. Sức mạnh của ta = số công trình, ' +
+    'số đề tài nghiên cứu và số tàu — đúng như thiết kế của bản gốc.</p>';
+  h += '<table><tr><th style="width:34px">#</th><th>Việc</th><th>Vì sao</th></tr>' +
+    '<tr><td class="c">1</td><td><b>Mỏ Kim Loại</b> và <b>Mỏ Tinh Thể</b> lên cấp 5–8</td>' +
+    '<td class="mo">Mọi thứ khác đều cần hai thứ này.</td></tr>' +
+    '<tr><td class="c">2</td><td><b>Nhà Máy Điện Mặt Trời</b> chạy theo cho đủ điện</td>' +
+    '<td class="mo">Thiếu điện thì mỏ chỉ chạy cầm chừng — xem ô "Điện" trên thanh trên, phải đạt 100%.</td></tr>' +
+    '<tr><td class="c">3</td><td><b>Trang Trại Sinh Quyển</b> lên sớm</td>' +
+    '<td class="mo">Hết Lương Thực là hành tinh bị đói: sản lượng còn một nửa và hạm đội không xuất kích được.</td></tr>' +
+    '<tr><td class="c">4</td><td><b>Nhà Máy Robot</b> → <b>Xưởng Đóng Tàu</b> → <b>Phòng Nghiên Cứu</b></td>' +
+    '<td class="mo">Robot làm mọi thứ xây nhanh hơn; xưởng mở ra hạm đội; phòng nghiên cứu mở ra công nghệ.</td></tr>' +
+    '<tr><td class="c">5</td><td>Nghiên cứu <b>Động Cơ Đốt</b>, đóng vài <b>Tàu Do Thám</b></td>' +
+    '<td class="mo">Do thám trước khi đánh — đây là thói quen sống còn của thể loại này.</td></tr>' +
+    '<tr><td class="c">6</td><td>Xây <b>Kho</b> khi thấy tài nguyên chạm trần</td>' +
+    '<td class="mo">Kho đầy thì phần sản xuất thêm bị mất trắng.</td></tr>' +
+    '</table></div></div>';
+
+  h += '<div class="luoi2">';
+  h += '<div class="panel"><h3>Bốn cơ chế riêng của Thiên Hà Đại Chiến</h3><div class="noi">' +
+    '<p><b class="cam">1. Chu kỳ bảo trì 6 giờ.</b> Cứ 6 giờ thực, đế quốc bị trừ phí bảo trì bằng <b>Galana</b>, ' +
+    'tính theo quy mô hạm đội + phòng thủ + công trình. Không trả nổi thì mang nợ: sản lượng toàn đế quốc ' +
+    'giảm 30% và hạm đội bị niêm phong, không tấn công được. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
+    'Bí tiền thì ra <b>Chợ Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại. ' +
+    '<i>Trung Tâm Bảo Trì</i> giảm tới 60% khoản phí này.</p>' +
+    '<p><b class="cam">2. Nghiên cứu trả góp.</b> Ngoài chi phí trả ngay, mỗi đề tài còn có <b>vốn đầu tư</b> bị ' +
+    'trừ dần qua từng chu kỳ bảo trì. Giữa chừng hết Galana thì đề tài <b>bị treo</b> cho tới khi có tiền.</p>' +
+    '<p><b class="cam">3. Phòng thủ hai lớp.</b> Lớp <b>quỹ đạo</b> (vệ tinh, trạm phòng không, khiên) đánh ngay từ ' +
+    'vòng 1. Hạm đội địch chỉ hạ xuống tầng khí quyển và đụng lớp <b>mặt đất</b> (tên lửa, laser, gauss, plasma) ' +
+    'từ vòng ' + G.VONG_XUONG_DAT + '. Muốn thủ chắc thì phải có cả hai lớp.</p>' +
+    '<p><b class="cam">4. Đổi mục tiêu giữa đường.</b> Hạm đội đang bay vẫn đổi được đích: vào màn Hạm Đội bấm ' +
+    '"Đổi mục tiêu", mất ' + G.so(G.C.DOI_MUC_TIEU_GALANA) + ' Galana cộng nhiên liệu phụ trội, thời gian bay ' +
+    'tính lại từ vị trí hiện tại. Dùng để đánh úp, hoặc để né khi đối phương kịp dựng phòng thủ.</p>' +
+    '</div></div>';
+
+  h += '<div class="panel"><h3>Đánh nhau</h3><div class="noi">' +
+    '<p>Trận đánh chạy <b>' + G.C.VONG_DANH + ' vòng</b>. Mỗi vòng hai bên bắn đồng thời; khiên hồi đầu mỗi vòng; ' +
+    'phát bắn yếu hơn 1% khiên đối phương thì <b>dội ra</b> không gây sát thương. Một số tàu có <b>bắn nhanh</b>: ' +
+    'hạ được mục tiêu nhỏ thì được bắn tiếp ngay trong vòng đó.</p>' +
+    '<p><b>' + Math.round(G.C.PHE_LIEU * 100) + '% xác tàu</b> đọng lại thành <b>bãi phế liệu</b> trên quỹ đạo — ' +
+    'ai đưa <i>Tàu Thu Hồi</i> tới trước thì vét được, kể cả xác tàu của chính mình. ' +
+    'Công sự bị phá có <b>70%</b> cơ hội được sửa lại sau trận, nên đánh vào chỗ nhiều pháo thường lỗ.</p>' +
+    '<p>Bên thắng cướp tối đa <b>' + Math.round(G.C.CUOP_TOI_DA * 100) + '%</b> tài nguyên trong kho đối phương, ' +
+    'nhưng chỉ chở về được đúng sức chứa khoang hàng — nhớ mang theo tàu vận tải.</p>' +
+    '<p class="mo">Kinh nghiệm: trên mỗi đồng bỏ ra, phòng thủ mặt đất bền hơn hạm đội rất nhiều. Hạm đội để đi ' +
+    'cướp mục tiêu giàu mà mỏng, đừng lao vào chỗ có nhiều Pháo Plasma.</p>' +
+    '</div></div>';
+  h += '</div>';
+
+  h += '<div class="luoi2">';
+  h += '<div class="panel"><h3>Hạm đội &amp; toạ độ</h3><div class="noi">' +
+    '<p>Toạ độ có dạng <b class="sz">[thiên hà : hệ : hành tinh]</b> — vũ trụ có ' + G.C.SO_THIEN_HA + ' × ' +
+    G.C.SO_HE + ' × ' + G.C.SO_HANH_TINH + ' ô. Càng xa bay càng lâu và càng tốn deuterium; ' +
+    'hạ tốc độ xuống 10–50% thì tốn ít nhiên liệu hơn nhiều.</p>' +
+    '<p>Số chuyến bay cùng lúc = <b>' + G.khe(st) + ' khe</b> (tăng bằng <i>Công Nghệ Máy Tính</i> và ' +
+    '<i>Đài Chỉ Huy Hạm Đội</i>). Bảy nhiệm vụ: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, ' +
+    'Thu Hồi, Giữ Chỗ.</p>' +
+    '<p><b>Hạm đội đang bay thì không bao giờ bị bắn hạ.</b> Thấy báo động mà không đỡ nổi thì cho hạm đội ' +
+    'bay đi — về sau quay lại vẫn còn nguyên.</p>' +
+    '</div></div>';
+
+  h += '<div class="panel"><h3>' + (APP.mp ? 'Chơi với người thật' : 'Mở rộng đế quốc') + '</h3><div class="noi">';
+  if (APP.mp) {
+    h += '<p>Hành tinh <b class="cam">màu cam</b> trên bản đồ là người chơi thật. Đánh nhau với họ là thật: ' +
+      'tài nguyên bị cướp khỏi kho của họ, phòng thủ của họ vỡ thật, và họ đánh lại được.</p>' +
+      '<p><b>Bảo vệ người chơi mới:</b> dưới ' + G.so(G.C.BAO_VE_MOI_DIEM) + ' điểm thì hai bên lệch nhau quá ' +
+      G.C.BAO_VE_MOI_TY_LE + ' lần là không đánh được nhau.</p>' +
+      '<p>Khi có người thật cho hạm đội tấn công tới, ta <b>được báo động trước</b> kèm đồng hồ đếm ngược — ' +
+      'nhưng không thấy họ mang gì, muốn biết thì phải do thám ngược lại. Nhiệm vụ do thám của đối phương ' +
+      'thì đi lén, không báo trước.</p>' +
+      '<p>Vào <b>liên minh</b> để được +5% sản lượng, và dùng nhiệm vụ <b>Vận Chuyển</b> chở tài nguyên tiếp tế ' +
+      'cho đồng minh. Hàng bên nhận không chứa nổi sẽ được mang về, không mất.</p>' +
+      '<p class="mo">Đế quốc của ta chạy trên máy chủ 24/7: thoát ra thì mỏ vẫn đào, bảo trì vẫn trừ tiền, ' +
+      'và người khác vẫn đánh vào được.</p>';
+  } else {
+    h += '<p>Nghiên cứu <b>Công Nghệ Liên Hành Tinh</b>: cứ 2 cấp cho phép giữ thêm một hành tinh. ' +
+      'Đóng <b>Tàu Thực Dân</b>, mở màn Thiên Hà, tìm ô <span class="mo">— trống —</span> rồi bấm "Thực dân". ' +
+      'Hành tinh ở vị trí 4–12 thường nhiều ô đất và mát hơn; hành tinh xa mặt trời cho nhiều deuterium hơn.</p>' +
+      '<p>Hành tinh <span class="vang">bỏ hoang</span> của NPC ít phòng thủ nhưng nhiều tài nguyên — đó là chỗ ' +
+      'kiếm vốn tốt nhất lúc đầu.</p>' +
+      '<p class="mo">Thời gian vẫn chạy khi ta đóng game: mở lại là toàn bộ sản xuất, chuyến bay và các chu kỳ ' +
+      'bảo trì đã diễn ra được tua lại đúng thứ tự.</p>';
+  }
+  h += '</div></div></div>';
+
+  h += '<div class="panel"><h3>Về bản phục dựng này</h3><div class="noi mo">' +
+    '<p>Nguyên tác <b>Thiên Hà Đại Chiến</b> là webgame chiến thuật vũ trụ thuần text của <b>Trần Châu Quốc Bình</b> ' +
+    'cùng nhóm 3 người, phát triển từ khoảng 2004, đoạt giải VietGames 2006 (VINASA), vận hành tại ' +
+    'thienhadaichien.com tới đầu thập niên 2010.</p>' +
+    '<p>Server gốc đã mất, nên bản này dựng lại từ tư liệu báo game và diễn đàn còn sót: các cơ chế đặc trưng ' +
+    '(chu kỳ bảo trì 6 giờ, nghiên cứu trả góp, phòng thủ hai lớp, đổi mục tiêu giữa đường, 6 loại tài nguyên) ' +
+    'là thật; mọi con số cân bằng là suy luận theo khung OGame.</p>' +
+    '<p>Hành tinh hiện tại: <b>' + U.esc(p.ten) + '</b> ' + G.tdStr(p.c) + ' · nhiệt độ ' + p.temp + '°C · ' +
+    G.oDaDung(p) + '/' + G.oToiDa(p) + ' ô đất.</p>' +
+    '</div></div>';
   return h;
 };
 

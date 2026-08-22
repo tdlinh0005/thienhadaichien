@@ -41,7 +41,8 @@ G.moiGame = function (ten, seedStr, home) {
     'Hạm đội thuộc địa đã hạ cánh tại ' + G.tdStr(home) + '. Bộ Chỉ Huy Liên Hành Tinh giao cho ' +
     st.ten + ' quyền toàn quyền phát triển hành tinh này.\n\n' +
     'Nhắc lại quy định: mỗi 6 giờ hành tinh phải qua một CHU KỲ BẢO TRÌ. ' +
-    'Không đủ Galana để trả phí bảo trì thì sản lượng sụt và nghiên cứu đứng bánh.');
+    'Không đủ Galana để trả phí bảo trì thì sản lượng sụt và nghiên cứu đứng bánh.\n\n' +
+    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
   return st;
 };
 
