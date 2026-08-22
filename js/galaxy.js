@@ -31,6 +31,7 @@ G.HOOK = null;
 /* --- Thông tin một ô hành tinh ---------------------------------------- */
 G.oHanhTinh = function (st, c) {
   var key = G.tdKey(c);
+  if (c.p === G.C.O_THAM_HIEM) return { loai: 'sau', key: key, c: c };
   for (var i = 0; i < st.planets.length; i++)
     if (G.tdKey(st.planets[i].c) === key) return { loai: 'toi', pi: i, p: st.planets[i], key: key, c: c };
 
@@ -168,6 +169,7 @@ G.xemHe = function (st, g, h) {
     o.debris = (d && (d.metal > 0 || d.crystal > 0)) ? d : null;
     out.push(o);
   }
+  out.push(G.oHanhTinh(st, G.toaDo(g, h, G.C.O_THAM_HIEM)));
   return out;
 };
 

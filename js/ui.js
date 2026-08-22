@@ -181,7 +181,8 @@ U.m_tongquan = function () {
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
   h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
-  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) + '</div>';
+  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
+    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span></div>';
   h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
   h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(st.nextMaint) + ' <span class="mo">(mỗi 6 giờ)</span></div>';
   h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
@@ -604,7 +605,7 @@ U.m_hamdoi = function () {
   h += '<div style="margin-bottom:8px"><b>Mục tiêu</b><div class="hd-td" style="margin-top:4px">' +
     '<input id="f-g" type="number" min="1" max="' + G.C.SO_THIEN_HA + '" value="' + f.den.g + '">:' +
     '<input id="f-h" type="number" min="1" max="' + G.C.SO_HE + '" value="' + f.den.h + '">:' +
-    '<input id="f-p" type="number" min="1" max="' + G.C.SO_HANH_TINH + '" value="' + f.den.p + '">' +
+    '<input id="f-p" type="number" min="1" max="' + G.C.O_THAM_HIEM + '" value="' + f.den.p + '">' +
     '<button class="nut nho" data-act="gal-tu-form">Xem hệ này</button></div></div>';
   h += '<div style="margin-bottom:8px"><b>Nhiệm vụ</b><br><select id="f-mission" style="margin-top:4px;width:100%">';
   for (i = 0; i < G.MISSIONS.length; i++)
@@ -670,10 +671,15 @@ U.m_thienha = function () {
     '<th class="r">Điểm</th><th>Phế liệu</th><th>Hành động</th></tr>';
   for (var i = 0; i < ds.length; i++) {
     var o = ds[i], c = o.c;
-    var cls = o.loai === 'trong' ? 'trong' : (o.loai === 'toi' ? 'toi' :
-      (o.loai === 'nguoi' ? 'nguoi' : (o.npc.bo ? 'npc-bo' : '')));
-    h += '<tr class="' + cls + '"><td class="sz">' + c.p + '</td>';
-    if (o.loai === 'trong') {
+    var cls = '';
+    if (o.loai === 'trong' || o.loai === 'sau') cls = 'trong';
+    else if (o.loai === 'toi') cls = 'toi';
+    else if (o.loai === 'nguoi') cls = 'nguoi';
+    else if (o.npc && o.npc.bo) cls = 'npc-bo';
+    h += '<tr class="' + cls + '"><td class="sz">' + (o.loai === 'sau' ? '<span class="tim">' + c.p + '</span>' : c.p) + '</td>';
+    if (o.loai === 'sau') {
+      h += '<td class="tim">— vùng không gian sâu —</td><td class="mo">chỉ nhận nhiệm vụ Thám Hiểm</td><td></td><td class="r"></td>';
+    } else if (o.loai === 'trong') {
       h += '<td class="mo">— trống —</td><td></td><td></td><td class="r"></td>';
     } else if (o.loai === 'toi') {
       h += '<td><b>' + U.esc(o.p.ten) + '</b></td><td class="luc">' + U.esc(st.ten) + ' (ta)</td><td class="tag-lm">' +
@@ -695,6 +701,8 @@ U.m_thienha = function () {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="spy">Do thám</button> ' +
         '<button class="nut nho xoa" data-act="nv" data-td="' + td + '" data-m="attack">Tấn công</button> ';
       if (st.spy && st.spy[o.key]) h += '<button class="nut nho" data-act="xem-tt" data-key="' + o.key + '">Tin tình báo</button> ';
+    } else if (o.loai === 'sau') {
+      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="thamhiem">Thám hiểm</button> ';
     } else if (o.loai === 'trong') {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="colonize">Thực dân</button> ';
     } else {
@@ -980,6 +988,10 @@ U.m_huongdan = function () {
     'cùng thiên hà: phá <b>phòng thủ mặt đất</b> mà không cần cho hạm đội bay, nhưng không đụng được lớp quỹ đạo ' +
     'và không cướp được gì. Tầm bắn = (cấp Động Cơ Xung × 5) − 1 hệ. Đối phương có Tên Lửa Đánh Chặn thì hạ ' +
     'được 1 đổi 1 — nên nhớ đóng đánh chặn cho mình.</p>' +
+    '<p><b class="cam">Thám hiểm.</b> Ô số 16 của mỗi hệ là <b>vùng không gian sâu</b>. Gửi hạm đội ra đó ' +
+    'để tìm tài nguyên trôi nổi, tàu bỏ hoang còn dùng được hay một trạm giao dịch cũ — nhưng cũng có thể ' +
+    'đụng sinh vật ngoài hành tinh, lạc đường, hoặc bay vào vành đai thiên thạch. Số đoàn đi cùng lúc ' +
+    'phụ thuộc Công Nghệ Liên Hành Tinh. Đừng gửi thứ mình tiếc.</p>' +
     '<p><b class="cam">Máy tính trận đánh.</b> Trước khi xuất kích, mở màn <b>Máy Tính Trận</b>: nạp đội hình ' +
     'đối phương từ báo cáo do thám rồi chạy thử ' + U.MP_LAN + ' lần để biết tỷ lệ thắng và lãi/lỗ kỳ vọng. ' +
     'Đây là thói quen của mọi người chơi lâu năm thể loại này.</p>' +

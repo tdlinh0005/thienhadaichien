@@ -257,6 +257,41 @@ if (st.planets.length >= 2) {
   ktra(oCu.loai !== 'toi', 'ô toạ độ cũ không còn là của ta');
 }
 
+/* ---- 10f. thám hiểm vùng không gian sâu ---- */
+var oSau = G.toaDo(p.c.g, p.c.h, G.C.O_THAM_HIEM);
+ktra(G.oHanhTinh(st, oSau).loai === 'sau', 'ô 16 là vùng không gian sâu');
+ktra(G.xemHe(st, p.c.g, p.c.h).length === G.C.SO_HANH_TINH + 1, 'màn thiên hà có thêm ô thám hiểm');
+ktra(!!G.guiHam(st, 0, { cargoS: 1 }, oSau, 'attack', {}, 100), 'không đánh được vào vùng không gian sâu');
+ktra(!!G.guiHam(st, 0, { cargoS: 1 }, G.toaDo(p.c.g, p.c.h, 5), 'thamhiem', {}, 100), 'thám hiểm phải nhắm đúng ô 16');
+
+var ketQua = {};
+var soLan = 0, matHet = 0;
+for (var tH = 0; tH < 30; tH++) {
+  p.ships.cargoL = (p.ships.cargoL || 0) + 6;
+  p.ships.cruiser = (p.ships.cruiser || 0) + 8;
+  p.res.deut += 200000;
+  var eTh = G.guiHam(st, 0, { cargoL: 6, cruiser: 8 }, oSau, 'thamhiem', {}, 100);
+  if (eTh) { if (tH === 0) console.log('    (không gửi được: ' + eTh + ')'); break; }
+  soLan++;
+  now += 8 * 3600; G.tick(st, now);
+}
+ktra(soLan >= 20, 'điều được nhiều đoàn thám hiểm (' + soLan + ')');
+var nk = st.msgs.filter(function (m) { return m.td && m.td.indexOf('Nhật ký thám hiểm') === 0; });
+ktra(nk.length >= soLan * 0.6, 'mỗi chuyến đều có nhật ký (' + nk.length + '/' + soLan + ')');
+ktra((st.stats.thamHiem || 0) >= soLan * 0.6, 'thống kê đếm được số chuyến thám hiểm');
+var loaiKQ = {};
+nk.forEach(function (m) {
+  var s2 = m.nd || '';
+  var k2 = /đám mây vật chất/.test(s2) ? 'tài nguyên' : /hạm đội bỏ hoang/.test(s2) ? 'tàu trôi dạt'
+    : /Galana/.test(s2) ? 'Galana' : /sinh vật/.test(s2) ? 'chạm trán' : /lạc ra ngoài/.test(s2) ? 'lạc đường'
+    : /thiên thạch/.test(s2) ? 'thiên thạch' : 'không thấy gì';
+  loaiKQ[k2] = (loaiKQ[k2] || 0) + 1;
+});
+console.log('  · kết quả ' + nk.length + ' chuyến thám hiểm: ' + JSON.stringify(loaiKQ));
+ktra(Object.keys(loaiKQ).length >= 3, 'thám hiểm cho nhiều loại kết quả khác nhau');
+ktra(st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0, 'không còn đoàn nào kẹt ngoài đó');
+void matHet; void ketQua;
+
 /* ---- 11. tua offline dài ---- */
 var truocChuKy = st.soChuKy;
 var t0 = Date.now();

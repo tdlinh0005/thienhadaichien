@@ -564,7 +564,8 @@ G.MISSIONS = [
   { id: 'spy',      ten: 'Do Thám',     mota: 'Gửi tàu do thám lấy báo cáo tình báo.' },
   { id: 'colonize', ten: 'Thực Dân',    mota: 'Dựng hành tinh mới ở một ô đất trống.' },
   { id: 'recycle',  ten: 'Thu Hồi',     mota: 'Vét bãi phế liệu trên quỹ đạo mục tiêu.' },
-  { id: 'hold',     ten: 'Giữ Chỗ',     mota: 'Đậu ở hành tinh đồng minh/của mình một khoảng thời gian rồi về.' }
+  { id: 'hold',     ten: 'Giữ Chỗ',     mota: 'Đậu ở hành tinh đồng minh/của mình một khoảng thời gian rồi về.' },
+  { id: 'thamhiem', ten: 'Thám Hiểm',   mota: 'Bay ra vùng không gian sâu (ô 16) tìm vận may — hoặc tìm thấy thứ không nên gặp.' }
 ];
 
 /* --- Hằng số cân bằng [SUY LUẬN] --------------------------------------- */
@@ -575,6 +576,7 @@ G.C = {
   SO_THIEN_HA: 9,
   SO_HE: 499,
   SO_HANH_TINH: 15,
+  O_THAM_HIEM: 16,           // ô ảo ngoài rìa hệ, chỉ dùng cho nhiệm vụ Thám Hiểm
   KHO_KHOI_DIEM: 20000,
   BAO_VE_MOI_DIEM: 5000,     // dưới mốc điểm này được bảo vệ người chơi mới
   BAO_VE_MOI_TY_LE: 5,       // không đánh được đối thủ lệch nhau quá 5 lần điểm
@@ -683,7 +685,8 @@ G.tdParse = function (s) {
   var c = G.toaDo(parseInt(m[0], 10), parseInt(m[1], 10), parseInt(m[2], 10));
   if (!(c.g >= 1 && c.g <= G.C.SO_THIEN_HA)) return null;
   if (!(c.h >= 1 && c.h <= G.C.SO_HE)) return null;
-  if (!(c.p >= 1 && c.p <= G.C.SO_HANH_TINH)) return null;
+  /* ô 16 là vùng không gian sâu — hợp lệ để thám hiểm, không phải hành tinh */
+  if (!(c.p >= 1 && c.p <= G.C.O_THAM_HIEM)) return null;
   return c;
 };
 G.bang = function (a, b) { return a && b && a.g === b.g && a.h === b.h && a.p === b.p; };
@@ -730,6 +733,7 @@ G.HOOK = null;
 /* --- Thông tin một ô hành tinh ---------------------------------------- */
 G.oHanhTinh = function (st, c) {
   var key = G.tdKey(c);
+  if (c.p === G.C.O_THAM_HIEM) return { loai: 'sau', key: key, c: c };
   for (var i = 0; i < st.planets.length; i++)
     if (G.tdKey(st.planets[i].c) === key) return { loai: 'toi', pi: i, p: st.planets[i], key: key, c: c };
 
@@ -867,6 +871,7 @@ G.xemHe = function (st, g, h) {
     o.debris = (d && (d.metal > 0 || d.crystal > 0)) ? d : null;
     out.push(o);
   }
+  out.push(G.oHanhTinh(st, G.toaDo(g, h, G.C.O_THAM_HIEM)));
   return out;
 };
 
@@ -1555,6 +1560,13 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio) {
   ships = sach;
   if (G.trong(ships)) return 'Chưa chọn tàu nào.';
   if (mission === 'spy' && !ships.probe) return 'Nhiệm vụ do thám cần Tàu Do Thám.';
+  if (mission === 'thamhiem') {
+    if (den.p !== G.C.O_THAM_HIEM) return 'Thám hiểm chỉ bay tới ô ' + G.C.O_THAM_HIEM + ' — vùng không gian sâu ở rìa hệ.';
+    if (G.dangThamHiem(st) >= G.kheThamHiem(st))
+      return 'Chỉ điều được ' + G.kheThamHiem(st) + ' đoàn thám hiểm cùng lúc (nâng Công Nghệ Liên Hành Tinh để thêm).';
+  } else if (den.p === G.C.O_THAM_HIEM) {
+    return 'Ô ' + G.C.O_THAM_HIEM + ' là vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm.';
+  }
   if (mission === 'colonize' && !ships.colony) return 'Nhiệm vụ thực dân cần Tàu Thực Dân.';
   if (mission === 'recycle' && !ships.recycler) return 'Nhiệm vụ thu hồi cần Tàu Thu Hồi.';
 
@@ -1639,6 +1651,17 @@ G.hamToiDich = function (st, f) {
     f.ve_t = st.now + G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
     if (ghi) G.ghi(st, ghi);
   };
+
+  if (f.mission === 'thamhiem') {
+    if (!f.dangGiu) {                     /* dừng lại lùng sục một lúc rồi mới có kết quả */
+      f.dangGiu = true;
+      f.den_t = st.now + Math.max(60, Math.round(1800 / G.C.TOC_DO_BAY));
+      return;
+    }
+    f.dangGiu = false;
+    G.thamHiem(st, f);
+    return;
+  }
 
   if (f.mission === 'hold') {
     if (!f.dangGiu) { f.dangGiu = true; f.den_t = st.now + f.giu; return; }
@@ -2167,6 +2190,131 @@ G.tenLuaToiDich = function (st, tl) {
   if (st.hanThu.indexOf(o.key) < 0) st.hanThu.push(o.key);
 };
 
+/* =======================================================================
+ * THÁM HIỂM VÙNG KHÔNG GIAN SÂU (ô 16)
+ * Bay ra rìa hệ tìm vận may: tài nguyên, tàu trôi dạt, Galana — hoặc gặp
+ * sinh vật ngoài hành tinh, lạc trong không gian, mất tàu vì thiên thạch.
+ * [SUY LUẬN] — thể loại này game nào cũng có, bản gốc không còn tư liệu.
+ * ===================================================================== */
+G.kheThamHiem = function (st) { return 1 + Math.floor((st.tech.astro || 0) / 4); };
+G.dangThamHiem = function (st) {
+  var n = 0;
+  for (var i = 0; i < st.fleets.length; i++) if (st.fleets[i].mission === 'thamhiem') n++;
+  return n;
+};
+
+G.thamHiem = function (st, f) {
+  var r = G.rng(G.hash('th' + f.id + ':' + st.now + ':' + G.tdKey(f.den)));
+  var diem = G.diem(st).tong;
+  var suc = G.khoangHang(f.ships);
+  var tran = Math.min(suc, 3000 + Math.round(diem * 8));
+  var lan = r();
+  var noi = '', loai = 'trong';
+
+  var veNha = function (heSo) {
+    f.pha = 've';
+    var tg = G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
+    f.ve_t = st.now + Math.round(tg * (heSo || 1));
+  };
+
+  if (lan < 0.30) {                                   /* tài nguyên trôi nổi */
+    loai = 'res';
+    var lay = Math.round(tran * (0.35 + r() * 0.65));
+    var chia = { metal: Math.round(lay * 0.5), crystal: Math.round(lay * 0.33), deut: Math.round(lay * 0.17) };
+    var k;
+    for (k in chia) if (chia[k] > 0) f.cargo[k] = (f.cargo[k] || 0) + chia[k];
+    noi = 'Tìm thấy một đám mây vật chất chưa ai khai thác:\n' +
+      '  Kim Loại: ' + G.so(chia.metal) + '\n  Tinh Thể: ' + G.so(chia.crystal) + '\n  Deuterium: ' + G.so(chia.deut);
+    veNha(); 
+  } else if (lan < 0.42) {                            /* tàu trôi dạt */
+    loai = 'tau';
+    var duocPhep = [];
+    for (var i = 0; i < G.SHIPS.length; i++) {
+      var s = G.SHIPS[i];
+      if (s.id === 'fortress' || s.id === 'colony') continue;
+      if (G.thoaDK(st, st.planets[f.pi] || st.planets[0], s)) duocPhep.push(s);
+    }
+    if (!duocPhep.length) { noi = 'Gặp một xác tàu cổ nhưng công nghệ của ta chưa đủ để phục hồi thứ gì.'; veNha(); }
+    else {
+      var chon = duocPhep[Math.floor(r() * duocPhep.length)];
+      var giaTri = (chon.cost.metal || 0) + (chon.cost.crystal || 0) + (chon.cost.deut || 0);
+      var soTau = Math.max(1, Math.floor(tran * (0.3 + r() * 0.5) / Math.max(1, giaTri)));
+      f.ships[chon.id] = (f.ships[chon.id] || 0) + soTau;
+      noi = 'Tìm thấy một hạm đội bỏ hoang còn dùng được. Đội sửa chữa kéo về ' +
+        G.so(soTau) + ' ' + chon.ten + '.';
+      veNha();
+    }
+  } else if (lan < 0.52) {                            /* Galana */
+    loai = 'galana';
+    var gl = Math.round((200 + diem * 0.6) * (0.5 + r()));
+    st.galana += gl;
+    noi = 'Bắt được tín hiệu của một trạm giao dịch bỏ hoang. Bán lại số hàng còn trong kho được ' +
+      G.so(gl) + ' Galana.';
+    veNha();
+  } else if (lan < 0.66) {                            /* sinh vật ngoài hành tinh */
+    loai = 'quai';
+    var lucTa = 0, kk;
+    for (kk in f.ships) lucTa += G.giaTriDiem(G.S(kk).cost, f.ships[kk]);
+    var rq = G.rng(G.hash('quai' + f.id + st.now));
+    var quai = G.npcHam(Math.max(60, lucTa * (0.35 + rq() * 0.75)), Math.min(1, diem / 40000), rq);
+    var kq = G.danhTran(
+      { ten: st.ten, tech: st.tech, ships: f.ships },
+      { ten: 'Sinh vật ngoài hành tinh', tech: { weapon: 4, shield: 4, armor: 4 }, ships: quai, def: {} },
+      G.hash('thq' + f.id + st.now));
+    f.ships = kq.conShipsA;
+    var matT = 0, matQ = 0;
+    for (kk in kq.matA) matT += kq.matA[kk];
+    for (kk in kq.matD) matQ += kq.matD[kk];
+    st.stats.tauMat += matT; st.stats.tauDietDich += matQ;
+    G.tin(st, 'tran', 'Chạm trán ở vùng không gian sâu ' + G.tdStr(f.den), null,
+      { kq: kq, cuop: { metal: 0, crystal: 0, deut: 0, food: 0 }, pl: { metal: 0, crystal: 0 }, td: f.den, ben: 'ta' });
+    if (G.trong(f.ships)) {
+      G.tin(st, 'he', 'Mất trắng đoàn thám hiểm',
+        'Hạm đội thám hiểm ở ' + G.tdStr(f.den) + ' bị sinh vật ngoài hành tinh xoá sổ hoàn toàn.');
+      G.xoaHam(st, f);
+      return;
+    }
+    noi = 'Đụng độ một bầy sinh vật ngoài hành tinh. Ta mất ' + G.so(matT) + ' tàu, diệt ' + G.so(matQ) +
+      ' con. Xem chiến báo để biết chi tiết.';
+    veNha();
+  } else if (lan < 0.76) {                            /* lạc trong không gian */
+    loai = 'lac';
+    var he = 2 + Math.round(r() * 2);
+    noi = 'Máy tính dẫn đường tính sai một hằng số hấp dẫn. Hạm đội lạc ra ngoài rìa hệ và mất gấp ' +
+      he + ' lần thời gian để mò đường về.';
+    veNha(he);
+  } else if (lan < 0.84) {                            /* thiên thạch */
+    loai = 'mat';
+    var kkk, matTh = {};
+    for (kkk in f.ships) {
+      var mat = Math.floor(f.ships[kkk] * (0.05 + r() * 0.2));
+      if (mat > 0) { matTh[kkk] = mat; f.ships[kkk] -= mat; if (!f.ships[kkk]) delete f.ships[kkk]; }
+    }
+    if (G.trong(f.ships)) {
+      G.tin(st, 'he', 'Mất trắng đoàn thám hiểm', 'Cả hạm đội thám hiểm tan trong một trận mưa thiên thạch tại ' + G.tdStr(f.den) + '.');
+      G.xoaHam(st, f);
+      return;
+    }
+    noi = G.trong(matTh) ? 'Bay xuyên một vành đai thiên thạch, may là không mất tàu nào.'
+      : 'Bay xuyên một vành đai thiên thạch, mất: ' + G.moTaPha(matTh) + '.';
+    veNha();
+  } else {                                            /* không thấy gì */
+    loai = 'trong';
+    var cau = [
+      'Quét sạch cả vùng, không có gì ngoài bụi và bức xạ nền.',
+      'Bắt được một tín hiệu lạ, đuổi theo ba tiếng đồng hồ thì nó tắt.',
+      'Vùng này đã có người tới trước — chỉ còn lại vết đốt động cơ đã nguội.'
+    ];
+    noi = cau[Math.floor(r() * cau.length)];
+    veNha();
+  }
+
+  st.stats.thamHiem = (st.stats.thamHiem || 0) + 1;
+  if (loai !== 'quai' || noi) {
+    G.tin(st, 'ham', 'Nhật ký thám hiểm ' + G.tdStr(f.den), noi);
+  }
+};
+
 /* ===== js/actions.js ===== */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động dùng chung
  * Đây là NƠI DUY NHẤT các hành động của người chơi được thực thi.
@@ -2511,7 +2659,8 @@ U.m_tongquan = function () {
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
   h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
-  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) + '</div>';
+  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
+    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span></div>';
   h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
   h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(st.nextMaint) + ' <span class="mo">(mỗi 6 giờ)</span></div>';
   h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
@@ -2934,7 +3083,7 @@ U.m_hamdoi = function () {
   h += '<div style="margin-bottom:8px"><b>Mục tiêu</b><div class="hd-td" style="margin-top:4px">' +
     '<input id="f-g" type="number" min="1" max="' + G.C.SO_THIEN_HA + '" value="' + f.den.g + '">:' +
     '<input id="f-h" type="number" min="1" max="' + G.C.SO_HE + '" value="' + f.den.h + '">:' +
-    '<input id="f-p" type="number" min="1" max="' + G.C.SO_HANH_TINH + '" value="' + f.den.p + '">' +
+    '<input id="f-p" type="number" min="1" max="' + G.C.O_THAM_HIEM + '" value="' + f.den.p + '">' +
     '<button class="nut nho" data-act="gal-tu-form">Xem hệ này</button></div></div>';
   h += '<div style="margin-bottom:8px"><b>Nhiệm vụ</b><br><select id="f-mission" style="margin-top:4px;width:100%">';
   for (i = 0; i < G.MISSIONS.length; i++)
@@ -3000,10 +3149,15 @@ U.m_thienha = function () {
     '<th class="r">Điểm</th><th>Phế liệu</th><th>Hành động</th></tr>';
   for (var i = 0; i < ds.length; i++) {
     var o = ds[i], c = o.c;
-    var cls = o.loai === 'trong' ? 'trong' : (o.loai === 'toi' ? 'toi' :
-      (o.loai === 'nguoi' ? 'nguoi' : (o.npc.bo ? 'npc-bo' : '')));
-    h += '<tr class="' + cls + '"><td class="sz">' + c.p + '</td>';
-    if (o.loai === 'trong') {
+    var cls = '';
+    if (o.loai === 'trong' || o.loai === 'sau') cls = 'trong';
+    else if (o.loai === 'toi') cls = 'toi';
+    else if (o.loai === 'nguoi') cls = 'nguoi';
+    else if (o.npc && o.npc.bo) cls = 'npc-bo';
+    h += '<tr class="' + cls + '"><td class="sz">' + (o.loai === 'sau' ? '<span class="tim">' + c.p + '</span>' : c.p) + '</td>';
+    if (o.loai === 'sau') {
+      h += '<td class="tim">— vùng không gian sâu —</td><td class="mo">chỉ nhận nhiệm vụ Thám Hiểm</td><td></td><td class="r"></td>';
+    } else if (o.loai === 'trong') {
       h += '<td class="mo">— trống —</td><td></td><td></td><td class="r"></td>';
     } else if (o.loai === 'toi') {
       h += '<td><b>' + U.esc(o.p.ten) + '</b></td><td class="luc">' + U.esc(st.ten) + ' (ta)</td><td class="tag-lm">' +
@@ -3025,6 +3179,8 @@ U.m_thienha = function () {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="spy">Do thám</button> ' +
         '<button class="nut nho xoa" data-act="nv" data-td="' + td + '" data-m="attack">Tấn công</button> ';
       if (st.spy && st.spy[o.key]) h += '<button class="nut nho" data-act="xem-tt" data-key="' + o.key + '">Tin tình báo</button> ';
+    } else if (o.loai === 'sau') {
+      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="thamhiem">Thám hiểm</button> ';
     } else if (o.loai === 'trong') {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="colonize">Thực dân</button> ';
     } else {
@@ -3310,6 +3466,10 @@ U.m_huongdan = function () {
     'cùng thiên hà: phá <b>phòng thủ mặt đất</b> mà không cần cho hạm đội bay, nhưng không đụng được lớp quỹ đạo ' +
     'và không cướp được gì. Tầm bắn = (cấp Động Cơ Xung × 5) − 1 hệ. Đối phương có Tên Lửa Đánh Chặn thì hạ ' +
     'được 1 đổi 1 — nên nhớ đóng đánh chặn cho mình.</p>' +
+    '<p><b class="cam">Thám hiểm.</b> Ô số 16 của mỗi hệ là <b>vùng không gian sâu</b>. Gửi hạm đội ra đó ' +
+    'để tìm tài nguyên trôi nổi, tàu bỏ hoang còn dùng được hay một trạm giao dịch cũ — nhưng cũng có thể ' +
+    'đụng sinh vật ngoài hành tinh, lạc đường, hoặc bay vào vành đai thiên thạch. Số đoàn đi cùng lúc ' +
+    'phụ thuộc Công Nghệ Liên Hành Tinh. Đừng gửi thứ mình tiếc.</p>' +
     '<p><b class="cam">Máy tính trận đánh.</b> Trước khi xuất kích, mở màn <b>Máy Tính Trận</b>: nạp đội hình ' +
     'đối phương từ báo cáo do thám rồi chạy thử ' + U.MP_LAN + ' lần để biết tỷ lệ thắng và lãi/lỗ kỳ vọng. ' +
     'Đây là thói quen của mọi người chơi lâu năm thể loại này.</p>' +

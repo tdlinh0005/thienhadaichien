@@ -290,7 +290,8 @@ G.MISSIONS = [
   { id: 'spy',      ten: 'Do Thám',     mota: 'Gửi tàu do thám lấy báo cáo tình báo.' },
   { id: 'colonize', ten: 'Thực Dân',    mota: 'Dựng hành tinh mới ở một ô đất trống.' },
   { id: 'recycle',  ten: 'Thu Hồi',     mota: 'Vét bãi phế liệu trên quỹ đạo mục tiêu.' },
-  { id: 'hold',     ten: 'Giữ Chỗ',     mota: 'Đậu ở hành tinh đồng minh/của mình một khoảng thời gian rồi về.' }
+  { id: 'hold',     ten: 'Giữ Chỗ',     mota: 'Đậu ở hành tinh đồng minh/của mình một khoảng thời gian rồi về.' },
+  { id: 'thamhiem', ten: 'Thám Hiểm',   mota: 'Bay ra vùng không gian sâu (ô 16) tìm vận may — hoặc tìm thấy thứ không nên gặp.' }
 ];
 
 /* --- Hằng số cân bằng [SUY LUẬN] --------------------------------------- */
@@ -301,6 +302,7 @@ G.C = {
   SO_THIEN_HA: 9,
   SO_HE: 499,
   SO_HANH_TINH: 15,
+  O_THAM_HIEM: 16,           // ô ảo ngoài rìa hệ, chỉ dùng cho nhiệm vụ Thám Hiểm
   KHO_KHOI_DIEM: 20000,
   BAO_VE_MOI_DIEM: 5000,     // dưới mốc điểm này được bảo vệ người chơi mới
   BAO_VE_MOI_TY_LE: 5,       // không đánh được đối thủ lệch nhau quá 5 lần điểm

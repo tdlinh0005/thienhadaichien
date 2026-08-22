@@ -75,7 +75,7 @@ Chi tiết kiến trúc, schema database, bảng API, luồng PvP, bảo mật v
 Bốn bộ kiểm thử, không cần cài gì (bộ giao diện cần Chromium của Playwright):
 
 ```bash
-node tools/smoke.js          # 76 kiểm tra — phần luật: sản xuất, điện, lương thực, bảo trì,
+node tools/smoke.js          # 85 kiểm tra — phần luật: sản xuất, điện, lương thực, bảo trì,
                              #   nghiên cứu trả góp, đóng tàu, phòng thủ 2 lớp, do thám,
                              #   tấn công & cướp, đổi mục tiêu giữa đường, thực dân hoá,
                              #   NPC đánh lại, tua offline 30 ngày, lưu/nạp JSON
@@ -126,11 +126,14 @@ biên Ngân Hà: khai thác, xây dựng, nghiên cứu, đóng hạm đội, v�
 - **13 loại tàu**: từ Phi Thuyền Nhẹ tới **Pháo Đài Di Động** (9 triệu vỏ thép), kèm tàu vận
   tải, do thám, thu hồi, thực dân.
 - **10 công trình phòng thủ** chia hai lớp + 2 loại tên lửa.
-- **7 nhiệm vụ hạm đội**: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, Thu Hồi, Giữ Chỗ.
+- **8 nhiệm vụ hạm đội**: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, Thu Hồi, Giữ Chỗ, Thám Hiểm.
 - **Tên lửa liên hành tinh**: bắn thẳng sang hành tinh khác phá phòng thủ mặt đất, tầm bắn
   theo cấp Động Cơ Xung, bên bị bắn dùng Tên Lửa Đánh Chặn hạ 1 đổi 1.
 - **Máy tính trận đánh**: chạy thử 60 lần một trận bằng đúng bộ luật, cho tỷ lệ thắng, tàu
   mất quy ra tài nguyên và lãi/lỗ kỳ vọng; nạp thẳng đội hình địch từ báo cáo do thám.
+- **Thám hiểm vùng không gian sâu** (ô 16 của mỗi hệ): 7 loại kết cục — tài nguyên trôi nổi,
+  hạm đội bỏ hoang, trạm giao dịch cũ, chạm trán sinh vật ngoài hành tinh, lạc đường, vành đai
+  thiên thạch, hoặc chẳng thấy gì.
 - **Vũ trụ 9 × 499 × 15** hành tinh, sinh tất định từ hạt giống — cùng hạt giống thì bản đồ
   luôn giống nhau. Các đế quốc NPC có tên, liên minh, điểm, hạm đội và phòng thủ riêng;
   hành tinh **bỏ hoang** ít phòng thủ nhưng nhiều tài nguyên (nông trại kinh điển của thể loại).

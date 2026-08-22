@@ -312,6 +312,10 @@ Ngoại lệ chưa bắt trong tầng API được `server/index.js` bọc lại
   `/api/he`, `/api/xephang`, `/api/lm`, `/api/bangtin` gọi khi mở màn tương ứng.
   Không có WebSocket — tất cả là polling.
 
+> `/api/he` trả 16 dòng: 15 ô hành tinh cộng một ô ảo `loai:'sau'` (ô số
+> `G.C.O_THAM_HIEM` = 16) — vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm và
+> không bao giờ có chủ.
+
 ## 5. Luồng PvP
 
 Đây là chỗ khác biệt lớn nhất so với bản một người: một lượt tua của người A phải

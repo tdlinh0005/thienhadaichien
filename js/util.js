@@ -81,7 +81,8 @@ G.tdParse = function (s) {
   var c = G.toaDo(parseInt(m[0], 10), parseInt(m[1], 10), parseInt(m[2], 10));
   if (!(c.g >= 1 && c.g <= G.C.SO_THIEN_HA)) return null;
   if (!(c.h >= 1 && c.h <= G.C.SO_HE)) return null;
-  if (!(c.p >= 1 && c.p <= G.C.SO_HANH_TINH)) return null;
+  /* ô 16 là vùng không gian sâu — hợp lệ để thám hiểm, không phải hành tinh */
+  if (!(c.p >= 1 && c.p <= G.C.O_THAM_HIEM)) return null;
   return c;
 };
 G.bang = function (a, b) { return a && b && a.g === b.g && a.h === b.h && a.p === b.p; };

@@ -206,7 +206,7 @@ async function chay() {
 
   await vaoMan(p1, 'thienha', '/api/he');
   var n15 = await soHang(p1);
-  ktra(n15 === 15, 'bảng thiên hà hiện đủ 15 ô (' + n15 + ')');
+  ktra(n15 === 16, 'bảng thiên hà hiện 15 ô hành tinh + 1 ô không gian sâu (' + n15 + ')');
   var nhaCuaToi = await p1.$$eval('#noidung table tr.toi td', function (ts) { return ts.map(function (t) { return t.textContent; }); });
   ktra(nhaCuaToi.length > 0 && /\(ta\)/.test(nhaCuaToi.join(' ')), 'hàng hành tinh của chính ta được đánh dấu "(ta)"');
   await chup(p1, 'thienha');
@@ -217,7 +217,7 @@ async function chay() {
   log(daDi ? 'người 2 điều hướng tới hệ [' + nha1.g + ':' + nha1.h + ']' : 'hai người ở cùng hệ, không cần điều hướng');
   var gal = await p2.evaluate('[U.gal.g, U.gal.h]');
   ktra(gal[0] === nha1.g && gal[1] === nha1.h, 'bản đồ của người 2 đang ở hệ của người 1');
-  ktra((await soHang(p2)) === 15, 'bảng thiên hà của người 2 cũng đủ 15 ô');
+  ktra((await soHang(p2)) === 16, 'bảng thiên hà của người 2 cũng đủ 16 dòng');
 
   var hangNguoi = await p2.$$eval('#noidung table tr.nguoi', function (rs) {
     return rs.map(function (r) {

@@ -482,6 +482,8 @@ TheGioi.prototype.xemHe = function (tk, g, h) {
       o.debris = plMap[td] && (plMap[td].metal > 0 || plMap[td].crystal > 0) ? plMap[td] : null;
       out.push(o);
     }
+    /* ô 16: vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm */
+    out.push({ loai: 'sau', key: g + ':' + h + ':' + G.C.O_THAM_HIEM, c: G.toaDo(g, h, G.C.O_THAM_HIEM), debris: null });
     return { g: g, h: h, o: out };
   } finally {
     this.chuStack.pop();
