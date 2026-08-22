@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="theme-color" content="#05070f">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thiên Hà Đại Chiến</title>
+<meta name="description" content="Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến của dev Việt (2004–2013).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 fill=%27%23070b14%27/%3E%3Ccircle cx=%2732%27 cy=%2734%27 r=%2716%27 fill=%27%23ff7a18%27/%3E%3Cellipse cx=%2732%27 cy=%2734%27 rx=%2726%27 ry=%277%27 fill=%27none%27 stroke=%27%2357c8ff%27 stroke-width=%273%27/%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%272%27 fill=%27%23fff%27/%3E%3Ccircle cx=%2752%27 cy=%2716%27 r=%271.6%27 fill=%27%23fff%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="man-khoidong" class="khoidong">
+  <div class="kd-hop">
+    <div class="kd-logo">THIÊN HÀ<span>ĐẠI CHIẾN</span></div>
+    <div class="kd-sub">Webgame chiến thuật vũ trụ &middot; bản phục dựng <span id="kd-ver"></span></div>
+    <div class="kd-nam">Năm <b>2184</b> &middot; Liên Bang Địa Cầu &middot; Vùng biên Ngân Hà</div>
+    <div class="kd-form">
+      <label>Tên chỉ huy</label>
+      <input id="kd-ten" maxlength="18" placeholder="VD: Quốc Bình" autocomplete="off">
+      <label>Hạt giống vũ trụ <span class="mo">(để trống = ngẫu nhiên)</span></label>
+      <input id="kd-seed" maxlength="24" placeholder="THDC-2184" autocomplete="off">
+      <button id="kd-batdau" class="nut lon">BẮT ĐẦU CHIẾN DỊCH</button>
+      <button id="kd-tieptuc" class="nut phu" style="display:none">TIẾP TỤC BÀN CŨ</button>
+    </div>
+    <div class="kd-ghi">
+      Bản gốc do <b>Trần Châu Quốc Bình</b> và nhóm 3 người phát triển từ 2004, đoạt giải VietGames 2006.
+      Đây là bản dựng lại từ tư liệu còn sót — xem <a href="docs/NGHIEN-CUU.md">phần nghiên cứu</a>.
+    </div>
+  </div>
+</div>
+
+<div id="game" style="display:none">
+  <header id="thanh-tren">
+    <div class="tt-logo" data-act="man" data-man="tongquan">THIÊN HÀ ĐẠI CHIẾN</div>
+    <div id="tt-res" class="tt-res"></div>
+    <div class="tt-phu">
+      <select id="chon-ht" title="Chọn hành tinh"></select>
+      <button class="nut nho" data-act="luu">Lưu</button>
+      <button class="nut nho" id="nut-menu">☰</button>
+    </div>
+  </header>
+
+  <div id="thanh-canh"></div>
+
+  <div class="khung">
+    <nav id="menu"></nav>
+    <main id="noidung"></main>
+  </div>
+
+  <footer id="chan">
+    <span id="chan-tt"></span>
+  </footer>
+</div>
+
+<div id="hop-thoai" class="hop-thoai" style="display:none">
+  <div class="ht-trong">
+    <div class="ht-dau"><span id="ht-td"></span><button class="nut nho" data-act="dong-ht">✕</button></div>
+    <div id="ht-noi"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/util.js"></script>
+<script src="js/galaxy.js"></script>
+<script src="js/combat.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/fleet.js"></script>
+<script src="js/actions.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
