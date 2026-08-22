@@ -79,7 +79,7 @@ node tools/smoke.js          # 56 kiểm tra — phần luật: sản xuất, đ
                              #   nghiên cứu trả góp, đóng tàu, phòng thủ 2 lớp, do thám,
                              #   tấn công & cướp, đổi mục tiêu giữa đường, thực dân hoá,
                              #   NPC đánh lại, tua offline 30 ngày, lưu/nạp JSON
-node tools/test-server.js    # 91 kiểm tra — máy chủ qua HTTP thật với nhiều tài khoản:
+node tools/test-server.js    # 104 kiểm tra — máy chủ qua HTTP thật với nhiều tài khoản:
                              #   đăng ký/đăng nhập/đổi mật khẩu, băm mật khẩu, chặn dữ liệu
                              #   rác, sản xuất khi vắng mặt, do thám PvP, đánh nhau PvP
                              #   (thắng & hoà), cướp tài nguyên thật, tiếp tế đồng minh,

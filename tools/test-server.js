@@ -409,6 +409,30 @@ function truyVan(sql, ...args) {
     var sauThoat = await goi('/api/state', null, a.token);
     ktra(sauThoat.__ma === 401, 'token bị vô hiệu sau khi đăng xuất');
 
+    /* ---------- 12b. xoá tài khoản ---------- */
+    var xt = await goi('/api/dangky', { ten: 'roigame', hienthi: 'Rời Game', mk: 'matkhau111' });
+    ktra(!!xt.token, 'đăng ký tài khoản để thử xoá');
+    var idX = truyVan("SELECT id FROM tk WHERE ten='roigame'")[0].id;
+    var tdX = xt.nha.g + ':' + xt.nha.h + ':' + xt.nha.p;
+    ktra(truyVan('SELECT * FROM ht WHERE td=?', tdX).length === 1, 'hành tinh của tài khoản mới có trong bảng ht');
+    var x1 = await goi('/api/xoatk', { mk: 'sai', xacnhan: 'XOA' }, xt.token);
+    ktra(x1.__ma === 401, 'không xoá được khi sai mật khẩu');
+    var x2 = await goi('/api/xoatk', { mk: 'matkhau111', xacnhan: 'co' }, xt.token);
+    ktra(x2.__ma === 400, 'không xoá được khi chưa gõ đúng chữ xác nhận');
+    ktra(truyVan('SELECT * FROM tk WHERE id=?', idX).length === 1, 'tài khoản vẫn còn sau hai lần thử sai');
+    var x3 = await goi('/api/xoatk', { mk: 'matkhau111', xacnhan: 'XOA' }, xt.token);
+    ktra(!x3.loi, 'xoá được tài khoản' + (x3.loi ? ': ' + x3.loi : ''));
+    ktra(truyVan('SELECT * FROM tk WHERE id=?', idX).length === 0, 'dòng tk đã bị xoá');
+    ktra(truyVan('SELECT * FROM dq WHERE tk=?', idX).length === 0, 'đế quốc bị xoá theo (CASCADE)');
+    ktra(truyVan('SELECT * FROM ht WHERE tk=?', idX).length === 0, 'hành tinh trở về trạng thái trống');
+    ktra(truyVan('SELECT * FROM phien WHERE tk=?', idX).length === 0, 'phiên đăng nhập bị thu hồi');
+    var sauXoa = await goi('/api/state', null, xt.token);
+    ktra(sauXoa.__ma === 401, 'token của tài khoản đã xoá không dùng được nữa');
+    var heTrong = await goi('/api/he?g=' + xt.nha.g + '&h=' + xt.nha.h, null, b.token);
+    var oCu = heTrong.o.find(o => o.c.p === xt.nha.p);
+    ktra(oCu && oCu.loai !== 'nguoi', 'ô hành tinh cũ không còn hiện là của người chơi nào');
+    ktra(truyVan('SELECT * FROM tran').length === 2, 'lịch sử trận đánh không bị xoá theo tài khoản');
+
     /* ---------- 13. dữ liệu bền vững sau khi khởi động lại ---------- */
     sv.kill('SIGTERM');
     await nghi(700);
@@ -424,7 +448,7 @@ function truyVan(sql, ...args) {
     if (san2) {
       var tt2 = await goi('/api/thongtin');
       ktra(tt2.seed === tt.seed, 'hạt giống vũ trụ giữ nguyên sau khi khởi động lại');
-      ktra(tt2.soNguoi === 4, 'vẫn còn 4 tài khoản');
+      ktra(tt2.soNguoi === 4, 'vẫn còn 4 tài khoản (tài khoản đã xoá không quay lại)');
       var dn3 = await goi('/api/dangnhap', { ten: 'levu', mk: 'matkhau456' });
       var s3 = await goi('/api/state', null, dn3.token);
       ktra(!!s3.st && s3.st.planets.length >= 1, 'B đăng nhập lại và lấy được đế quốc cũ');

@@ -148,7 +148,8 @@
       '<tr><td>Tàu của ta bị mất</td><td class="r sz">' + G.so(st.stats.tauMat) + '</td></tr>' +
       '</table>' +
       '<div style="margin-top:8px"><button class="nut nho" data-act="doi-mk">Đổi mật khẩu</button> ' +
-      '<button class="nut nho xoa" data-act="dangxuat">Đăng xuất</button></div>' +
+      '<button class="nut nho" data-act="dangxuat">Đăng xuất</button> ' +
+      '<button class="nut nho xoa" data-act="xoa-tk">Xoá tài khoản</button></div>' +
       '</div></div>';
 
     h += '<div class="panel"><h3>Máy chủ</h3><div class="noi"><table>' +
@@ -237,6 +238,23 @@
         moi: (document.getElementById('mk-moi') || {}).value || ''
       }).then(function () { U.dongHop(); U.toast('Đã đổi mật khẩu.', 'ok'); },
         function (e) { U.toast(e.message, 'loi'); });
+    },
+    'xoa-tk': function () {
+      U.hop('Xoá tài khoản',
+        '<p>Toàn bộ đế quốc sẽ bị xoá khỏi máy chủ và các hành tinh của ta trở về trạng thái trống ' +
+        'cho người khác chiếm. <b>Không lấy lại được.</b></p>' +
+        '<div class="kd-form"><label>Mật khẩu</label><input id="xtk-mk" type="password">' +
+        '<label>Gõ chữ <b>XOA</b> để xác nhận</label><input id="xtk-xn" maxlength="10">' +
+        '<button class="nut lon xoa" data-act="xoa-tk-ok">XOÁ VĨNH VIỄN</button></div>');
+    },
+    'xoa-tk-ok': function () {
+      api('/api/xoatk', {
+        mk: (document.getElementById('xtk-mk') || {}).value || '',
+        xacnhan: (document.getElementById('xtk-xn') || {}).value || ''
+      }).then(function () {
+        U.dongHop();
+        dangXuatCuc('Tài khoản đã được xoá. Hẹn gặp lại ở một vũ trụ khác.');
+      }, function (e) { U.toast(e.message, 'loi'); });
     },
     dangxuat: function () {
       api('/api/dangxuat', {}).then(function () { dangXuatCuc(null); }, function () { dangXuatCuc(null); });

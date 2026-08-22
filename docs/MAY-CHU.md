@@ -281,6 +281,7 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/lm` | GET | **có** | — | `{ds:[{ten, tag, sl, diem, chu, mota}], tv:[{ten, diem, ht, ta}]}` (`tv` = thành viên liên minh của mình) |
 | `/api/lmtao` | POST | **có** | `{ten, tag}` | `{loi, st, sv}` — lập liên minh rồi tự gia nhập · 400 tên/thẻ sai hoặc đã tồn tại |
 | `/api/bangtin` | GET | **có** | — | `{bt:[…40 tin…], tran:[…20 trận…]}` |
+| `/api/xoatk` | POST | **có** | `{mk, xacnhan:"XOA"}` | `{ok:true}` — xoá tài khoản, đế quốc, hành tinh và phiên; giữ lại lịch sử `tran` |
 | `/api/doimk` | POST | **có** | `{cu, moi}` | `{ok:true}` · 401 mật khẩu cũ sai · 400 mật khẩu mới ngắn hơn 6 ký tự |
 
 Đường dẫn `/api/*` không khớp bảng trên trả **404** `{loi:"Không có đường dẫn này."}`.

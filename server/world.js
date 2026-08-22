@@ -530,6 +530,21 @@ TheGioi.prototype.taoDeQuoc = function (tk, hienthi) {
   return { st: st, nha: nha };
 };
 
+/* ------------------------------------------------------- xoá tài khoản */
+TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi) {
+  if (this.dangTick.has(tk)) return 'Đế quốc đang được xử lý, thử lại sau một nhịp.';
+  var kho = this.kho, now = Math.floor(Date.now() / 1000);
+  kho.giaoDich(function () {
+    /* ht / hamdang / dq / phien có ON DELETE CASCADE nên xoá theo;
+       bảng tran giữ lại lịch sử để đối thủ vẫn tra được trận cũ. */
+    kho.q.phienXoaCua.run(tk);
+    kho.q.tkXoa.run(tk);
+    kho.q.lmDonRong.run();
+    kho.q.btThem.run(now, 'tk', tenHienThi + ' đã rời khỏi vũ trụ, các hành tinh trở về trạng thái trống.');
+  });
+  return null;
+};
+
 /* --------------------------------------------------------------- liên minh */
 TheGioi.prototype.lmDS = function () {
   return this.kho.q.lmDS.all().map(function (r) {

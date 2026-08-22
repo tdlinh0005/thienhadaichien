@@ -223,6 +223,17 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     });
   }
 
+  if (duong === '/api/xoatk' && req.method === 'POST') {
+    var b8 = await docBody(req);
+    if (!bangNhau(bam(chuoi(b8.mk, 200), p.tkRow.muoi), p.tkRow.mk))
+      return json(res, 401, { loi: 'Mật khẩu không đúng.' });
+    if (chuoi(b8.xacnhan, 40) !== 'XOA')
+      return json(res, 400, { loi: 'Cần gõ đúng chữ XOA để xác nhận.' });
+    var loiX = self.tg.xoaTaiKhoan(p.tk, p.tkRow.hienthi);
+    if (loiX) return json(res, 503, { loi: loiX });
+    return json(res, 200, { ok: true });
+  }
+
   if (duong === '/api/doimk' && req.method === 'POST') {
     var b7 = await docBody(req);
     if (!bangNhau(bam(chuoi(b7.cu, 200), p.tkRow.muoi), p.tkRow.mk))

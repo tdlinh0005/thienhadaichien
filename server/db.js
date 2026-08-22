@@ -115,6 +115,9 @@ function Kho(duong) {
     tkVao: d.prepare('UPDATE tk SET vaoCuoi=? WHERE id=?'),
     tkDem: d.prepare('SELECT COUNT(*) n FROM tk'),
     tkDoiMK: d.prepare('UPDATE tk SET mk=?, muoi=? WHERE id=?'),
+    tkXoa: d.prepare('DELETE FROM tk WHERE id=?'),
+    phienXoaCua: d.prepare('DELETE FROM phien WHERE tk=?'),
+    lmDonRong: d.prepare('DELETE FROM lm WHERE (SELECT COUNT(*) FROM dq WHERE dq.lm=lm.ten)=0'),
 
     phienThem: d.prepare('INSERT INTO phien(token,tk,tao,hetHan) VALUES(?,?,?,?)'),
     phienGet: d.prepare('SELECT * FROM phien WHERE token=?'),
