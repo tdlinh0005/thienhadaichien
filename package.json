@@ -1,0 +1,18 @@
+{
+  "name": "thien-ha-dai-chien",
+  "version": "1.33.0",
+  "description": "Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến (dev Việt, 2004–2013) — một người chơi offline hoặc nhiều người chơi qua máy chủ Node + SQLite.",
+  "private": true,
+  "type": "commonjs",
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node tools/smoke.js && node tools/test-server.js",
+    "test:luat": "node tools/smoke.js",
+    "test:server": "node tools/test-server.js",
+    "test:ui": "node tools/test-mp-ui.mjs",
+    "build": "node tools/build.js && node tools/build.js --artifact"
+  },
+  "dependencies": {},
+  "license": "UNLICENSED"
+}

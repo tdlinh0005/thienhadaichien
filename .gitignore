@@ -1,0 +1,8 @@
+# database máy chủ (dữ liệu người chơi thật — không đưa lên repo)
+server/data/
+*.db
+*.db-wal
+*.db-shm
+
+node_modules/
+.DS_Store

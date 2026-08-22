@@ -1,0 +1,225 @@
+/* THIÊN HÀ ĐẠI CHIẾN — tầng thao tác giao diện (dùng chung cho 1 người & nhiều người)
+ * Mọi thao tác của người chơi đi qua APP.lam(ten, dl, xong):
+ *   - bản một người  (js/main.js): chạy G.chay() ngay trên state trong máy
+ *   - bản nhiều người (web/js/mp.js): gửi lên server, server mới là bên quyết định
+ * File này chỉ lo thu dữ liệu từ DOM, hiện hộp thoại và vẽ lại.            */
+'use strict';
+var G = window.G, U = window.U, APP = window.APP = window.APP || {};
+
+APP.mp = false;                 // true khi đang chơi ở chế độ nhiều người
+
+/* Nguồn dữ liệu vũ trụ: bản một người tính tại chỗ, bản nhiều người lấy từ server */
+U.nguon = {
+  xemHe: function (g, h) { return G.xemHe(U.st(), g, h); },
+  xepHang: function () { return G.xepHang(U.st()); },
+  dsLM: function () {
+    var out = [];
+    for (var i = 0; i < G.LIEN_MINH.length; i++) if (G.LIEN_MINH[i]) out.push({ ten: G.LIEN_MINH[i] });
+    return out;
+  }
+};
+
+function soO(id) { var e = document.getElementById(id); return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
+function veLai(err, okMsg) {
+  if (err) U.toast(err, 'loi');
+  else if (okMsg) U.toast(okMsg, 'ok');
+  U.ve();
+}
+/* gửi một hành động lên "máy" (local hoặc server) */
+function lam(ten, dl, okMsg) {
+  APP.lam(ten, dl || {}, function (err) { veLai(err, err ? null : okMsg); });
+}
+APP.gui = lam;
+
+var ACT = {
+  /* ---------- điều hướng & hộp thoại ---------- */
+  man: function (el) {
+    U.man = el.getAttribute('data-man');
+    var m = document.getElementById('menu'); if (m) m.classList.remove('mo-ra');
+    U.ve(); window.scrollTo(0, 0);
+  },
+  'dong-ht': function () { U.dongHop(); },
+  luu: function () { if (APP.luu) APP.luu(false); },
+
+  /* ---------- công trình / nghiên cứu / xưởng ---------- */
+  xay: function (el) { lam('xay', { pi: U.pi, id: el.getAttribute('data-id') }); },
+  huyxay: function (el) { lam('huyxay', { pi: U.pi, i: +el.getAttribute('data-i') }); },
+  nc: function (el) { lam('nc', { pi: U.pi, id: el.getAttribute('data-id') }); },
+  huync: function () { lam('huync', {}, 'Đã huỷ đề tài, hoàn lại chi phí.'); },
+  dong: function (el) {
+    var id = el.getAttribute('data-id');
+    lam('dong', { pi: U.pi, id: id, n: soO('sl-' + id) || 1 });
+  },
+  huydong: function (el) { lam('huydong', { pi: U.pi, i: +el.getAttribute('data-i') }); },
+
+  /* ---------- chợ ---------- */
+  ban: function (el) {
+    var r = el.getAttribute('data-res');
+    lam('ban', { pi: U.pi, res: r, n: soO('cho-' + r) });
+  },
+  mua: function (el) {
+    var r = el.getAttribute('data-res');
+    lam('mua', { pi: U.pi, res: r, n: soO('cho-' + r) });
+  },
+
+  /* ---------- bản đồ thiên hà ---------- */
+  gal: function (el) {
+    if (!U.gal) U.gal = { g: U.ht().c.g, h: U.ht().c.h };
+    U.gal.g = Math.min(G.C.SO_THIEN_HA, Math.max(1, U.gal.g + (+el.getAttribute('data-dg') || 0)));
+    U.gal.h = Math.min(G.C.SO_HE, Math.max(1, U.gal.h + (+el.getAttribute('data-dh') || 0)));
+    APP.taiHe ? APP.taiHe(U.gal.g, U.gal.h) : U.ve();
+  },
+  'gal-di': function () {
+    U.gal = {
+      g: Math.min(G.C.SO_THIEN_HA, Math.max(1, soO('g-g') || 1)),
+      h: Math.min(G.C.SO_HE, Math.max(1, soO('g-h') || 1))
+    };
+    APP.taiHe ? APP.taiHe(U.gal.g, U.gal.h) : U.ve();
+  },
+  'gal-nha': function () {
+    var c = U.st().planets[0].c;
+    U.gal = { g: c.g, h: c.h }; U.man = 'thienha';
+    APP.taiHe ? APP.taiHe(U.gal.g, U.gal.h) : U.ve();
+  },
+  'gal-tu-form': function () {
+    U.capNhatForm();
+    U.gal = { g: U.form.den.g, h: U.form.den.h }; U.man = 'thienha';
+    APP.taiHe ? APP.taiHe(U.gal.g, U.gal.h) : U.ve();
+  },
+
+  /* ---------- hạm đội ---------- */
+  nv: function (el) {
+    var t = el.getAttribute('data-td').split(',');
+    if (!U.form) U.form = U.formMoi();
+    U.form.den = { g: +t[0], h: +t[1], p: +t[2] };
+    U.form.mission = el.getAttribute('data-m');
+    U.form.ships = {};
+    U.man = 'hamdoi'; U.ve(); window.scrollTo(0, 0);
+    U.toast('Đã nạp mục tiêu ' + G.tdStr(U.form.den) + ' — chọn tàu rồi xuất kích.');
+  },
+  'max-tau': function (el) {
+    U.capNhatForm();
+    var id = el.getAttribute('data-id');
+    U.form.ships[id] = U.ht().ships[id] || 0;
+    U.ve();
+  },
+  'max-hang': function () {
+    U.capNhatForm();
+    var p = U.ht(), f = U.form, st = U.st();
+    var suc = G.khoangHang(f.ships);
+    var nl = G.nhienLieu(st, f.ships, G.khoangCach(p.c, f.den), f.pct);
+    f.cargo = {};
+    var con = suc, ds = ['metal', 'crystal', 'deut', 'food'];
+    for (var i = 0; i < ds.length && con > 0; i++) {
+      var co = Math.max(0, Math.floor((p.res[ds[i]] || 0) - (ds[i] === 'deut' ? nl : 0)));
+      var lay = (i === ds.length - 1) ? Math.min(co, con) : Math.min(co, Math.floor(con / (ds.length - i)));
+      if (lay > 0) { f.cargo[ds[i]] = lay; con -= lay; }
+    }
+    U.ve();
+  },
+  gui: function () {
+    U.capNhatForm();
+    var f = U.form;
+    APP.lam('gui', {
+      pi: U.pi, ships: G.clone(f.ships), den: f.den, mission: f.mission,
+      cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu
+    }, function (err) {
+      if (err) return U.toast(err, 'loi');
+      U.form = U.formMoi();
+      veLai(null, 'Hạm đội đã xuất kích.');
+    });
+  },
+  goive: function (el) { lam('goive', { fid: +el.getAttribute('data-fid') }, 'Đã phát lệnh gọi về.'); },
+  doihuong: function (el) {
+    var fid = +el.getAttribute('data-fid'), st = U.st(), f = null;
+    for (var i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+    if (!f) return;
+    U.hop('Đổi mục tiêu hạm đội #' + fid,
+      '<p>Hạm đội đang bay tới <b>' + G.tdStr(f.den) + '</b>. Nhập toạ độ mới — thời gian bay được tính lại từ ' +
+      'vị trí hiện tại của hạm đội. Phí: <b>' + G.C.DOI_MUC_TIEU_GALANA + ' Galana</b> cộng nhiên liệu phụ trội.</p>' +
+      '<div class="hd-td"><input id="dh-g" type="number" min="1" max="' + G.C.SO_THIEN_HA + '" value="' + f.den.g + '">:' +
+      '<input id="dh-h" type="number" min="1" max="' + G.C.SO_HE + '" value="' + f.den.h + '">:' +
+      '<input id="dh-p" type="number" min="1" max="' + G.C.SO_HANH_TINH + '" value="' + f.den.p + '">' +
+      '<button class="nut oke" data-act="doihuong-ok" data-fid="' + fid + '">Phát lệnh đổi hướng</button></div>');
+  },
+  'doihuong-ok': function (el) {
+    APP.lam('doihuong', {
+      fid: +el.getAttribute('data-fid'),
+      den: { g: soO('dh-g'), h: soO('dh-h'), p: soO('dh-p') }
+    }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi hướng.'); });
+  },
+
+  /* ---------- tin nhắn ---------- */
+  'doc-tin': function (el) {
+    var i = +el.getAttribute('data-i');
+    U.moTin[i] = !U.moTin[i];
+    var st = U.st();
+    if (st.msgs[i] && !st.msgs[i].doc) { st.msgs[i].doc = true; lam('doctin', { i: i }); }
+    else U.ve();
+  },
+  'doc-het': function () { lam('docHet'); },
+  'xoa-tin': function () { U.moTin = {}; lam('xoatin'); },
+  'xem-tt': function (el) {
+    var st = U.st();
+    var bc = st.spy && st.spy[el.getAttribute('data-key')];
+    if (bc) U.hop('Tin tình báo ' + G.tdStr(bc.td), U.veDoTham(bc));
+  },
+
+  /* ---------- liên minh ---------- */
+  'lm-vao': function (el) { lam('lmvao', { ten: el.getAttribute('data-ten') }, 'Đã gửi đơn và được nhận.'); },
+  'lm-ra': function () { lam('lmra', {}, 'Đã rời liên minh.'); },
+
+  /* ---------- đổi tên hành tinh ---------- */
+  'doi-ten': function () {
+    var p = U.ht();
+    U.hop('Đổi tên hành tinh',
+      '<p>Tên mới cho hành tinh ' + G.tdStr(p.c) + ':</p>' +
+      '<input id="ten-ht" maxlength="24" value="' + U.esc(p.ten) + '" style="width:260px">' +
+      ' <button class="nut oke" data-act="doi-ten-ok">Đổi</button>');
+  },
+  'doi-ten-ok': function () {
+    var e = document.getElementById('ten-ht');
+    APP.lam('doiTenHT', { pi: U.pi, ten: e ? e.value : '' }, function (err) { U.dongHop(); veLai(err); });
+  }
+};
+
+/* Driver có thể bổ sung/ghi đè hành động riêng (lưu file, đăng xuất...) */
+APP.themACT = function (o) { for (var k in o) ACT[k] = o[k]; };
+APP.ACT = ACT;
+
+document.addEventListener('click', function (e) {
+  var el = e.target.closest ? e.target.closest('[data-act]') : null;
+  if (!el) return;
+  var a = el.getAttribute('data-act');
+  if (ACT[a]) { e.preventDefault(); ACT[a](el); }
+});
+
+/* cập nhật form hạm đội mà không vẽ lại (giữ con trỏ trong ô nhập) */
+document.addEventListener('input', function (e) {
+  if (!window.ST) return;
+  var id = e.target.id || '';
+  if (id === 'f-pct') { var v = document.getElementById('f-pct-v'); if (v) v.textContent = e.target.value + '%'; }
+  if (/^(f-|ft-|fc-)/.test(id)) {
+    U.capNhatForm();
+    var tt = document.getElementById('hd-tt');
+    if (tt) tt.innerHTML = U.ttBay();
+    if (id === 'f-mission') U.ve();
+  }
+});
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'chon-ht') { U.pi = +e.target.value; U.form = null; U.ve(); }
+  if (APP.doiFile) APP.doiFile(e);
+});
+
+/* ---------- nhịp đập chung: 1 giây một lần ---------- */
+APP.batDauNhip = function () {
+  setInterval(function () {
+    if (!window.ST) return;
+    G.tick(window.ST, G.giay());
+    U.live();
+    if (APP.moiGiay) APP.moiGiay();
+  }, 1000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && window.ST) { G.tick(window.ST, G.giay()); U.ve(); if (APP.hienLai) APP.hienLai(); }
+  });
+};

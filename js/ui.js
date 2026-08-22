@@ -1,6 +1,6 @@
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
-var G = window.G, U = window.U = {};
+var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
 
 U.man = 'tongquan';
 U.pi = 0;
@@ -156,10 +156,11 @@ U.m_tongquan = function () {
   h += '<div><b>Chỉ huy</b><br>' + U.esc(st.ten) + (st.lm ? ' <span class="tag-lm">' + U.esc(st.lm.ten) + '</span>' : '') + '</div>';
   h += '<div><b>Điểm</b><br><span class="sz">' + G.so(d.tong) + '</span> <span class="mo">(CT ' + G.so(d.ct) +
     ' · NC ' + G.so(d.nc) + ' · Hạm ' + G.so(d.ham) + ' · Thủ ' + G.so(d.thu) + ')</span></div>';
+  h += '<div><b>Hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button></div>';
   h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
   h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) + '</div>';
-  h += '<div><b>Hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
+  h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
   h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(st.nextMaint) + ' <span class="mo">(mỗi 6 giờ)</span></div>';
   h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
   h += '</div></div>';
@@ -280,9 +281,9 @@ U.m_tainguyen = function () {
   /* Chợ Thiên Hà: đổi tài nguyên ra Galana và ngược lại */
   h += '<div class="panel"><h3>Chợ Thiên Hà — quy đổi Galana</h3><div class="noi">';
   h += '<p class="mo">Bán tài nguyên lấy Galana để trả phí bảo trì, hoặc mua tài nguyên bằng Galana. ' +
-    'Tỷ giá bán: 1 Galana = 45 Kim Loại / 30 Tinh Thể / 12 Deuterium / 60 Lương Thực. Giá mua đắt gấp 2,5 lần.</p>';
+    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Tinh Thể / ' + G.C.TY_GIA.deut + ' Deuterium / ' + G.C.TY_GIA.food + ' Lương Thực. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
   h += '<div class="hd-luoi">';
-  var tg = U.TY_GIA;
+  var tg = G.C.TY_GIA;
   for (var t in tg) {
     var rr = G.byId(G.RES, t);
     h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '</span>' +
@@ -293,7 +294,7 @@ U.m_tainguyen = function () {
   h += '</div></div></div>';
   return h;
 };
-U.TY_GIA = { metal: 45, crystal: 30, deut: 12, food: 60 };
+
 
 /* ======================================================================
  * MÀN: CÔNG TRÌNH / NGHIÊN CỨU / XƯỞNG / PHÒNG THỦ
@@ -583,7 +584,7 @@ U.m_thienha = function () {
   var st = U.st(), p = U.ht();
   if (!U.gal) U.gal = { g: p.c.g, h: p.c.h };
   var g = U.gal.g, hh = U.gal.h;
-  var ds = G.xemHe(st, g, hh);
+  var ds = U.nguon.xemHe(g, hh);
   var d = G.diem(st);
 
   var h = '<div class="panel"><h3>Bản đồ thiên hà</h3><div class="noi">';
@@ -601,13 +602,19 @@ U.m_thienha = function () {
     '<th class="r">Điểm</th><th>Phế liệu</th><th>Hành động</th></tr>';
   for (var i = 0; i < ds.length; i++) {
     var o = ds[i], c = o.c;
-    var cls = o.loai === 'trong' ? 'trong' : (o.loai === 'toi' ? 'toi' : (o.npc.bo ? 'npc-bo' : ''));
+    var cls = o.loai === 'trong' ? 'trong' : (o.loai === 'toi' ? 'toi' :
+      (o.loai === 'nguoi' ? 'nguoi' : (o.npc.bo ? 'npc-bo' : '')));
     h += '<tr class="' + cls + '"><td class="sz">' + c.p + '</td>';
     if (o.loai === 'trong') {
       h += '<td class="mo">— trống —</td><td></td><td></td><td class="r"></td>';
     } else if (o.loai === 'toi') {
       h += '<td><b>' + U.esc(o.p.ten) + '</b></td><td class="luc">' + U.esc(st.ten) + ' (ta)</td><td class="tag-lm">' +
         U.esc(st.lm ? st.lm.ten : '') + '</td><td class="r sz">' + G.so(d.tong) + '</td>';
+    } else if (o.loai === 'nguoi') {
+      h += '<td>' + U.esc(o.htTen) + '</td><td class="cam"><b>' + U.esc(o.ten) + '</b>' +
+        (o.online ? ' <span class="luc" title="đang chơi">●</span>' : '') +
+        (o.bo ? ' <span class="vang">(lâu không vào)</span>' : '') +
+        '</td><td class="tag-lm">' + U.esc(o.lm || '') + '</td><td class="r sz">' + G.so(o.diem) + '</td>';
     } else {
       var n = o.npc;
       h += '<td>' + U.esc(n.htTen) + '</td><td>' + U.esc(n.ten) + (n.bo ? ' <span class="vang">(bỏ hoang)</span>' : '') +
@@ -616,7 +623,7 @@ U.m_thienha = function () {
     h += '<td class="pl">' + (o.debris ? G.soNgan(o.debris.metal) + ' KL / ' + G.soNgan(o.debris.crystal) + ' TT' : '') + '</td>';
     h += '<td style="white-space:nowrap">';
     var td = c.g + ',' + c.h + ',' + c.p;
-    if (o.loai === 'npc') {
+    if (o.loai === 'npc' || o.loai === 'nguoi') {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="spy">Do thám</button> ' +
         '<button class="nut nho xoa" data-act="nv" data-td="' + td + '" data-m="attack">Tấn công</button> ';
       if (st.spy && st.spy[o.key]) h += '<button class="nut nho" data-act="xem-tt" data-key="' + o.key + '">Tin tình báo</button> ';
@@ -625,13 +632,15 @@ U.m_thienha = function () {
     } else {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="transport">Vận chuyển</button> ';
     }
+    if (o.loai === 'nguoi') h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="transport">Tiếp tế</button> ';
     if (o.debris) h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="recycle">Thu hồi</button>';
     h += '</td></tr>';
   }
   h += '</table></div>';
   h += '<p class="mo">Vũ trụ có ' + G.C.SO_THIEN_HA + ' thiên hà × ' + G.C.SO_HE + ' hệ × ' + G.C.SO_HANH_TINH +
-    ' hành tinh, sinh tất định từ hạt giống <b>' + U.esc(st.seed) + '</b> — cùng hạt giống thì bản đồ luôn giống nhau. ' +
-    'Hành tinh <span class="vang">bỏ hoang</span> ít phòng thủ nhưng nhiều tài nguyên.</p>';
+    ' hành tinh, sinh tất định từ hạt giống <b>' + U.esc(st.seed) + '</b>. ' +
+    (APP.mp ? 'Ô màu <span class="cam">cam</span> là hành tinh của người chơi khác — đánh nhau với họ là thật, và họ đánh lại được. '
+            : 'Hành tinh <span class="vang">bỏ hoang</span> ít phòng thủ nhưng nhiều tài nguyên.') + '</p>';
   h += '</div></div>';
   return h;
 };
@@ -646,19 +655,32 @@ U.m_lienminh = function () {
     h += '<h2>' + U.esc(st.lm.ten) + '</h2>';
     h += '<p>Gia nhập ngày ' + G.gio(st.lm.t * 1000) + '. Quyền lợi: <b>+5% sản lượng</b> toàn đế quốc, ' +
       'chia sẻ tin tình báo, và được đứng tên liên minh trên bảng xếp hạng.</p>';
-    h += '<button class="nut xoa" data-act="lm-ra">Rời liên minh</button>';
+    if (U.nguon.thanhVien) {
+      var tv = U.nguon.thanhVien(st.lm.ten);
+      if (tv && tv.length) {
+        h += '<div class="bang-cuon"><table><tr><th>Thành viên</th><th class="r">Điểm</th><th class="r">Hành tinh</th></tr>';
+        for (var t = 0; t < tv.length; t++)
+          h += '<tr' + (tv[t].ta ? ' class="toi"' : '') + '><td>' + U.esc(tv[t].ten) + (tv[t].ta ? ' <b class="luc">(ta)</b>' : '') +
+            '</td><td class="r sz">' + G.so(tv[t].diem) + '</td><td class="r sz">' + tv[t].ht + '</td></tr>';
+        h += '</table></div>';
+      }
+    }
+    h += '<button class="nut xoa" data-act="lm-ra" style="margin-top:8px">Rời liên minh</button>';
   } else {
     h += '<p class="mo">Bản gốc có hệ thống liên minh với bộ máy điều hành. Bản phục dựng giữ lại phần cốt: ' +
       'gia nhập một liên minh để nhận <b>+5% sản lượng</b> và danh nghĩa trên bảng xếp hạng.</p>';
+    var ds = U.nguon.dsLM();
     h += '<div class="bang-cuon"><table><tr><th>Liên minh</th><th class="r">Thành viên</th><th class="r">Tổng điểm</th><th></th></tr>';
-    var xh = G.xepHang(st);
-    for (var i = 0; i < G.LIEN_MINH.length; i++) {
-      var ten = G.LIEN_MINH[i];
-      if (!ten) continue;
-      var sl = 0, dm = 0;
-      for (var j = 0; j < xh.length; j++) if (xh[j].lm === ten) { sl++; dm += xh[j].diem; }
-      h += '<tr><td class="tag-lm">' + U.esc(ten) + '</td><td class="r sz">' + sl + '</td><td class="r sz">' + G.so(dm) +
-        '</td><td class="r"><button class="nut nho oke" data-act="lm-vao" data-i="' + i + '">Xin vào</button></td></tr>';
+    for (var i = 0; i < ds.length; i++) {
+      var e = ds[i];
+      var sl = e.sl, dm = e.diem;
+      if (sl === undefined) {
+        sl = 0; dm = 0;
+        var xh = U.nguon.xepHang();
+        for (var j = 0; j < xh.length; j++) if (xh[j].lm === e.ten) { sl++; dm += xh[j].diem; }
+      }
+      h += '<tr><td class="tag-lm">' + U.esc(e.ten) + '</td><td class="r sz">' + G.so(sl) + '</td><td class="r sz">' + G.so(dm) +
+        '</td><td class="r"><button class="nut nho oke" data-act="lm-vao" data-ten="' + U.esc(e.ten) + '">Xin vào</button></td></tr>';
     }
     h += '</table></div>';
   }
@@ -667,7 +689,7 @@ U.m_lienminh = function () {
 };
 
 U.m_xephang = function () {
-  var st = U.st(), xh = G.xepHang(st);
+  var st = U.st(), xh = U.nguon.xepHang();
   var h = '<div class="panel"><h3>Bảng xếp hạng vũ trụ</h3><div class="noi bang-cuon">';
   h += '<table><tr><th class="r">Hạng</th><th>Chỉ huy</th><th>Liên minh</th><th class="r">Điểm</th><th class="r">Hành tinh</th></tr>';
   for (var i = 0; i < xh.length; i++) {

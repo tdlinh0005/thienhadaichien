@@ -307,7 +307,9 @@ G.C = {
   CUOP_TOI_DA: 0.5,
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,
-  THUE_CO_BAN: 8             // Galana/giờ mỗi cấp công trình dân sự
+  THUE_CO_BAN: 8,            // Galana/giờ mỗi cấp công trình dân sự
+  TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
+  HE_SO_MUA: 2.5             // giá mua đắt gấp mấy lần giá bán
 };
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */

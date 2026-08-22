@@ -22,22 +22,38 @@ G.NPC_KHO = [
   { ten: 'Thủ Lĩnh', mo: 'Cao thủ trong vùng. Chỉ đánh khi cả liên minh cùng vào.' }
 ];
 
+/* --- Móc nối cho chế độ nhiều người ------------------------------------
+ * Ở bản một người G.HOOK = null: vũ trụ nằm gọn trong state của người chơi.
+ * Ở bản nhiều người, server gán G.HOOK để chuyển quyền sở hữu hành tinh,
+ * trạng thái NPC và bãi phế liệu sang database dùng chung.               */
+G.HOOK = null;
+
 /* --- Thông tin một ô hành tinh ---------------------------------------- */
 G.oHanhTinh = function (st, c) {
   var key = G.tdKey(c);
   for (var i = 0; i < st.planets.length; i++)
     if (G.tdKey(st.planets[i].c) === key) return { loai: 'toi', pi: i, p: st.planets[i], key: key, c: c };
 
-  var r = G.rng(G.hash(st.seed + '#' + key));
-  var co = r();
-  var mat = (c.p >= 4 && c.p <= 12) ? 0.34 : 0.14;
-  if (co > mat) return { loai: 'trong', key: key, c: c };
+  if (G.HOOK && G.HOOK.oNguoi) {
+    var ng = G.HOOK.oNguoi(st, c);
+    if (ng) return ng;                    // hành tinh của người chơi khác
+  }
+
+  if (!G.coNPC(st.seed, c)) return { loai: 'trong', key: key, c: c };
   return { loai: 'npc', key: key, c: c, npc: G.npc(st, c) };
+};
+
+/* Ô này có NPC hay không — hoàn toàn tất định theo hạt giống vũ trụ */
+G.coNPC = function (seed, c) {
+  var r = G.rng(G.hash(seed + '#' + G.tdKey(c)));
+  var mat = (c.p >= 4 && c.p <= 12) ? 0.34 : 0.14;
+  return r() <= mat;
 };
 
 /* --- Sinh & lưu trạng thái một NPC ------------------------------------ */
 G.npc = function (st, c) {
   var key = G.tdKey(c);
+  if (G.HOOK && G.HOOK.npc) { var chung = G.HOOK.npc(st, c, key); if (chung) { G.npcHoiPhuc(st, chung); return chung; } }
   if (st.npc[key]) { G.npcHoiPhuc(st, st.npc[key]); return st.npc[key]; }
 
   var r = G.rng(G.hash(st.seed + '@' + key));
@@ -69,7 +85,7 @@ G.npc = function (st, c) {
   n.res = { metal: Math.round(diem * 220), crystal: Math.round(diem * 110), deut: Math.round(diem * 45), food: Math.round(diem * 60) };
   if (bo) { n.res.metal *= 3; n.res.crystal *= 3; n.res.deut *= 2; }
 
-  st.npc[key] = n;
+  if (G.HOOK && G.HOOK.npcMoi) G.HOOK.npcMoi(n); else st.npc[key] = n;
   return n;
 };
 
@@ -137,6 +153,7 @@ G.npcHoiPhuc = function (st, n) {
 
 /* --- Bãi phế liệu ------------------------------------------------------ */
 G.pheLieu = function (st, key) {
+  if (G.HOOK && G.HOOK.pheLieu) return G.HOOK.pheLieu(key);
   if (!st.debris[key]) st.debris[key] = { metal: 0, crystal: 0 };
   return st.debris[key];
 };
@@ -165,6 +182,7 @@ G.dacTinh = function (st, c) {
 
 /* --- Bảng xếp hạng: sinh tất định, điểm tăng dần theo thời gian ------- */
 G.xepHang = function (st) {
+  if (G.HOOK && G.HOOK.xepHang) return G.HOOK.xepHang(st);
   var r = G.rng(G.hash(st.seed + '#rank'));
   var gio = Math.max(0, (st.now - st.t0) / 3600);
   var ds = [];

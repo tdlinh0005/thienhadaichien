@@ -148,6 +148,10 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'deploy' || f.mission === 'transport') {
+    /* Tiếp tế cho người chơi khác: chỉ nhiệm vụ Vận Chuyển, và chỉ ở bản nhiều người */
+    if (f.mission === 'transport' && o.loai === 'nguoi' && G.HOOK && G.HOOK.tangNguoi) {
+      G.HOOK.tangNguoi(st, f, o, veNha); return;
+    }
     if (o.loai !== 'toi') { veNha('Hạm đội #' + f.id + ': ' + G.tdStr(f.den) + ' không phải hành tinh của ta, hàng được mang về.'); return; }
     var pt = o.p, k;
     for (k in f.cargo) if (f.cargo[k] > 0) pt.res[k] = (pt.res[k] || 0) + f.cargo[k];
@@ -161,6 +165,7 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'spy') {
+    if (o.loai === 'nguoi' && G.HOOK && G.HOOK.doThamNguoi) { G.HOOK.doThamNguoi(st, f, o); veNha(null); return; }
     if (o.loai === 'npc') G.doThamNPC(st, f, o.npc);
     else if (o.loai === 'trong') G.tin(st, 'tt', 'Báo cáo do thám ' + G.tdStr(f.den), 'Ô toạ độ trống, không có hành tinh nào ở đây.');
     else G.tin(st, 'tt', 'Báo cáo do thám', 'Đây là hành tinh của chính ta.');
@@ -201,6 +206,11 @@ G.hamToiDich = function (st, f) {
   if (f.mission === 'attack') {
     if (o.loai === 'trong') { veNha(null); G.tin(st, 'tt', 'Không tìm thấy mục tiêu', G.tdStr(f.den) + ' là ô trống — hạm đội quay về.'); return; }
     if (o.loai === 'toi') { veNha(null); return; }
+    if (o.loai === 'nguoi') {
+      /* Đánh người chơi khác: server xử lý (cần state của đối phương) */
+      if (G.HOOK && G.HOOK.danhNguoi) { G.HOOK.danhNguoi(st, f, o, veNha); return; }
+      veNha(null); return;
+    }
     var n = o.npc;
     var diemTa = G.diem(st).tong;
     if (diemTa < G.C.BAO_VE_MOI_DIEM && n.diem > diemTa * G.C.BAO_VE_MOI_TY_LE) {
@@ -435,9 +445,23 @@ G.sukienKe = function (st) {
   return t;
 };
 
+/* Ở client của bản nhiều người, server mới là bên xử lý sự kiện: client chỉ
+ * chạy phần sản xuất cho các con số nhảy êm, không tự kết luận trận đánh. */
+G.MO_PHONG_NHE = false;
+
 G.tick = function (st, now) {
   now = now || G.giay();
   if (now <= st.lastTick) { st.now = st.lastTick; return; }
+  if (G.MO_PHONG_NHE) {
+    var dtn = now - st.lastTick;
+    for (var i0 = 0; i0 < st.planets.length; i0++) {
+      G.sanXuat(st, st.planets[i0], dtn);
+      if (st.planets[i0].qS.length) st.planets[i0].qS[0].tLeft -= dtn;
+    }
+    if (st.ncQueue && !st.ncQueue.treo) st.ncQueue.conLai -= dtn;
+    st.lastTick = now; st.now = now;
+    return;
+  }
   var guard = 0;
   while (st.lastTick < now && guard++ < 50000) {
     var ke = G.sukienKe(st);

@@ -5,16 +5,19 @@
 'use strict';
 var G = window.G = window.G || {};
 
-G.giay = function () { return Math.floor(Date.now() / 1000); };
+/* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
+G.LECH_GIO = 0;
+G.giay = function () { return Math.floor(Date.now() / 1000) + G.LECH_GIO; };
 
 /* =======================================================================
  * KHỞI TẠO
  * ===================================================================== */
-G.moiGame = function (ten, seedStr) {
+G.moiGame = function (ten, seedStr, home) {
   var now = G.giay();
   var seed = seedStr || ('THDC-' + Math.floor(Math.random() * 1e9));
   var r = G.rng(G.hash(seed));
-  var home = G.toaDo(1 + Math.floor(r() * G.C.SO_THIEN_HA), 1 + Math.floor(r() * 60), 4 + Math.floor(r() * 9));
+  /* home do server chỉ định ở chế độ nhiều người (mỗi người một ô riêng) */
+  if (!home) home = G.toaDo(1 + Math.floor(r() * G.C.SO_THIEN_HA), 1 + Math.floor(r() * 60), 4 + Math.floor(r() * 9));
 
   var st = {
     v: 3, seed: seed, now: now, t0: now, lastTick: now,

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thiên Hà Đại Chiến — máy chủ nhiều người</title>
+<meta name="description" content="Máy chủ nhiều người chơi của bản phục dựng webgame Thiên Hà Đại Chiến: tài khoản riêng, vũ trụ chung, đánh nhau thật giữa các người chơi.">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div id="man-khoidong" class="khoidong">
+  <div class="kd-hop">
+    <div class="kd-logo">THIÊN HÀ<span>ĐẠI CHIẾN</span></div>
+    <div class="kd-sub">Máy chủ nhiều người chơi &middot; <span id="kd-ver"></span></div>
+    <div class="kd-nam" id="kd-sv">Đang hỏi thông tin máy chủ...</div>
+
+    <div id="kd-tab" class="gal-dh" style="margin-bottom:6px">
+      <button class="nut nho" id="tab-dn">Đăng nhập</button>
+      <button class="nut nho" id="tab-dk">Tạo tài khoản</button>
+    </div>
+
+    <div class="kd-form" id="form-dn">
+      <label>Tên đăng nhập</label>
+      <input id="dn-ten" maxlength="24" autocomplete="username">
+      <label>Mật khẩu</label>
+      <input id="dn-mk" type="password" maxlength="200" autocomplete="current-password">
+      <button id="nut-dn" class="nut lon">VÀO CHIẾN TRƯỜNG</button>
+    </div>
+
+    <div class="kd-form" id="form-dk" style="display:none">
+      <label>Tên đăng nhập <span class="mo">(3–24 ký tự, chữ/số/._-)</span></label>
+      <input id="dk-ten" maxlength="24" autocomplete="username">
+      <label>Tên chỉ huy <span class="mo">(hiện trong game)</span></label>
+      <input id="dk-hienthi" maxlength="24" placeholder="VD: Quốc Bình">
+      <label>Mật khẩu <span class="mo">(từ 6 ký tự)</span></label>
+      <input id="dk-mk" type="password" maxlength="200" autocomplete="new-password">
+      <button id="nut-dk" class="nut lon">NHẬN HÀNH TINH</button>
+    </div>
+
+    <div id="kd-loi" class="canh" style="display:none"></div>
+    <div class="kd-ghi">
+      Vũ trụ dùng chung: hành tinh của người chơi khác hiện màu cam trên bản đồ — đánh nhau là thật,
+      và họ đánh lại được. Dưới 5.000 điểm ta được bảo vệ người chơi mới.
+      <br>Muốn chơi một mình offline: <a href="/motnguoi">bản một người</a>.
+    </div>
+  </div>
+</div>
+
+<div id="game" style="display:none">
+  <header id="thanh-tren">
+    <div class="tt-logo" data-act="man" data-man="tongquan">THIÊN HÀ ĐẠI CHIẾN</div>
+    <div id="tt-res" class="tt-res"></div>
+    <div class="tt-phu">
+      <select id="chon-ht" title="Chọn hành tinh"></select>
+      <span id="tt-net" class="mo sz" title="Kết nối tới máy chủ">●</span>
+      <button class="nut nho" data-act="dangxuat">Thoát</button>
+      <button class="nut nho" id="nut-menu">☰</button>
+    </div>
+  </header>
+
+  <div id="thanh-canh"></div>
+
+  <div class="khung">
+    <nav id="menu"></nav>
+    <main id="noidung"></main>
+  </div>
+
+  <footer id="chan"><span id="chan-tt"></span></footer>
+</div>
+
+<div id="hop-thoai" class="hop-thoai" style="display:none">
+  <div class="ht-trong">
+    <div class="ht-dau"><span id="ht-td"></span><button class="nut nho" data-act="dong-ht">✕</button></div>
+    <div id="ht-noi"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script src="/js/data.js"></script>
+<script src="/js/util.js"></script>
+<script src="/js/galaxy.js"></script>
+<script src="/js/combat.js"></script>
+<script src="/js/engine.js"></script>
+<script src="/js/fleet.js"></script>
+<script src="/js/actions.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/app.js"></script>
+<script src="/web/js/mp.js"></script>
+</body>
+</html>

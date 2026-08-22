@@ -168,9 +168,9 @@ if (bo) {
 /* vượt mốc bảo vệ người chơi mới để NPC được phép đánh */
 p.def.plasma = (p.def.plasma || 0) + 80;
 ktra(G.diem(st).tong > G.C.BAO_VE_MOI_DIEM, 'đã vượt mốc bảo vệ người chơi mới (' + Math.round(G.diem(st).tong) + ' điểm)');
-st.nextRaid = st.now + 5;
-now += 10; G.tick(st, now);
-ktra(st.toi.length >= 1 || st.msgs.some(function (m) { return m.loai === 'canh'; }), 'NPC phát động đợt tấn công');
+var thu = 0;
+while (st.toi.length === 0 && thu++ < 8) { st.nextRaid = st.now + 5; now += 10; G.tick(st, now); }
+ktra(st.toi.length >= 1, 'NPC phát động đợt tấn công (sau ' + thu + ' lần hẹn)');
 now += 12 * 3600; G.tick(st, now);
 ktra(st.toi.length === 0, 'đợt tấn công của NPC đã được xử lý');
 ktra(st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }), 'có báo cáo trận phòng thủ');

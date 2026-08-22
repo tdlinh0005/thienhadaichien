@@ -3,7 +3,7 @@ var fs = require('fs'), path = require('path');
 var goc = path.join(__dirname, '..');
 var html = fs.readFileSync(path.join(goc, 'index.html'), 'utf8');
 var css = fs.readFileSync(path.join(goc, 'css', 'style.css'), 'utf8');
-var thuTu = ['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'ui', 'main'];
+var thuTu = ['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions', 'ui', 'app', 'main'];
 var artifactSom = process.argv.indexOf('--artifact') >= 0;
 var js = thuTu.map(function (f) {
   return '/* ===== js/' + f + '.js ===== */\n' + fs.readFileSync(path.join(goc, 'js', f + '.js'), 'utf8');
