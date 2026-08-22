@@ -405,6 +405,27 @@ function truyVan(sql, ...args) {
     ktra(!dm2.loi, 'đổi được mật khẩu');
     var dn2 = await goi('/api/dangnhap', { ten: 'quocbinh', mk: 'matkhaumoi1' });
     ktra(!!dn2.token, 'đăng nhập bằng mật khẩu mới');
+
+    /* đổi mật khẩu phải đá mọi phiên khác ra */
+    var phienX = (await goi('/api/dangnhap', { ten: 'quocbinh', mk: 'matkhaumoi1' })).token;
+    ktra((await goi('/api/state', null, phienX)).__ma === 200, 'phiên thứ hai dùng được trước khi đổi mật khẩu');
+    await goi('/api/doimk', { cu: 'matkhaumoi1', moi: 'matkhaumoi2' }, dn2.token);
+    ktra((await goi('/api/state', null, phienX)).__ma === 401, 'đổi mật khẩu thu hồi các phiên khác');
+    ktra((await goi('/api/state', null, dn2.token)).__ma === 200, 'phiên đang thao tác vẫn giữ được');
+    a.token = dn2.token;
+
+    /* không né được giới hạn đăng nhập bằng header IP giả */
+    var choLot = 0;
+    for (var ipg = 0; ipg < 25; ipg++) {
+      var rIP = await fetch(URL + '/api/dangnhap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.0.' + ipg },
+        body: JSON.stringify({ ten: 'quocbinh', mk: 'doantam' })
+      });
+      if (rIP.status !== 429) choLot++;
+    }
+    ktra(choLot < 25, 'giả mạo x-forwarded-for không né được giới hạn đoán mật khẩu (' + choLot + '/25 lọt)');
+    await nghi(11000);   /* chờ hết cửa sổ giới hạn tần suất */
     await goi('/api/dangxuat', {}, a.token);
     var sauThoat = await goi('/api/state', null, a.token);
     ktra(sauThoat.__ma === 401, 'token bị vô hiệu sau khi đăng xuất');

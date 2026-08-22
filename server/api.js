@@ -10,6 +10,9 @@ var BODY_MAX = 96 * 1024;
 var NHIP_TOI_DA = 40;          // số yêu cầu tối đa trong NHIP_CUA giây
 var NHIP_CUA = 10;
 var NHIP_XAC_THUC = 8;         // đăng nhập/đăng ký nặng CPU (scrypt) -> siết chặt hơn
+/* Chỉ tin header x-forwarded-for khi thật sự đứng sau reverse proxy (THDC_PROXY=1).
+   Nếu tin vô điều kiện, ai cũng tự khai IP giả để né giới hạn đoán mật khẩu. */
+var TIN_PROXY = process.env.THDC_PROXY === '1';
 
 /* ------------------------------------------------------------ mật khẩu */
 function bam(mk, muoi) { return crypto.scryptSync(String(mk), muoi, 64, { N: 16384, r: 8, p: 1 }).toString('hex'); }
@@ -111,7 +114,9 @@ API.prototype.goiState = function (p) {
 /* ---------------------------------------------------------- các đường dẫn */
 API.prototype.xuLy = async function (req, res, duong, truyVan) {
   var self = this;
-  var ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim();
+  var ip = TIN_PROXY
+    ? String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim()
+    : String(req.socket.remoteAddress || '?');
 
   /* ---- công khai ---- */
   if (duong === '/api/thongtin') return json(res, 200, self.thongTin());
@@ -242,7 +247,9 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     if (moi.length < 6) return json(res, 400, { loi: 'Mật khẩu mới phải từ 6 ký tự.' });
     var muoi7 = crypto.randomBytes(16).toString('hex');
     self.kho.q.tkDoiMK.run(bam(moi, muoi7), muoi7, p.tk);
-    return json(res, 200, { ok: true });
+    /* đổi mật khẩu = đá mọi phiên khác ra, chỉ giữ lại phiên đang thao tác */
+    self.kho.q.phienXoaKhac.run(p.tk, p.token);
+    return json(res, 200, { ok: true, thuHoiPhien: true });
   }
 
   return json(res, 404, { loi: 'Không có đường dẫn này.' });

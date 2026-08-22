@@ -101,6 +101,7 @@ Yêu cầu **Node 22 trở lên** (vì `node:sqlite`).
 | `THDC_DB` | `server/data/thdc.db` | đường dẫn file SQLite. Thư mục cha được tạo tự động. `:memory:` chạy được (dùng cho test) |
 | `THDC_NHIP` | `3000` | chu kỳ scheduler, tính bằng **milli-giây** |
 | `THDC_AM` | *(tắt)* | đặt `=1` để in `[nhip] đã tua N đế quốc` mỗi vòng có việc |
+| `THDC_PROXY` | *(tắt)* | đặt `=1` khi đứng sau reverse proxy, để tin header `x-forwarded-for` khi tính giới hạn tần suất. Không có proxy mà bật là tự mở đường cho việc né giới hạn |
 
 ### Đường dẫn
 
@@ -432,12 +433,20 @@ duy nhất** ghi vào file database. Không chạy hai instance trên cùng mộ
   `setInterval` mỗi giờ cũng dọn.
 - Đăng xuất xoá hẳn dòng `phien`. Nếu server trả **401** khi client đang có token,
   `web/js/mp.js` tự xoá token và đưa về màn đăng nhập.
+- **Đổi mật khẩu thu hồi mọi phiên khác** (`phienXoaKhac`), chỉ giữ lại phiên đang
+  thao tác — token bị lộ không sống sót qua một lần đổi mật khẩu.
+- Xoá tài khoản xoá sạch phiên của tài khoản đó.
 - Không dùng cookie nên **không có bề mặt CSRF**; ngược lại, token nằm trong
   `localStorage` nên phải chặn XSS — mọi chuỗi do người chơi nhập đều đi qua
   `U.esc()` trước khi vào HTML, và tên chỉ huy / tên hành tinh bị lọc `< > & "`
   ngay ở tầng nhập.
 
 ### Chống lạm dụng
+
+**Nguồn IP.** Mặc định chỉ dùng `req.socket.remoteAddress`; header
+`x-forwarded-for` **chỉ được tin khi đặt `THDC_PROXY=1`**. Nếu tin vô điều kiện thì
+ai cũng tự khai IP giả cho mỗi lần thử, và giới hạn đoán mật khẩu mất tác dụng
+hoàn toàn. Chỉ bật `THDC_PROXY=1` khi thật sự có reverse proxy ghi đè header này.
 
 - **Giới hạn tần suất** (`API.gioiHan`, cửa sổ trượt 10 giây):
   **8 yêu cầu / 10 giây theo IP** cho `/api/dangky` và `/api/dangnhap` — hai đường
@@ -515,6 +524,9 @@ trụ, số tài khoản, đế quốc cũ và cả báo cáo trận đánh tron
 chơi thật không bao giờ lọt vào repo.
 
 ### Đặt sau reverse proxy
+
+> Nhớ bật `THDC_PROXY=1` khi (và chỉ khi) đã có proxy ghi đè `x-forwarded-for`.
+
 
 Server nghe HTTP thuần trên `PORT`. Ví dụ với nginx:
 

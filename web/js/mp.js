@@ -236,7 +236,7 @@
       api('/api/doimk', {
         cu: (document.getElementById('mk-cu') || {}).value || '',
         moi: (document.getElementById('mk-moi') || {}).value || ''
-      }).then(function () { U.dongHop(); U.toast('Đã đổi mật khẩu.', 'ok'); },
+      }).then(function () { U.dongHop(); U.toast('Đã đổi mật khẩu. Mọi thiết bị khác đã bị đăng xuất.', 'ok'); },
         function (e) { U.toast(e.message, 'loi'); });
     },
     'xoa-tk': function () {
