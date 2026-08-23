@@ -1,4 +1,4 @@
-/* THIÊN HÀ ĐẠI CHIẾN — giao diện nhại webgame Việt 2009–2013:
+/* THIÊN HÀ ĐẠI CHIẾN — giao diện gợi lại webgame Việt khoảng năm 2010:
    nền vũ trụ tối, viền kim loại, bảng biểu dày đặc số liệu. */
 :root{
   --den:#05070f; --den2:#0a0e1b; --panel:#101627; --panel2:#0c1120;
@@ -161,6 +161,17 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 .tn.moi>.d{border-left:3px solid var(--cam)}
 .hu{display:inline-block;min-width:56px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--mo)}
 
+/* ---------- phòng chat ---------- */
+.chat-ds{height:310px;overflow-y:auto;overscroll-behavior:contain;padding:7px 9px;background:#070b14;
+  border:1px solid var(--vien);border-radius:3px;scrollbar-color:var(--vien2) #070b14}
+.chat-dong{padding:5px 2px;border-bottom:1px solid #141e34;overflow-wrap:anywhere}
+.chat-dong:last-child{border-bottom:0}
+.chat-dong .hu{min-width:48px;margin-right:3px}
+.chat-noi{display:block;margin-left:55px;color:var(--chu)}
+.chat-gui{display:flex;gap:6px;margin-top:8px}
+.chat-gui input{flex:1;min-width:0}
+.chat-ghi{font-size:11px;margin:5px 0 0}
+
 /* ---------- hộp thoại ---------- */
 .hop-thoai{position:fixed;inset:0;z-index:100;background:rgba(2,4,10,.78);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto}
 .ht-trong{width:min(760px,100%);background:var(--panel);border:1px solid var(--vien2);border-radius:5px;box-shadow:0 20px 70px #000}
@@ -189,6 +200,8 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
   .panel>.noi>table,.bc>table{display:block;overflow-x:auto;max-width:100%}
   .the .cap{float:none;display:inline-block;margin-left:6px}
   .gal-dh input{width:64px}
+  .chat-ds{height:240px}
+  .chat-noi{margin-left:0}
   .khung{flex-direction:column;padding:10px}
   #menu{width:100%;position:static;display:none;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}
   #menu.mo-ra{display:grid}

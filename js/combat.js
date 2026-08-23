@@ -8,7 +8,7 @@ var G = window.G = window.G || {};
 
 G.VONG_XUONG_DAT = 3;
 
-function nhom(id, n, tech, ben, thuDat) {
+function nhom(id, n, tech, ben, thuDat, nguon) {
   var u = G.UNIT(id);
   var w = 1 + 0.1 * (tech.weapon || 0), s = 1 + 0.1 * (tech.shield || 0), a = 1 + 0.1 * (tech.armor || 0);
   /* Loại hành tinh làm phòng thủ MẶT ĐẤT dày thêm (Băng Hà, Nước – Đầm Lầy) */
@@ -20,16 +20,17 @@ function nhom(id, n, tech, ben, thuDat) {
     hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a,   // vỏ thép cơ bản × giáp
     hongDu: 0,
     lop: u.lop || 'ham',
-    cost: u.cost
+    cost: u.cost,
+    nguon: nguon === undefined ? -1 : nguon
   };
 }
 
-function gomBen(ships, def, tech, ben, thuDat, bo) {
+function gomBen(ships, def, tech, ben, thuDat, bo, nguon) {
   var out = [];
   var id;
-  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben));
-  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat));
-  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat));
+  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben, 1, nguon));
+  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1));
+  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1));
   return out;
 }
 
@@ -95,13 +96,25 @@ function tinhLuc(gs) {
 }
 
 /* -----------------------------------------------------------------------
- * G.danhTran(A, D) — A/D: { ten, tech, ships, def }
+ * G.danhTran(A, D) — A/D: { ten, tech, ships, def }. D có thể truyền
+ * `nhomTau:[{ships,tech}, ...]`; nhóm 0 luôn là hạm đậu của hành tinh, các
+ * nhóm sau là hạm giữ quỹ đạo. Output giữ đúng chỉ số nguồn trong conNhomD.
  * --------------------------------------------------------------------- */
 G.danhTran = function (A, D, seed) {
   var rnd = G.rng(seed || (Date.now() >>> 0));
   var doBo = !!A.doBo;                 /* trận đổ bộ: không chia lớp, đánh hết từ vòng 1 */
-  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo);
-  var defAll = gomBen(D.ships, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo);
+  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1);
+  var nhomTau = Array.isArray(D.nhomTau) && D.nhomTau.length
+    ? D.nhomTau
+    : [{ ships: D.ships || {}, tech: D.tech || {} }];
+  var defAll = [], ng, them;
+  for (ng = 0; ng < nhomTau.length; ng++) {
+    them = gomBen(nhomTau[ng].ships || {}, null, nhomTau[ng].tech || D.tech || {}, 'D', 1, null, ng);
+    for (var ig = 0; ig < them.length; ig++) defAll.push(them[ig]);
+  }
+  /* Công sự và bộ binh luôn thuộc hành tinh, không thuộc một nhóm tàu. */
+  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1);
+  for (var idf = 0; idf < them.length; idf++) defAll.push(them[idf]);
 
   var quyDao = [], mDat = [];
   for (var i = 0; i < defAll.length; i++) {
@@ -113,9 +126,12 @@ G.danhTran = function (A, D, seed) {
   for (vong = 1; vong <= G.C.VONG_DANH; vong++) {
     var ta = atk.filter(conSong);
     if (!ta.length) break;
-    var phe = quyDao.filter(conSong);
+    var conQuyDao = quyDao.filter(conSong);
     var conDat = mDat.filter(conSong);
-    if (vong >= G.VONG_XUONG_DAT) phe = phe.concat(conDat);
+    /* Hai lớp đánh nối tiếp, không đánh đồng thời: chỉ sau khi quỹ đạo bị
+       triệt phá và hạm đội đã hạ độ cao từ vòng quy định mới chạm mặt đất. */
+    var matDat = !conQuyDao.length && vong >= G.VONG_XUONG_DAT && conDat.length > 0;
+    var phe = matDat ? conDat : conQuyDao;
     if (!phe.length) {
       /* Đã dẹp xong lớp quỹ đạo nhưng chưa tới vòng hạ độ cao: vòng trống,
          hạm đội hạ dần xuống tầng khí quyển. */
@@ -139,7 +155,7 @@ G.danhTran = function (A, D, seed) {
       lucA: Math.round(lucA), lucD: Math.round(lucD),
       conA: ta.reduce(function (s2, g2) { return s2 + g2.n; }, 0),
       conD: phe.reduce(function (s2, g2) { return s2 + g2.n; }, 0),
-      matDat: vong >= G.VONG_XUONG_DAT
+      matDat: matDat
     });
   }
 
@@ -161,6 +177,8 @@ G.danhTran = function (A, D, seed) {
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
   var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
   var conShipsA = {}, conShipsD = {}, conDefD = {}, conBoA = {}, conBoD = {};
+  var conNhomD = [], matNhomD = [];
+  for (i2 = 0; i2 < nhomTau.length; i2++) { conNhomD.push({}); matNhomD.push({}); }
 
   for (i2 = 0; i2 < atk.length; i2++) {
     var g = atk[i2], mat = g.n0 - g.n;
@@ -186,11 +204,18 @@ G.danhTran = function (A, D, seed) {
         for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
         con += sua; m -= sua;
       }
-      if (m > 0) matD[d.id] = m;
+      if (m > 0) {
+        matD[d.id] = (matD[d.id] || 0) + m;
+        if (G.S(d.id) && d.nguon >= 0)
+          matNhomD[d.nguon][d.id] = (matNhomD[d.nguon][d.id] || 0) + m;
+      }
     }
     if (con > 0) {
       if (G.BB(d.id)) conBoD[d.id] = con;
-      else if (G.S(d.id)) conShipsD[d.id] = con;
+      else if (G.S(d.id)) {
+        conShipsD[d.id] = (conShipsD[d.id] || 0) + con;
+        if (d.nguon >= 0) conNhomD[d.nguon][d.id] = (conNhomD[d.nguon][d.id] || 0) + con;
+      }
       else conDefD[d.id] = con;
     }
   }
@@ -199,6 +224,7 @@ G.danhTran = function (A, D, seed) {
     kq: kq, vongDanh: nhatKy, seed: seed,
     tenA: A.ten, tenD: D.ten, thuDat: D.thuDat || 1, loaiHT: D.loaiHT || null,
     conShipsA: conShipsA, conShipsD: conShipsD, conDefD: conDefD,
+    conNhomD: conNhomD, matNhomD: matNhomD,
     conBoA: conBoA, conBoD: conBoD, doBo: doBo,
     matA: matA, matD: matD, matDPha: matDPha,
     pheLieu: { metal: Math.round(pl.metal), crystal: Math.round(pl.crystal) }

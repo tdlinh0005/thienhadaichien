@@ -9,104 +9,118 @@
 
 var G = window.G = window.G || {};
 
-G.VERSION = '1.33f-r';           // nhại phiên bản 1.33f của bản gốc
-G.NAM_BOI_CANH = 2184;
+G.VERSION = '1.35b-r2';          // state v6: nhịp dân sự + hạm đội giữ quỹ đạo thật
+G.NAM_AKABRAC = 2184;
+G.BOI_CANH = 'Nhiều năm sau Thông Điệp Akabrac năm 2184';
 
 /* --- Tài nguyên ------------------------------------------------------- */
 G.RES = [
   { id: 'metal',   ten: 'Kim Loại',   ky: 'KL', mau: '#c9a06a' },
-  { id: 'crystal', ten: 'Tinh Thể',   ky: 'TT', mau: '#7fd4f5' },
-  { id: 'deut',    ten: 'Deuterium',  ky: 'DT', mau: '#9be59b' },
-  { id: 'food',    ten: 'Lương Thực', ky: 'LT', mau: '#e5c76b' },
+  { id: 'crystal', ten: 'Thạch Anh',  ky: 'TA', mau: '#7fd4f5' },
+  { id: 'deut',    ten: 'Nhiên Liệu', ky: 'NL', mau: '#9be59b' },
+  { id: 'food',    ten: 'Thực Phẩm',  ky: 'TP', mau: '#e5c76b' },
   { id: 'galana',  ten: 'Galana',     ky: 'GL', mau: '#f0b3ff' },
-  { id: 'tech',    ten: 'Công Nghệ',  ky: 'CN', mau: '#8fa8ff' }
+  { id: 'tech',    ten: 'Kỹ Thuật',   ky: 'KT', mau: '#8fa8ff' }
 ];
 G.RES_HANH_TINH = ['metal', 'crystal', 'deut', 'food'];  // chứa ở kho hành tinh
 G.RES_DE_QUOC   = ['galana', 'tech'];                    // chung toàn đế quốc
 
 /* --- 5 loại hành tinh (tư liệu gốc: thread GVN của người chơi Nazgul) ----
- * Nguyên văn mô tả từng loại nằm trong docs/NGHIEN-CUU.md; các HỆ SỐ dưới đây
- * là [SUY LUẬN] dịch mô tả chữ thành con số.                               */
+ * Chiều lợi/hại bám mô tả gốc; độ lớn HỆ SỐ là [TÁI DỰNG] bảo thủ. */
 G.LOAI_HT = [
   { id: 'onhoa', ten: 'Ôn Hoà', mau: '#7fe0a0',
     mota: 'Hành tinh hoàn hảo với các điều kiện như Trái Đất. Không mạnh mặt nào nhưng cũng không yếu mặt nào.',
-    oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00, temp: [20, 60] },
+    oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00,
+    dan: 1.00, ungHoBp: 0, temp: [20, 60] },
   { id: 'runggia', ten: 'Rừng Già', mau: '#8fd14f',
-    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Lương thực dồi dào, đất rộng.',
-    oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00, temp: [10, 45] },
+    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Thực Phẩm dồi dào, đất rộng.',
+    oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00,
+    dan: 1.15, ungHoBp: 500, temp: [10, 45] },
   { id: 'nuoc', ten: 'Nước – Đầm Lầy', mau: '#57c8ff',
     mota: '90% bề mặt là biển, còn lại là đầm lầy. Khó kiến thiết (ít ô đất) nhưng KHÓ TẤN CÔNG và rất nhiều nhiên liệu.',
-    oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25, temp: [5, 40] },
+    oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25,
+    dan: 1.08, ungHoBp: 0, temp: [5, 40] },
   { id: 'samac', ten: 'Sa Mạc', mau: '#ffb45e',
-    mota: 'Gần Mặt Trời, nóng khủng khiếp, nghèo nàn về sự sống nhưng tài nguyên phong phú và dễ khai thác.',
-    oDat: 1.00, kl: 1.35, tt: 1.25, dt: 0.60, lt: 0.55, dien: 1.35, thuDat: 0.90, temp: [80, 140] },
+    mota: 'Gần Mặt Trời, giàu Kim Loại và quang năng; Thạch Anh, Nhiên Liệu và sự sống đều khó khăn.',
+    oDat: 1.00, kl: 1.35, tt: 0.80, dt: 0.70, lt: 0.55, dien: 1.35, thuDat: 0.90,
+    dan: 0.82, ungHoBp: -500, temp: [80, 140] },
   { id: 'banghai', ten: 'Băng Hà', mau: '#bcd9ff',
-    mota: 'Xa Mặt Trời, ánh sáng hạn chế, khắc nghiệt hơn Nam Cực. Được chọn vì PHÒNG THỦ MẶT ĐẤT MẠNH và nhiều nhiên liệu.',
-    oDat: 0.90, kl: 0.90, tt: 1.00, dt: 1.45, lt: 0.70, dien: 0.60, thuDat: 1.50, temp: [-130, -40] }
+    mota: 'Xa Mặt Trời, ánh sáng hạn chế, khắc nghiệt hơn Nam Cực; giàu Thạch Anh và PHÒNG THỦ MẶT ĐẤT MẠNH.',
+    oDat: 0.90, kl: 0.90, tt: 1.45, dt: 0.90, lt: 0.70, dien: 0.60, thuDat: 1.50,
+    dan: 0.90, ungHoBp: -200, temp: [-130, -40] }
 ];
 G.LHT = function (id) { return G.byId(G.LOAI_HT, id) || G.LOAI_HT[0]; };
 
 /* --- Công trình -------------------------------------------------------- */
-/* prod(l, ctx) -> {metal|crystal|deut|food|energy|galana|tech}
- * use(l)      -> năng lượng tiêu thụ                                     */
+/* Từ state v4, b[id] và tham số n dưới đây là SỐ LƯỢNG công trình.
+ * factor chỉ còn dùng để quy đổi vốn lũy kế từ save cũ và tính mốc
+ * tương thích; giá lô mới luôn tuyến tính theo n.                    */
 G.BUILDINGS = [
   { id: 'metalMine', ten: 'Mỏ Kim Loại', nhom: 'kt',
     mota: 'Máy khoan tự động bóc lớp vỏ hành tinh để lấy kim loại thô — nền tảng của mọi công trình.',
     cost: { metal: 60, crystal: 15 }, factor: 1.5,
-    prod: function (l) { return { metal: 30 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { metal: 30 * n * G.hsKhaiMo(c.tech) }; },
+    use: function (n) { return 10 * n; } },
 
-  { id: 'crystalMine', ten: 'Mỏ Tinh Thể', nhom: 'kt',
-    mota: 'Hầm khai thác tinh thể — vật liệu bắt buộc cho mạch điện tử và vũ khí năng lượng.',
+  { id: 'crystalMine', ten: 'Mỏ Thạch Anh', nhom: 'kt',
+    mota: 'Hầm khai thác Thạch Anh — vật liệu bắt buộc cho mạch điện tử và vũ khí năng lượng.',
     cost: { metal: 48, crystal: 24 }, factor: 1.6,
-    prod: function (l) { return { crystal: 20 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { crystal: 20 * n * G.hsKhaiMo(c.tech) }; },
+    use: function (n) { return 10 * n; } },
 
-  { id: 'deutSyn', ten: 'Giàn Tổng Hợp Deuterium', nhom: 'kt',
-    mota: 'Lọc nước nặng từ khí quyển thành deuterium — nhiên liệu cho hạm đội và lò nhiệt hạch.',
+  { id: 'deutSyn', ten: 'Giàn Lọc Nhiên Liệu', nhom: 'kt',
+    mota: 'Lọc nước nặng từ khí quyển thành Nhiên Liệu cho hạm đội và lò nhiệt hạch.',
     cost: { metal: 225, crystal: 75 }, factor: 1.5,
-    prod: function (l, c) { return { deut: 10 * l * Math.pow(1.1, l) * (1.28 - 0.002 * c.temp) }; },
-    use: function (l) { return 20 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { deut: 10 * n * G.hsKhaiMo(c.tech) * (1.28 - 0.002 * c.temp) }; },
+    use: function (n) { return 20 * n; } },
 
   { id: 'farm', ten: 'Trang Trại Sinh Quyển', nhom: 'kt',
-    mota: 'Vòm sinh quyển trồng lương thực nuôi dân cư và thủy thủ đoàn. Hết Lương Thực là hành tinh đói.',
+    mota: 'Vòm sinh quyển tạo thực phẩm nuôi dân cư và thủy thủ đoàn. Hết Thực Phẩm là hành tinh đói.',
     cost: { metal: 80, crystal: 40 }, factor: 1.55,
-    prod: function (l) { return { food: 26 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 8 * l * Math.pow(1.1, l); } },
+    prod: function (n) { return { food: 26 * n }; },
+    use: function (n) { return 8 * n; } },
+
+  /* [TÁI DỰNG] Tư liệu người chơi xác nhận Thành Phố, dân số và thuế,
+   * nhưng không còn bảng giá/sức chứa. `housing` là metadata để engine dân
+   * sự không phải nhận diện công trình bằng tên hiển thị. */
+  { id: 'city', ten: 'Thành Phố', nhom: 'ds',
+    mota: 'Khu dân cư có bệnh viện, trường học và cơ quan thuế. Mỗi Thành Phố mở thêm chỗ ở cho 25.000 dân.',
+    cost: { metal: 1200, crystal: 600, food: 400 }, factor: 1.6,
+    housing: 25000, use: function (n) { return 4 * n; } },
 
   { id: 'solar', ten: 'Nhà Máy Điện Mặt Trời', nhom: 'nl',
     mota: 'Cánh đồng pin quang điện. Không có điện thì mỏ chỉ chạy cầm chừng.',
     cost: { metal: 75, crystal: 30 }, factor: 1.5,
-    prod: function (l) { return { energy: 20 * l * Math.pow(1.1, l) }; } },
+    prod: function (n) { return { energy: 20 * n }; } },
 
   { id: 'fusion', ten: 'Lò Phản Ứng Nhiệt Hạch', nhom: 'nl',
-    mota: 'Đốt deuterium để lấy điện. Đắt, ngốn nhiên liệu, nhưng là nguồn điện mạnh nhất.',
+    mota: 'Đốt Nhiên Liệu để lấy điện. Đắt, ngốn tài nguyên, nhưng là nguồn điện mạnh nhất.',
     cost: { metal: 900, crystal: 360, deut: 180 }, factor: 1.8,
-    prod: function (l, c) { return { energy: 30 * l * Math.pow(1.05 + 0.01 * c.tech.energy, l) }; },
-    deutUse: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { energy: 30 * n * (1 + 0.05 * (c.tech.energy || 0)) }; },
+    deutUse: function (n) { return 10 * n; } },
 
   { id: 'metalStore', ten: 'Kho Kim Loại', nhom: 'kho',
     mota: 'Kho vượt quá dung tích thì tài nguyên tràn ra ngoài và mất trắng.',
     cost: { metal: 1000 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'crystalStore', ten: 'Kho Tinh Thể', nhom: 'kho',
-    mota: 'Nhà chứa tinh thể có kiểm soát độ ẩm.',
+  { id: 'crystalStore', ten: 'Kho Thạch Anh', nhom: 'kho',
+    mota: 'Nhà chứa Thạch Anh có kiểm soát độ ẩm.',
     cost: { metal: 1000, crystal: 500 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'deutStore', ten: 'Bồn Deuterium', nhom: 'kho',
+  { id: 'deutStore', ten: 'Bồn Nhiên Liệu', nhom: 'kho',
     mota: 'Bồn áp lực chứa nước nặng đã tinh chế.',
     cost: { metal: 1000, crystal: 1000 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'silo', ten: 'Vựa Lương Thực', nhom: 'kho',
-    mota: 'Vựa chứa lương thực có làm lạnh.',
+  { id: 'silo', ten: 'Kho Thực Phẩm', nhom: 'kho',
+    mota: 'Vựa chứa Thực Phẩm có làm lạnh.',
     cost: { metal: 800, crystal: 200 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
   { id: 'robot', ten: 'Nhà Máy Robot', nhom: 'cn',
-    mota: 'Mỗi cấp giảm thời gian xây dựng công trình.',
+    mota: 'Mỗi nhà máy tăng công suất xây dựng công trình.',
     cost: { metal: 400, crystal: 120, deut: 200 }, factor: 2 },
 
   { id: 'nanite', ten: 'Nhà Máy Nano', nhom: 'cn', req: { b: { robot: 10 }, r: { computer: 10 } },
@@ -118,17 +132,17 @@ G.BUILDINGS = [
     cost: { metal: 400, crystal: 200, deut: 100 }, factor: 2 },
 
   { id: 'lab', ten: 'Phòng Nghiên Cứu', nhom: 'cn',
-    mota: 'Tạo ra Công Nghệ — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
+    mota: 'Tạo ra Kỹ Thuật — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
     cost: { metal: 200, crystal: 400, deut: 200 }, factor: 2,
-    prod: function (l) { return { tech: 4 * l * Math.pow(1.08, l) }; },
-    use: function (l) { return 6 * l * Math.pow(1.1, l); } },
+    prod: function (n) { return { tech: 4 * n }; },
+    use: function (n) { return 6 * n; } },
 
   { id: 'intel', ten: 'Trung Tâm Tình Báo', nhom: 'cn', req: { b: { lab: 4 } },
-    mota: 'Vừa phân tích báo cáo do thám, vừa phản tình báo — mỗi cấp tăng xác suất bắn hạ tàu do thám địch.',
+    mota: 'Vừa phân tích báo cáo do thám, vừa phản tình báo — mỗi trung tâm tăng xác suất bắn hạ tàu do thám địch.',
     cost: { metal: 5000, crystal: 8000, deut: 2000 }, factor: 1.9 },
 
   { id: 'fleetHQ', ten: 'Đài Chỉ Huy Hạm Đội', nhom: 'cn', req: { b: { shipyard: 4 } },
-    mota: 'Mỗi cấp mở thêm một khe điều phối hạm đội cùng lúc.',
+    mota: 'Mỗi đài mở thêm một khe điều phối hạm đội cùng lúc.',
     cost: { metal: 20000, crystal: 20000, deut: 1000 }, factor: 2 },
 
   { id: 'maintDepot', ten: 'Trung Tâm Bảo Trì', nhom: 'cn',
@@ -136,11 +150,11 @@ G.BUILDINGS = [
     cost: { metal: 10000, crystal: 6000, deut: 2000 }, factor: 1.8 },
 
   { id: 'missileSilo', ten: 'Hầm Tên Lửa', nhom: 'cn', req: { b: { shipyard: 1 } },
-    mota: 'Mỗi cấp chứa 10 tên lửa đánh chặn hoặc 5 tên lửa liên hành tinh.',
+    mota: 'Mỗi hầm chứa 10 điểm tên lửa (tên lửa liên hành tinh chiếm 2).',
     cost: { metal: 20000, crystal: 20000, deut: 1000 }, factor: 2 },
 
   { id: 'terraform', ten: 'Cải Tạo Hành Tinh', nhom: 'cn', req: { r: { energy: 12 } },
-    mota: 'Nắn lại địa hình để lấy thêm ô đất xây dựng (+6 ô mỗi cấp).',
+    mota: 'Nắn lại địa hình để lấy thêm khu xây dựng (+6 khu mỗi công trình).',
     cost: { metal: 0, crystal: 50000, deut: 100000 }, factor: 2 },
 
   { id: 'jumpGate', ten: 'Cổng Không Gian', nhom: 'cn', req: { r: { hyperspace: 7 } },
@@ -149,9 +163,13 @@ G.BUILDINGS = [
 ];
 
 /* --- Nghiên cứu -------------------------------------------------------- */
-/* Đặc trưng bản gốc: ngoài chi phí trả ngay, mỗi đề tài còn có "vốn đầu tư"
- * Galana bị trừ DẦN qua từng chu kỳ bảo trì 6 giờ.                        */
+/* Đặc trưng bản gốc: tổng nguyên liệu nghiên cứu được rút DẦN qua từng
+ * chu kỳ 6 giờ, không khấu trừ toàn bộ ngay khi xếp đề tài.               */
 G.RESEARCH = [
+  { id: 'mining', ten: 'Kỹ Thuật Khai Thác Mỏ', cost: { metal: 600, crystal: 200 }, factor: 2,
+    mota: 'KT-KTM tăng sản lượng trên mỗi mỏ. Hệ số cụ thể là [TÁI DỰNG] neo theo mốc người chơi.', req: { b: { lab: 1 } } },
+  { id: 'workshop', ten: 'Kỹ Thuật Nhà Xưởng', cost: { metal: 800, crystal: 400, deut: 200 }, factor: 2,
+    mota: 'KT-NX tăng công suất của Nhà Máy Sản Xuất. Hệ số cụ thể là [TÁI DỰNG].', req: { b: { lab: 1, shipyard: 1 } } },
   { id: 'energy', ten: 'Công Nghệ Năng Lượng', cost: { crystal: 800, deut: 400 }, factor: 2,
     mota: 'Nền tảng cho mọi vũ khí năng lượng và lò nhiệt hạch.', req: { b: { lab: 1 } } },
   { id: 'laser', ten: 'Công Nghệ Laser', cost: { metal: 200, crystal: 100 }, factor: 2,
@@ -236,7 +254,7 @@ G.SHIPS = [
   { id: 'tauDau', ten: 'Tàu Dầu', cost: { metal: 8000, crystal: 3000, deut: 1000 },
     atk: 2, shield: 20, hull: 14000, speed: 4500, cargo: 12000, fuel: 40, crew: 5, dc: 'combustion',
     req: { b: { shipyard: 4 }, r: { combustion: 5 } },
-    mota: 'Tiếp nhiên liệu cho cả hạm đội giữa đường: mỗi chiếc bù 600 deuterium cho chuyến bay ' +
+    mota: 'Tiếp nhiên liệu cho cả hạm đội giữa đường: mỗi chiếc bù 600 Nhiên Liệu cho chuyến bay ' +
       '(giảm tối đa 60% tiêu hao). Trong bản gốc, thiếu tàu dầu là cả đạo quân phải quay đầu.' },
 
   { id: 'probe', ten: 'Tàu Do Thám', cost: { crystal: 1000 },
@@ -358,18 +376,85 @@ G.C = {
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
   SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
   SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
-  PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số cấp công trình
+  PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
-  TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu deuterium cho chuyến bay
+  TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu Nhiên Liệu cho chuyến bay
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
   CUOP_TOI_DA: 0.5,
   CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,
-  THUE_CO_BAN: 8,            // Galana/giờ mỗi cấp công trình dân sự
+  THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
-  HE_SO_MUA: 2.5             // giá mua đắt gấp mấy lần giá bán
+  HE_SO_MUA: 2.5,            // giá mua đắt gấp mấy lần giá bán
+  /* [TÁI DỰNG] hiệu chỉnh sao cho 2.500 Mỏ KL, KT-KTM 28 cho ra
+   * 17 tỷ KL/ngày trên server x8, đúng mốc người chơi ghi lại. */
+  HE_SO_KHAI_MO: 1.287411465204992,
+  /* [TÁI DỰNG] KT-NX 20 xấp xỉ nhân 10 công suất mỗi nhà máy. */
+  HE_SO_NHA_XUONG: 1.12
 };
+
+/* Đậu quỹ đạo có trong tư liệu gốc; nhịp tiếp nhiên liệu và mức tiêu hao cụ
+ * thể không còn bảng luật nên đều là [TÁI DỰNG]. Hạm đội trả trước từng đoạn
+ * từ Nhiên Liệu đang chở trong khoang, tuyệt đối không tự rút kho đồng minh. */
+G.QUY_DAO_V1 = {
+  marker: 'giu-quy-dao-v1',
+  holdRules: 'orbit-hold-v1',
+  legacyRules: 'legacy-hold-v5',
+  segmentSeconds: 6 * 3600,
+  fuelPerBaseHour: 0.02
+};
+
+/* Nhịp 6 giờ có nguồn; các tỷ lệ dân số/thuế/phạt bên dưới không còn bảng
+ * gốc nên đều là [TÁI DỰNG] bảo thủ và được gom ở một chỗ để cân bằng/test.
+ * Basis point (bp): 10.000 bp = 100%. */
+G.NHIP_V1 = {
+  marker: 'bao-tri-dan-su-v1',
+  maintenanceRules: 'maintenance-v1',
+  researchRules: 'research-installments-v1',
+  cycleSeconds: G.C.CHU_KY_BAO_TRI,
+  minResearchSeconds: 12 * 3600,
+
+  populationFloor: 250000,       // mốc sàn được tư liệu người chơi xác nhận
+  populationStart: 250000,
+  defaultSupportBp: 7000,
+  maxSupportBp: 20000,          // 140% từng xuất hiện trong tư liệu người chơi
+  defaultTaxBp: 1000,
+  minTaxBp: 0,
+  maxTaxBp: 10000,
+  baseHousing: 250000,
+  cityHousing: 25000,
+  foodPerPersonCycle: 0.002,
+  taxGalanaPerPersonHour: 0.001,
+
+  populationGrowthBp: 25,
+  foodShortfallMaxLossBp: 500,
+  maintenancePopulationLossBp: 250,
+  supportRecoverBp: 100,
+  supportFoodPenaltyBp: 400,
+  supportMaintenancePenaltyBp: 200,
+  infrastructureDecayBp: 100,
+
+  maintenanceMilitaryPointRate: 0.015,
+  maintenanceBuildingPointRate: 0.008,
+  maintenanceDepotReductionBp: 600,
+  maintenanceDepotMaxReductionBp: 6000,
+  researchFailureMissStreak: 1,
+  populationLossMissStreak: 2,
+  infrastructureDecayMissStreak: 3,
+  refundPolicy: 'forfeit-paid-v1',
+  legacyRefundPolicy: 'legacy-full'
+};
+
+/* Các neo có nguồn để cân bằng/test không trôi về OGame. Chúng
+ * không phải bảng giá đầy đủ của game gốc. */
+G.MOC_LICH_SU = {
+  moKimLoai: { soLuong: 2500, khaiMo: 28, sanLuongNgay: 17000000000 },
+  nhaMay: { soLuong: 1000, nhaXuong: 20, mayBayTangHinhNgay: 10000 },
+  mbcdMotTrieu: { soLuong: 1000000, cost: { metal: 10000000000, crystal: 5000000000, galana: 10000000000 } }
+};
+G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
+G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };

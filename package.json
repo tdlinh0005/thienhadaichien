@@ -1,7 +1,7 @@
 {
   "name": "thien-ha-dai-chien",
-  "version": "1.33.0",
-  "description": "Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến (dev Việt, 2004–2013) — một người chơi offline hoặc nhiều người chơi qua máy chủ Node + SQLite.",
+  "version": "1.36.0",
+  "description": "Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến do nhóm Việt phát triển từ 2004 — chơi offline hoặc nhiều người qua Node + SQLite.",
   "private": true,
   "type": "commonjs",
   "engines": { "node": ">=22.5" },

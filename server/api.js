@@ -7,6 +7,8 @@ var G = require('./rules.js').G;
 
 var PHIEN_HAN = 30 * 86400;
 var BODY_MAX = 96 * 1024;
+var CHAT_HAN = 30 * 86400;
+var CHAT_TOI_DA = 300;
 var NHIP_TOI_DA = parseInt(process.env.THDC_GIOI_HAN || '40', 10);   // yêu cầu tối đa / NHIP_CUA giây
 var NHIP_CUA = 10;
 var NHIP_XAC_THUC = parseInt(process.env.THDC_GIOI_HAN_DN || '8', 10); // đăng nhập/đăng ký nặng CPU (scrypt)
@@ -59,6 +61,7 @@ function API(kho, tg) {
   this.kho = kho;
   this.tg = tg;
   this.nhip = new Map();     // token/ip -> {n, tu}
+  this.chatDonLuc = 0;
 }
 
 API.prototype.gioiHan = function (khoa, tran) {
@@ -68,6 +71,14 @@ API.prototype.gioiHan = function (khoa, tran) {
   o.n++;
   if (this.nhip.size > 5000) this.nhip.clear();
   return o.n <= (tran || NHIP_TOI_DA);
+};
+
+/* Chat được đọc liên tục bởi mọi client. Luôn lọc TTL trong SELECT, còn DELETE
+   chỉ chạy tối đa mỗi giờ để không biến polling 8 giây thành chuỗi write-lock. */
+API.prototype.donChat = function (now) {
+  if (now - this.chatDonLuc < 3600) return;
+  this.kho.q.chatDonRac.run(now - CHAT_HAN);
+  this.chatDonLuc = now;
 };
 
 API.prototype.phien = function (req) {
@@ -104,6 +115,7 @@ API.prototype.goiState = function (p) {
   if (!st) return null;
   /* gắn thêm thông tin chỉ có server biết (không nằm trong state đã lưu) */
   st.pvpToi = this.tg.hamDangToi(p.tk);
+  st.pvpGiu = this.tg.hamGiuTai(p.tk);
   return {
     st: st,
     sv: this.thongTin(),
@@ -165,6 +177,18 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   if (!self.gioiHan('t:' + p.token)) return json(res, 429, { loi: 'Thao tác quá nhanh, chờ một nhịp.' });
   self.kho.q.tkVao.run(Math.floor(Date.now() / 1000), p.tk);
 
+  /* Đọc body là một điểm `await`: trong lúc client gửi chậm, một request khác
+     có thể đổi mật khẩu/đăng xuất và thu hồi phiên này. Luôn xác thực lại sau
+     khi body đã tới đủ, đồng thời nạp tkRow mới nhất trước thao tác nhạy cảm. */
+  async function docBodyDaXacThuc() {
+    var b = await docBody(req);
+    var pMoi = self.phien(req);
+    if (!pMoi || pMoi.token !== p.token || pMoi.tk !== p.tk)
+      throw loiKH('Phiên đăng nhập đã hết hạn.', 401);
+    p = pMoi;
+    return b;
+  }
+
   if (duong === '/api/dangxuat') {
     self.kho.q.phienXoa.run(p.token);
     return json(res, 200, { ok: true });
@@ -177,24 +201,18 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   }
 
   if (duong === '/api/lam' && req.method === 'POST') {
-    var b3 = await docBody(req);
+    var b3 = await docBodyDaXacThuc();
     var ten3 = chuoi(b3.ten, 24);
     if (!G.HANHDONG[ten3]) return json(res, 400, { loi: 'Hành động không tồn tại.' });
-    var kq3 = self.tg.hanhDong(p.tk, ten3, b3.dl || {});
+    /* Multiplayer phải qua đơn xin + chủ duyệt; không cho gọi thẳng luật dùng
+       chung để lách bộ máy điều hành liên minh. */
+    if (ten3 === 'lmvao') return json(res, 400, { loi: 'Hãy gửi đơn xin gia nhập và chờ chủ liên minh duyệt.' });
+    var kq3 = ten3 === 'lmra' ? self.tg.lmRa(p.tk) : self.tg.hanhDong(p.tk, ten3, b3.dl || {});
     if (!kq3.st) return json(res, 503, { loi: kq3.loi || 'Server đang xử lý, thử lại.' });
-    /* đồng bộ cột liên minh + kiểm tra liên minh có thật */
-    if (ten3 === 'lmvao' && !kq3.loi) {
-      var co = self.kho.q.lmGet.get(kq3.st.lm ? kq3.st.lm.ten : '');
-      if (!co) {
-        kq3.st.lm = null;
-        self.tg.luu(p.tk, kq3.st);
-        return json(res, 400, { loi: 'Liên minh này không tồn tại.', st: kq3.st, sv: self.thongTin() });
-      }
-      self.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm', p.tkRow.hienthi + ' gia nhập ' + kq3.st.lm.ten + '.');
-    }
     /* lỗi luật chơi (không đủ tài nguyên, chưa đủ điều kiện...) không phải lỗi
        HTTP: vẫn trả 200 kèm state mới nhất để client vẽ lại cho khớp server. */
     kq3.st.pvpToi = self.tg.hamDangToi(p.tk);
+    kq3.st.pvpGiu = self.tg.hamGiuTai(p.tk);
     return json(res, 200, { loi: kq3.loi, st: kq3.st, sv: self.thongTin() });
   }
 
@@ -211,15 +229,66 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   if (duong === '/api/lm') {
     var r5 = self.tg.nap(p.tk);
     var cua = r5 && r5.st.lm ? r5.st.lm.ten : null;
-    return json(res, 200, { ds: self.tg.lmDS(), tv: cua ? self.tg.lmThanhVien(cua, p.tk) : [] });
+    var lmHienTai = cua ? self.kho.q.lmGet.get(cua) : null;
+    var laChu = !!lmHienTai && lmHienTai.chu === p.tk;
+    return json(res, 200, {
+      ds: self.tg.lmDS(),
+      tv: cua ? self.tg.lmThanhVien(cua, p.tk) : [],
+      xin: self.kho.q.lmXinCua.all(p.tk),
+      don: laChu ? self.kho.q.lmXinDS.all(cua) : [],
+      laChu: laChu,
+      chien: self.tg.chienCua(p.tk)
+    });
+  }
+
+  if (duong === '/api/tuyenchien' && req.method === 'POST') {
+    var bChien = await docBodyDaXacThuc();
+    var loiChien = self.tg.tuyenChien(p.tk, bChien.tk);
+    if (loiChien) return json(res, 400, { loi: loiChien });
+    return json(res, 200, { ok: true, chien: self.tg.chienCua(p.tk) });
+  }
+
+  if (duong === '/api/chuyengalana' && req.method === 'POST') {
+    var bGalana = await docBodyDaXacThuc();
+    var loiGalana = self.tg.chuyenGalana(p.tk, bGalana.tk, bGalana.so);
+    if (loiGalana) return json(res, 400, { loi: loiGalana });
+    var gGalana = self.goiState(p);
+    return json(res, 200, { ok: true, st: gGalana && gGalana.st, sv: self.thongTin() });
   }
 
   if (duong === '/api/lmtao' && req.method === 'POST') {
-    var b6 = await docBody(req);
-    var loi6 = self.tg.lmTao(p.tk, b6.ten, b6.tag);
-    if (loi6) return json(res, 400, { loi: loi6 });
-    var kq6 = self.tg.hanhDong(p.tk, 'lmvao', { ten: '[' + chuoi(b6.tag, 6).toUpperCase().trim() + '] ' + chuoi(b6.ten, 32).trim() });
+    var b6 = await docBodyDaXacThuc();
+    var kq6 = self.tg.lmTao(p.tk, b6.ten, b6.tag);
+    if (kq6.loi) return json(res, kq6.ma || 400, { loi: kq6.loi, st: kq6.st, sv: self.thongTin() });
     return json(res, 200, { loi: kq6.loi, st: kq6.st, sv: self.thongTin() });
+  }
+
+  if (duong === '/api/lmxin' && req.method === 'POST') {
+    var bXin = await docBodyDaXacThuc();
+    var loiXin = self.tg.lmXin(p.tk, bXin.ten);
+    if (loiXin) return json(res, 400, { loi: loiXin });
+    return json(res, 200, { ok: true });
+  }
+
+  if ((duong === '/api/lmduyet' || duong === '/api/lmtuchoi') && req.method === 'POST') {
+    var bDuyet = await docBodyDaXacThuc();
+    var loiDuyet = self.tg.lmDuyet(p.tk, bDuyet.tk, duong === '/api/lmduyet');
+    if (loiDuyet) return json(res, 400, { loi: loiDuyet });
+    return json(res, 200, { ok: true });
+  }
+
+  if (duong === '/api/lmduoi' && req.method === 'POST') {
+    var bDuoi = await docBodyDaXacThuc();
+    var loiDuoi = self.tg.lmDuoi(p.tk, bDuoi.tk);
+    if (loiDuoi) return json(res, 400, { loi: loiDuoi });
+    return json(res, 200, { ok: true });
+  }
+
+  if (duong === '/api/lmchuyen' && req.method === 'POST') {
+    var bChuyen = await docBodyDaXacThuc();
+    var loiChuyen = self.tg.lmChuyenChu(p.tk, bChuyen.tk);
+    if (loiChuyen) return json(res, 400, { loi: loiChuyen });
+    return json(res, 200, { ok: true });
   }
 
   if (duong === '/api/bangtin') {
@@ -229,9 +298,46 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     });
   }
 
+  if (duong === '/api/chat' && req.method === 'GET') {
+    var dqChat = self.kho.q.dqGet.get(p.tk);
+    var lmChat = dqChat && dqChat.lm ? dqChat.lm : null;
+    var khiDocChat = Math.floor(Date.now() / 1000), tuChat = khiDocChat - CHAT_HAN;
+    self.donChat(khiDocChat);
+    /* SQL lấy mới nhất trước để LIMIT đúng, API đảo lại cho giao diện đọc từ
+       cũ tới mới. Người không ở liên minh không bao giờ nhận được kênh riêng. */
+    return json(res, 200, {
+      chung: self.kho.q.chatChung.all(tuChat, 60).reverse(),
+      lienminh: lmChat ? self.kho.q.chatLM.all(lmChat, tuChat, 60).reverse() : [],
+      lm: lmChat
+    });
+  }
+
+  if (duong === '/api/chat' && req.method === 'POST') {
+    var bChat = await docBodyDaXacThuc();
+    var kenhChat = chuoi(bChat.kenh, 12);
+    if (kenhChat !== 'chung' && kenhChat !== 'lienminh')
+      return json(res, 400, { loi: 'Kênh chat không hợp lệ.' });
+    var noiTho = String(bChat.noi === undefined || bChat.noi === null ? '' : bChat.noi);
+    if (noiTho.length > CHAT_TOI_DA)
+      return json(res, 400, { loi: 'Tin chat dài tối đa ' + CHAT_TOI_DA + ' ký tự.' });
+    var noiChat = noiTho.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!noiChat) return json(res, 400, { loi: 'Không gửi được tin chat trống.' });
+    var dqChat2 = self.kho.q.dqGet.get(p.tk);
+    var lmChat2 = dqChat2 && dqChat2.lm ? dqChat2.lm : null;
+    if (kenhChat === 'lienminh' && !lmChat2)
+      return json(res, 403, { loi: 'Phải ở trong liên minh mới dùng được kênh này.' });
+    /* Tách giới hạn chat khỏi hạn mức API chung: tối đa 3 tin trong 10 giây. */
+    if (!self.gioiHan('chat:' + p.tk, 3))
+      return json(res, 429, { loi: 'Gửi chat chậm thôi — chờ vài giây.' });
+    var khiChat = Math.floor(Date.now() / 1000);
+    self.kho.q.chatThem.run(khiChat, p.tk, p.tkRow.hienthi, lmChat2, kenhChat, noiChat);
+    self.donChat(khiChat);
+    return json(res, 200, { ok: true });
+  }
+
   if (duong === '/api/guithu' && req.method === 'POST') {
-    var b9 = await docBody(req);
-    /* chống spam: mỗi người gửi tối đa 1 thư / 8 giây */
+    var b9 = await docBodyDaXacThuc();
+    /* chống spam: mỗi người gửi tối đa 1 thư / cửa sổ giới hạn 10 giây */
     if (!self.gioiHan('thu:' + p.tk, 1)) return json(res, 429, { loi: 'Gửi thư chậm thôi — chờ vài giây.' });
     var loi9 = self.tg.guiThu(p.tk, p.tkRow.hienthi, b9.den, b9.noi);
     if (loi9) return json(res, 400, { loi: loi9 });
@@ -239,7 +345,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   }
 
   if (duong === '/api/xoatk' && req.method === 'POST') {
-    var b8 = await docBody(req);
+    var b8 = await docBodyDaXacThuc();
     if (!bangNhau(bam(chuoi(b8.mk, 200), p.tkRow.muoi), p.tkRow.mk))
       return json(res, 401, { loi: 'Mật khẩu không đúng.' });
     if (chuoi(b8.xacnhan, 40) !== 'XOA')
@@ -250,7 +356,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   }
 
   if (duong === '/api/doimk' && req.method === 'POST') {
-    var b7 = await docBody(req);
+    var b7 = await docBodyDaXacThuc();
     if (!bangNhau(bam(chuoi(b7.cu, 200), p.tkRow.muoi), p.tkRow.mk))
       return json(res, 401, { loi: 'Mật khẩu hiện tại không đúng.' });
     var moi = chuoi(b7.moi, 200);

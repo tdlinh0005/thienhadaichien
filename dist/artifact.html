@@ -1,6 +1,6 @@
 <title>Thiên Hà Đại Chiến</title>
 <style>
-/* THIÊN HÀ ĐẠI CHIẾN — giao diện nhại webgame Việt 2009–2013:
+/* THIÊN HÀ ĐẠI CHIẾN — giao diện gợi lại webgame Việt khoảng năm 2010:
    nền vũ trụ tối, viền kim loại, bảng biểu dày đặc số liệu. */
 :root{
   --den:#05070f; --den2:#0a0e1b; --panel:#101627; --panel2:#0c1120;
@@ -163,6 +163,17 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 .tn.moi>.d{border-left:3px solid var(--cam)}
 .hu{display:inline-block;min-width:56px;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--mo)}
 
+/* ---------- phòng chat ---------- */
+.chat-ds{height:310px;overflow-y:auto;overscroll-behavior:contain;padding:7px 9px;background:#070b14;
+  border:1px solid var(--vien);border-radius:3px;scrollbar-color:var(--vien2) #070b14}
+.chat-dong{padding:5px 2px;border-bottom:1px solid #141e34;overflow-wrap:anywhere}
+.chat-dong:last-child{border-bottom:0}
+.chat-dong .hu{min-width:48px;margin-right:3px}
+.chat-noi{display:block;margin-left:55px;color:var(--chu)}
+.chat-gui{display:flex;gap:6px;margin-top:8px}
+.chat-gui input{flex:1;min-width:0}
+.chat-ghi{font-size:11px;margin:5px 0 0}
+
 /* ---------- hộp thoại ---------- */
 .hop-thoai{position:fixed;inset:0;z-index:100;background:rgba(2,4,10,.78);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto}
 .ht-trong{width:min(760px,100%);background:var(--panel);border:1px solid var(--vien2);border-radius:5px;box-shadow:0 20px 70px #000}
@@ -191,6 +202,8 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
   .panel>.noi>table,.bc>table{display:block;overflow-x:auto;max-width:100%}
   .the .cap{float:none;display:inline-block;margin-left:6px}
   .gal-dh input{width:64px}
+  .chat-ds{height:240px}
+  .chat-noi{margin-left:0}
   .khung{flex-direction:column;padding:10px}
   #menu{width:100%;position:static;display:none;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px}
   #menu.mo-ra{display:grid}
@@ -216,7 +229,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
   <div class="kd-hop">
     <div class="kd-logo">THIÊN HÀ<span>ĐẠI CHIẾN</span></div>
     <div class="kd-sub">Webgame chiến thuật vũ trụ &middot; bản phục dựng <span id="kd-ver"></span></div>
-    <div class="kd-nam">Năm <b>2184</b> &middot; Liên Bang Địa Cầu &middot; Vùng biên Ngân Hà</div>
+    <div class="kd-nam">Nhiều năm sau <b>Thông Điệp Akabrac 2184</b> &middot; Vùng biên Ngân Hà</div>
     <div class="kd-form">
       <label>Tên chỉ huy</label>
       <input id="kd-ten" maxlength="18" placeholder="VD: Quốc Bình" autocomplete="off">
@@ -275,104 +288,118 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 
 var G = window.G = window.G || {};
 
-G.VERSION = '1.33f-r';           // nhại phiên bản 1.33f của bản gốc
-G.NAM_BOI_CANH = 2184;
+G.VERSION = '1.35b-r2';          // state v6: nhịp dân sự + hạm đội giữ quỹ đạo thật
+G.NAM_AKABRAC = 2184;
+G.BOI_CANH = 'Nhiều năm sau Thông Điệp Akabrac năm 2184';
 
 /* --- Tài nguyên ------------------------------------------------------- */
 G.RES = [
   { id: 'metal',   ten: 'Kim Loại',   ky: 'KL', mau: '#c9a06a' },
-  { id: 'crystal', ten: 'Tinh Thể',   ky: 'TT', mau: '#7fd4f5' },
-  { id: 'deut',    ten: 'Deuterium',  ky: 'DT', mau: '#9be59b' },
-  { id: 'food',    ten: 'Lương Thực', ky: 'LT', mau: '#e5c76b' },
+  { id: 'crystal', ten: 'Thạch Anh',  ky: 'TA', mau: '#7fd4f5' },
+  { id: 'deut',    ten: 'Nhiên Liệu', ky: 'NL', mau: '#9be59b' },
+  { id: 'food',    ten: 'Thực Phẩm',  ky: 'TP', mau: '#e5c76b' },
   { id: 'galana',  ten: 'Galana',     ky: 'GL', mau: '#f0b3ff' },
-  { id: 'tech',    ten: 'Công Nghệ',  ky: 'CN', mau: '#8fa8ff' }
+  { id: 'tech',    ten: 'Kỹ Thuật',   ky: 'KT', mau: '#8fa8ff' }
 ];
 G.RES_HANH_TINH = ['metal', 'crystal', 'deut', 'food'];  // chứa ở kho hành tinh
 G.RES_DE_QUOC   = ['galana', 'tech'];                    // chung toàn đế quốc
 
 /* --- 5 loại hành tinh (tư liệu gốc: thread GVN của người chơi Nazgul) ----
- * Nguyên văn mô tả từng loại nằm trong docs/NGHIEN-CUU.md; các HỆ SỐ dưới đây
- * là [SUY LUẬN] dịch mô tả chữ thành con số.                               */
+ * Chiều lợi/hại bám mô tả gốc; độ lớn HỆ SỐ là [TÁI DỰNG] bảo thủ. */
 G.LOAI_HT = [
   { id: 'onhoa', ten: 'Ôn Hoà', mau: '#7fe0a0',
     mota: 'Hành tinh hoàn hảo với các điều kiện như Trái Đất. Không mạnh mặt nào nhưng cũng không yếu mặt nào.',
-    oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00, temp: [20, 60] },
+    oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00,
+    dan: 1.00, ungHoBp: 0, temp: [20, 60] },
   { id: 'runggia', ten: 'Rừng Già', mau: '#8fd14f',
-    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Lương thực dồi dào, đất rộng.',
-    oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00, temp: [10, 45] },
+    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Thực Phẩm dồi dào, đất rộng.',
+    oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00,
+    dan: 1.15, ungHoBp: 500, temp: [10, 45] },
   { id: 'nuoc', ten: 'Nước – Đầm Lầy', mau: '#57c8ff',
     mota: '90% bề mặt là biển, còn lại là đầm lầy. Khó kiến thiết (ít ô đất) nhưng KHÓ TẤN CÔNG và rất nhiều nhiên liệu.',
-    oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25, temp: [5, 40] },
+    oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25,
+    dan: 1.08, ungHoBp: 0, temp: [5, 40] },
   { id: 'samac', ten: 'Sa Mạc', mau: '#ffb45e',
-    mota: 'Gần Mặt Trời, nóng khủng khiếp, nghèo nàn về sự sống nhưng tài nguyên phong phú và dễ khai thác.',
-    oDat: 1.00, kl: 1.35, tt: 1.25, dt: 0.60, lt: 0.55, dien: 1.35, thuDat: 0.90, temp: [80, 140] },
+    mota: 'Gần Mặt Trời, giàu Kim Loại và quang năng; Thạch Anh, Nhiên Liệu và sự sống đều khó khăn.',
+    oDat: 1.00, kl: 1.35, tt: 0.80, dt: 0.70, lt: 0.55, dien: 1.35, thuDat: 0.90,
+    dan: 0.82, ungHoBp: -500, temp: [80, 140] },
   { id: 'banghai', ten: 'Băng Hà', mau: '#bcd9ff',
-    mota: 'Xa Mặt Trời, ánh sáng hạn chế, khắc nghiệt hơn Nam Cực. Được chọn vì PHÒNG THỦ MẶT ĐẤT MẠNH và nhiều nhiên liệu.',
-    oDat: 0.90, kl: 0.90, tt: 1.00, dt: 1.45, lt: 0.70, dien: 0.60, thuDat: 1.50, temp: [-130, -40] }
+    mota: 'Xa Mặt Trời, ánh sáng hạn chế, khắc nghiệt hơn Nam Cực; giàu Thạch Anh và PHÒNG THỦ MẶT ĐẤT MẠNH.',
+    oDat: 0.90, kl: 0.90, tt: 1.45, dt: 0.90, lt: 0.70, dien: 0.60, thuDat: 1.50,
+    dan: 0.90, ungHoBp: -200, temp: [-130, -40] }
 ];
 G.LHT = function (id) { return G.byId(G.LOAI_HT, id) || G.LOAI_HT[0]; };
 
 /* --- Công trình -------------------------------------------------------- */
-/* prod(l, ctx) -> {metal|crystal|deut|food|energy|galana|tech}
- * use(l)      -> năng lượng tiêu thụ                                     */
+/* Từ state v4, b[id] và tham số n dưới đây là SỐ LƯỢNG công trình.
+ * factor chỉ còn dùng để quy đổi vốn lũy kế từ save cũ và tính mốc
+ * tương thích; giá lô mới luôn tuyến tính theo n.                    */
 G.BUILDINGS = [
   { id: 'metalMine', ten: 'Mỏ Kim Loại', nhom: 'kt',
     mota: 'Máy khoan tự động bóc lớp vỏ hành tinh để lấy kim loại thô — nền tảng của mọi công trình.',
     cost: { metal: 60, crystal: 15 }, factor: 1.5,
-    prod: function (l) { return { metal: 30 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { metal: 30 * n * G.hsKhaiMo(c.tech) }; },
+    use: function (n) { return 10 * n; } },
 
-  { id: 'crystalMine', ten: 'Mỏ Tinh Thể', nhom: 'kt',
-    mota: 'Hầm khai thác tinh thể — vật liệu bắt buộc cho mạch điện tử và vũ khí năng lượng.',
+  { id: 'crystalMine', ten: 'Mỏ Thạch Anh', nhom: 'kt',
+    mota: 'Hầm khai thác Thạch Anh — vật liệu bắt buộc cho mạch điện tử và vũ khí năng lượng.',
     cost: { metal: 48, crystal: 24 }, factor: 1.6,
-    prod: function (l) { return { crystal: 20 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { crystal: 20 * n * G.hsKhaiMo(c.tech) }; },
+    use: function (n) { return 10 * n; } },
 
-  { id: 'deutSyn', ten: 'Giàn Tổng Hợp Deuterium', nhom: 'kt',
-    mota: 'Lọc nước nặng từ khí quyển thành deuterium — nhiên liệu cho hạm đội và lò nhiệt hạch.',
+  { id: 'deutSyn', ten: 'Giàn Lọc Nhiên Liệu', nhom: 'kt',
+    mota: 'Lọc nước nặng từ khí quyển thành Nhiên Liệu cho hạm đội và lò nhiệt hạch.',
     cost: { metal: 225, crystal: 75 }, factor: 1.5,
-    prod: function (l, c) { return { deut: 10 * l * Math.pow(1.1, l) * (1.28 - 0.002 * c.temp) }; },
-    use: function (l) { return 20 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { deut: 10 * n * G.hsKhaiMo(c.tech) * (1.28 - 0.002 * c.temp) }; },
+    use: function (n) { return 20 * n; } },
 
   { id: 'farm', ten: 'Trang Trại Sinh Quyển', nhom: 'kt',
-    mota: 'Vòm sinh quyển trồng lương thực nuôi dân cư và thủy thủ đoàn. Hết Lương Thực là hành tinh đói.',
+    mota: 'Vòm sinh quyển tạo thực phẩm nuôi dân cư và thủy thủ đoàn. Hết Thực Phẩm là hành tinh đói.',
     cost: { metal: 80, crystal: 40 }, factor: 1.55,
-    prod: function (l) { return { food: 26 * l * Math.pow(1.1, l) }; },
-    use: function (l) { return 8 * l * Math.pow(1.1, l); } },
+    prod: function (n) { return { food: 26 * n }; },
+    use: function (n) { return 8 * n; } },
+
+  /* [TÁI DỰNG] Tư liệu người chơi xác nhận Thành Phố, dân số và thuế,
+   * nhưng không còn bảng giá/sức chứa. `housing` là metadata để engine dân
+   * sự không phải nhận diện công trình bằng tên hiển thị. */
+  { id: 'city', ten: 'Thành Phố', nhom: 'ds',
+    mota: 'Khu dân cư có bệnh viện, trường học và cơ quan thuế. Mỗi Thành Phố mở thêm chỗ ở cho 25.000 dân.',
+    cost: { metal: 1200, crystal: 600, food: 400 }, factor: 1.6,
+    housing: 25000, use: function (n) { return 4 * n; } },
 
   { id: 'solar', ten: 'Nhà Máy Điện Mặt Trời', nhom: 'nl',
     mota: 'Cánh đồng pin quang điện. Không có điện thì mỏ chỉ chạy cầm chừng.',
     cost: { metal: 75, crystal: 30 }, factor: 1.5,
-    prod: function (l) { return { energy: 20 * l * Math.pow(1.1, l) }; } },
+    prod: function (n) { return { energy: 20 * n }; } },
 
   { id: 'fusion', ten: 'Lò Phản Ứng Nhiệt Hạch', nhom: 'nl',
-    mota: 'Đốt deuterium để lấy điện. Đắt, ngốn nhiên liệu, nhưng là nguồn điện mạnh nhất.',
+    mota: 'Đốt Nhiên Liệu để lấy điện. Đắt, ngốn tài nguyên, nhưng là nguồn điện mạnh nhất.',
     cost: { metal: 900, crystal: 360, deut: 180 }, factor: 1.8,
-    prod: function (l, c) { return { energy: 30 * l * Math.pow(1.05 + 0.01 * c.tech.energy, l) }; },
-    deutUse: function (l) { return 10 * l * Math.pow(1.1, l); } },
+    prod: function (n, c) { return { energy: 30 * n * (1 + 0.05 * (c.tech.energy || 0)) }; },
+    deutUse: function (n) { return 10 * n; } },
 
   { id: 'metalStore', ten: 'Kho Kim Loại', nhom: 'kho',
     mota: 'Kho vượt quá dung tích thì tài nguyên tràn ra ngoài và mất trắng.',
     cost: { metal: 1000 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'crystalStore', ten: 'Kho Tinh Thể', nhom: 'kho',
-    mota: 'Nhà chứa tinh thể có kiểm soát độ ẩm.',
+  { id: 'crystalStore', ten: 'Kho Thạch Anh', nhom: 'kho',
+    mota: 'Nhà chứa Thạch Anh có kiểm soát độ ẩm.',
     cost: { metal: 1000, crystal: 500 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'deutStore', ten: 'Bồn Deuterium', nhom: 'kho',
+  { id: 'deutStore', ten: 'Bồn Nhiên Liệu', nhom: 'kho',
     mota: 'Bồn áp lực chứa nước nặng đã tinh chế.',
     cost: { metal: 1000, crystal: 1000 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
-  { id: 'silo', ten: 'Vựa Lương Thực', nhom: 'kho',
-    mota: 'Vựa chứa lương thực có làm lạnh.',
+  { id: 'silo', ten: 'Kho Thực Phẩm', nhom: 'kho',
+    mota: 'Vựa chứa Thực Phẩm có làm lạnh.',
     cost: { metal: 800, crystal: 200 }, factor: 2,
-    cap: function (l) { return Math.floor(10000 * (Math.pow(1.6, l))); } },
+    cap: function (n) { return 10000 + 6000 * n; } },
 
   { id: 'robot', ten: 'Nhà Máy Robot', nhom: 'cn',
-    mota: 'Mỗi cấp giảm thời gian xây dựng công trình.',
+    mota: 'Mỗi nhà máy tăng công suất xây dựng công trình.',
     cost: { metal: 400, crystal: 120, deut: 200 }, factor: 2 },
 
   { id: 'nanite', ten: 'Nhà Máy Nano', nhom: 'cn', req: { b: { robot: 10 }, r: { computer: 10 } },
@@ -384,17 +411,17 @@ G.BUILDINGS = [
     cost: { metal: 400, crystal: 200, deut: 100 }, factor: 2 },
 
   { id: 'lab', ten: 'Phòng Nghiên Cứu', nhom: 'cn',
-    mota: 'Tạo ra Công Nghệ — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
+    mota: 'Tạo ra Kỹ Thuật — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
     cost: { metal: 200, crystal: 400, deut: 200 }, factor: 2,
-    prod: function (l) { return { tech: 4 * l * Math.pow(1.08, l) }; },
-    use: function (l) { return 6 * l * Math.pow(1.1, l); } },
+    prod: function (n) { return { tech: 4 * n }; },
+    use: function (n) { return 6 * n; } },
 
   { id: 'intel', ten: 'Trung Tâm Tình Báo', nhom: 'cn', req: { b: { lab: 4 } },
-    mota: 'Vừa phân tích báo cáo do thám, vừa phản tình báo — mỗi cấp tăng xác suất bắn hạ tàu do thám địch.',
+    mota: 'Vừa phân tích báo cáo do thám, vừa phản tình báo — mỗi trung tâm tăng xác suất bắn hạ tàu do thám địch.',
     cost: { metal: 5000, crystal: 8000, deut: 2000 }, factor: 1.9 },
 
   { id: 'fleetHQ', ten: 'Đài Chỉ Huy Hạm Đội', nhom: 'cn', req: { b: { shipyard: 4 } },
-    mota: 'Mỗi cấp mở thêm một khe điều phối hạm đội cùng lúc.',
+    mota: 'Mỗi đài mở thêm một khe điều phối hạm đội cùng lúc.',
     cost: { metal: 20000, crystal: 20000, deut: 1000 }, factor: 2 },
 
   { id: 'maintDepot', ten: 'Trung Tâm Bảo Trì', nhom: 'cn',
@@ -402,11 +429,11 @@ G.BUILDINGS = [
     cost: { metal: 10000, crystal: 6000, deut: 2000 }, factor: 1.8 },
 
   { id: 'missileSilo', ten: 'Hầm Tên Lửa', nhom: 'cn', req: { b: { shipyard: 1 } },
-    mota: 'Mỗi cấp chứa 10 tên lửa đánh chặn hoặc 5 tên lửa liên hành tinh.',
+    mota: 'Mỗi hầm chứa 10 điểm tên lửa (tên lửa liên hành tinh chiếm 2).',
     cost: { metal: 20000, crystal: 20000, deut: 1000 }, factor: 2 },
 
   { id: 'terraform', ten: 'Cải Tạo Hành Tinh', nhom: 'cn', req: { r: { energy: 12 } },
-    mota: 'Nắn lại địa hình để lấy thêm ô đất xây dựng (+6 ô mỗi cấp).',
+    mota: 'Nắn lại địa hình để lấy thêm khu xây dựng (+6 khu mỗi công trình).',
     cost: { metal: 0, crystal: 50000, deut: 100000 }, factor: 2 },
 
   { id: 'jumpGate', ten: 'Cổng Không Gian', nhom: 'cn', req: { r: { hyperspace: 7 } },
@@ -415,9 +442,13 @@ G.BUILDINGS = [
 ];
 
 /* --- Nghiên cứu -------------------------------------------------------- */
-/* Đặc trưng bản gốc: ngoài chi phí trả ngay, mỗi đề tài còn có "vốn đầu tư"
- * Galana bị trừ DẦN qua từng chu kỳ bảo trì 6 giờ.                        */
+/* Đặc trưng bản gốc: tổng nguyên liệu nghiên cứu được rút DẦN qua từng
+ * chu kỳ 6 giờ, không khấu trừ toàn bộ ngay khi xếp đề tài.               */
 G.RESEARCH = [
+  { id: 'mining', ten: 'Kỹ Thuật Khai Thác Mỏ', cost: { metal: 600, crystal: 200 }, factor: 2,
+    mota: 'KT-KTM tăng sản lượng trên mỗi mỏ. Hệ số cụ thể là [TÁI DỰNG] neo theo mốc người chơi.', req: { b: { lab: 1 } } },
+  { id: 'workshop', ten: 'Kỹ Thuật Nhà Xưởng', cost: { metal: 800, crystal: 400, deut: 200 }, factor: 2,
+    mota: 'KT-NX tăng công suất của Nhà Máy Sản Xuất. Hệ số cụ thể là [TÁI DỰNG].', req: { b: { lab: 1, shipyard: 1 } } },
   { id: 'energy', ten: 'Công Nghệ Năng Lượng', cost: { crystal: 800, deut: 400 }, factor: 2,
     mota: 'Nền tảng cho mọi vũ khí năng lượng và lò nhiệt hạch.', req: { b: { lab: 1 } } },
   { id: 'laser', ten: 'Công Nghệ Laser', cost: { metal: 200, crystal: 100 }, factor: 2,
@@ -502,7 +533,7 @@ G.SHIPS = [
   { id: 'tauDau', ten: 'Tàu Dầu', cost: { metal: 8000, crystal: 3000, deut: 1000 },
     atk: 2, shield: 20, hull: 14000, speed: 4500, cargo: 12000, fuel: 40, crew: 5, dc: 'combustion',
     req: { b: { shipyard: 4 }, r: { combustion: 5 } },
-    mota: 'Tiếp nhiên liệu cho cả hạm đội giữa đường: mỗi chiếc bù 600 deuterium cho chuyến bay ' +
+    mota: 'Tiếp nhiên liệu cho cả hạm đội giữa đường: mỗi chiếc bù 600 Nhiên Liệu cho chuyến bay ' +
       '(giảm tối đa 60% tiêu hao). Trong bản gốc, thiếu tàu dầu là cả đạo quân phải quay đầu.' },
 
   { id: 'probe', ten: 'Tàu Do Thám', cost: { crystal: 1000 },
@@ -624,18 +655,85 @@ G.C = {
   PHE_LIEU: 0.3,             // 30% xác tàu thành phế liệu
   SUA_CONG_SU: 0.7,          // 70% công sự bị phá được dựng lại sau trận
   SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
-  PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số cấp công trình
+  PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
-  TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu deuterium cho chuyến bay
+  TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu Nhiên Liệu cho chuyến bay
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
   CUOP_TOI_DA: 0.5,
   CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
   VONG_DANH: 6,
-  THUE_CO_BAN: 8,            // Galana/giờ mỗi cấp công trình dân sự
+  THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
-  HE_SO_MUA: 2.5             // giá mua đắt gấp mấy lần giá bán
+  HE_SO_MUA: 2.5,            // giá mua đắt gấp mấy lần giá bán
+  /* [TÁI DỰNG] hiệu chỉnh sao cho 2.500 Mỏ KL, KT-KTM 28 cho ra
+   * 17 tỷ KL/ngày trên server x8, đúng mốc người chơi ghi lại. */
+  HE_SO_KHAI_MO: 1.287411465204992,
+  /* [TÁI DỰNG] KT-NX 20 xấp xỉ nhân 10 công suất mỗi nhà máy. */
+  HE_SO_NHA_XUONG: 1.12
 };
+
+/* Đậu quỹ đạo có trong tư liệu gốc; nhịp tiếp nhiên liệu và mức tiêu hao cụ
+ * thể không còn bảng luật nên đều là [TÁI DỰNG]. Hạm đội trả trước từng đoạn
+ * từ Nhiên Liệu đang chở trong khoang, tuyệt đối không tự rút kho đồng minh. */
+G.QUY_DAO_V1 = {
+  marker: 'giu-quy-dao-v1',
+  holdRules: 'orbit-hold-v1',
+  legacyRules: 'legacy-hold-v5',
+  segmentSeconds: 6 * 3600,
+  fuelPerBaseHour: 0.02
+};
+
+/* Nhịp 6 giờ có nguồn; các tỷ lệ dân số/thuế/phạt bên dưới không còn bảng
+ * gốc nên đều là [TÁI DỰNG] bảo thủ và được gom ở một chỗ để cân bằng/test.
+ * Basis point (bp): 10.000 bp = 100%. */
+G.NHIP_V1 = {
+  marker: 'bao-tri-dan-su-v1',
+  maintenanceRules: 'maintenance-v1',
+  researchRules: 'research-installments-v1',
+  cycleSeconds: G.C.CHU_KY_BAO_TRI,
+  minResearchSeconds: 12 * 3600,
+
+  populationFloor: 250000,       // mốc sàn được tư liệu người chơi xác nhận
+  populationStart: 250000,
+  defaultSupportBp: 7000,
+  maxSupportBp: 20000,          // 140% từng xuất hiện trong tư liệu người chơi
+  defaultTaxBp: 1000,
+  minTaxBp: 0,
+  maxTaxBp: 10000,
+  baseHousing: 250000,
+  cityHousing: 25000,
+  foodPerPersonCycle: 0.002,
+  taxGalanaPerPersonHour: 0.001,
+
+  populationGrowthBp: 25,
+  foodShortfallMaxLossBp: 500,
+  maintenancePopulationLossBp: 250,
+  supportRecoverBp: 100,
+  supportFoodPenaltyBp: 400,
+  supportMaintenancePenaltyBp: 200,
+  infrastructureDecayBp: 100,
+
+  maintenanceMilitaryPointRate: 0.015,
+  maintenanceBuildingPointRate: 0.008,
+  maintenanceDepotReductionBp: 600,
+  maintenanceDepotMaxReductionBp: 6000,
+  researchFailureMissStreak: 1,
+  populationLossMissStreak: 2,
+  infrastructureDecayMissStreak: 3,
+  refundPolicy: 'forfeit-paid-v1',
+  legacyRefundPolicy: 'legacy-full'
+};
+
+/* Các neo có nguồn để cân bằng/test không trôi về OGame. Chúng
+ * không phải bảng giá đầy đủ của game gốc. */
+G.MOC_LICH_SU = {
+  moKimLoai: { soLuong: 2500, khaiMo: 28, sanLuongNgay: 17000000000 },
+  nhaMay: { soLuong: 1000, nhaXuong: 20, mayBayTangHinhNgay: 10000 },
+  mbcdMotTrieu: { soLuong: 1000000, cost: { metal: 10000000000, crystal: 5000000000, galana: 10000000000 } }
+};
+G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
+G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };
@@ -987,7 +1085,7 @@ var G = window.G = window.G || {};
 
 G.VONG_XUONG_DAT = 3;
 
-function nhom(id, n, tech, ben, thuDat) {
+function nhom(id, n, tech, ben, thuDat, nguon) {
   var u = G.UNIT(id);
   var w = 1 + 0.1 * (tech.weapon || 0), s = 1 + 0.1 * (tech.shield || 0), a = 1 + 0.1 * (tech.armor || 0);
   /* Loại hành tinh làm phòng thủ MẶT ĐẤT dày thêm (Băng Hà, Nước – Đầm Lầy) */
@@ -999,16 +1097,17 @@ function nhom(id, n, tech, ben, thuDat) {
     hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a,   // vỏ thép cơ bản × giáp
     hongDu: 0,
     lop: u.lop || 'ham',
-    cost: u.cost
+    cost: u.cost,
+    nguon: nguon === undefined ? -1 : nguon
   };
 }
 
-function gomBen(ships, def, tech, ben, thuDat, bo) {
+function gomBen(ships, def, tech, ben, thuDat, bo, nguon) {
   var out = [];
   var id;
-  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben));
-  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat));
-  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat));
+  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben, 1, nguon));
+  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1));
+  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1));
   return out;
 }
 
@@ -1074,13 +1173,25 @@ function tinhLuc(gs) {
 }
 
 /* -----------------------------------------------------------------------
- * G.danhTran(A, D) — A/D: { ten, tech, ships, def }
+ * G.danhTran(A, D) — A/D: { ten, tech, ships, def }. D có thể truyền
+ * `nhomTau:[{ships,tech}, ...]`; nhóm 0 luôn là hạm đậu của hành tinh, các
+ * nhóm sau là hạm giữ quỹ đạo. Output giữ đúng chỉ số nguồn trong conNhomD.
  * --------------------------------------------------------------------- */
 G.danhTran = function (A, D, seed) {
   var rnd = G.rng(seed || (Date.now() >>> 0));
   var doBo = !!A.doBo;                 /* trận đổ bộ: không chia lớp, đánh hết từ vòng 1 */
-  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo);
-  var defAll = gomBen(D.ships, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo);
+  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1);
+  var nhomTau = Array.isArray(D.nhomTau) && D.nhomTau.length
+    ? D.nhomTau
+    : [{ ships: D.ships || {}, tech: D.tech || {} }];
+  var defAll = [], ng, them;
+  for (ng = 0; ng < nhomTau.length; ng++) {
+    them = gomBen(nhomTau[ng].ships || {}, null, nhomTau[ng].tech || D.tech || {}, 'D', 1, null, ng);
+    for (var ig = 0; ig < them.length; ig++) defAll.push(them[ig]);
+  }
+  /* Công sự và bộ binh luôn thuộc hành tinh, không thuộc một nhóm tàu. */
+  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1);
+  for (var idf = 0; idf < them.length; idf++) defAll.push(them[idf]);
 
   var quyDao = [], mDat = [];
   for (var i = 0; i < defAll.length; i++) {
@@ -1092,9 +1203,12 @@ G.danhTran = function (A, D, seed) {
   for (vong = 1; vong <= G.C.VONG_DANH; vong++) {
     var ta = atk.filter(conSong);
     if (!ta.length) break;
-    var phe = quyDao.filter(conSong);
+    var conQuyDao = quyDao.filter(conSong);
     var conDat = mDat.filter(conSong);
-    if (vong >= G.VONG_XUONG_DAT) phe = phe.concat(conDat);
+    /* Hai lớp đánh nối tiếp, không đánh đồng thời: chỉ sau khi quỹ đạo bị
+       triệt phá và hạm đội đã hạ độ cao từ vòng quy định mới chạm mặt đất. */
+    var matDat = !conQuyDao.length && vong >= G.VONG_XUONG_DAT && conDat.length > 0;
+    var phe = matDat ? conDat : conQuyDao;
     if (!phe.length) {
       /* Đã dẹp xong lớp quỹ đạo nhưng chưa tới vòng hạ độ cao: vòng trống,
          hạm đội hạ dần xuống tầng khí quyển. */
@@ -1118,7 +1232,7 @@ G.danhTran = function (A, D, seed) {
       lucA: Math.round(lucA), lucD: Math.round(lucD),
       conA: ta.reduce(function (s2, g2) { return s2 + g2.n; }, 0),
       conD: phe.reduce(function (s2, g2) { return s2 + g2.n; }, 0),
-      matDat: vong >= G.VONG_XUONG_DAT
+      matDat: matDat
     });
   }
 
@@ -1140,6 +1254,8 @@ G.danhTran = function (A, D, seed) {
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
   var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
   var conShipsA = {}, conShipsD = {}, conDefD = {}, conBoA = {}, conBoD = {};
+  var conNhomD = [], matNhomD = [];
+  for (i2 = 0; i2 < nhomTau.length; i2++) { conNhomD.push({}); matNhomD.push({}); }
 
   for (i2 = 0; i2 < atk.length; i2++) {
     var g = atk[i2], mat = g.n0 - g.n;
@@ -1165,11 +1281,18 @@ G.danhTran = function (A, D, seed) {
         for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
         con += sua; m -= sua;
       }
-      if (m > 0) matD[d.id] = m;
+      if (m > 0) {
+        matD[d.id] = (matD[d.id] || 0) + m;
+        if (G.S(d.id) && d.nguon >= 0)
+          matNhomD[d.nguon][d.id] = (matNhomD[d.nguon][d.id] || 0) + m;
+      }
     }
     if (con > 0) {
       if (G.BB(d.id)) conBoD[d.id] = con;
-      else if (G.S(d.id)) conShipsD[d.id] = con;
+      else if (G.S(d.id)) {
+        conShipsD[d.id] = (conShipsD[d.id] || 0) + con;
+        if (d.nguon >= 0) conNhomD[d.nguon][d.id] = (conNhomD[d.nguon][d.id] || 0) + con;
+      }
       else conDefD[d.id] = con;
     }
   }
@@ -1178,6 +1301,7 @@ G.danhTran = function (A, D, seed) {
     kq: kq, vongDanh: nhatKy, seed: seed,
     tenA: A.ten, tenD: D.ten, thuDat: D.thuDat || 1, loaiHT: D.loaiHT || null,
     conShipsA: conShipsA, conShipsD: conShipsD, conDefD: conDefD,
+    conNhomD: conNhomD, matNhomD: matNhomD,
     conBoA: conBoA, conBoD: conBoD, doBo: doBo,
     matA: matA, matD: matD, matDPha: matDPha,
     pheLieu: { metal: Math.round(pl.metal), crystal: Math.round(pl.crystal) }
@@ -1203,6 +1327,7 @@ G.thuyThu = function (ships) {
  * đúng thứ tự thời gian — nên chơi offline vẫn ra kết quả đúng.            */
 'use strict';
 var G = window.G = window.G || {};
+G.STATE_VERSION = 6;
 
 /* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
 G.LECH_GIO = 0;
@@ -1219,7 +1344,9 @@ G.moiGame = function (ten, seedStr, home) {
   if (!home) home = G.toaDo(1 + Math.floor(r() * G.C.SO_THIEN_HA), 1 + Math.floor(r() * 60), 4 + Math.floor(r() * 9));
 
   var st = {
-    v: 3, seed: seed, now: now, t0: now, lastTick: now,
+    v: G.STATE_VERSION, moHinhCT: 'so-luong-v1', moHinhNhip: G.NHIP_V1.marker,
+    moHinhQuyDao: G.QUY_DAO_V1.marker,
+    seed: seed, now: now, t0: now, lastTick: now,
     ten: ten || 'Chỉ Huy',
     home: home,
     planets: [],
@@ -1228,7 +1355,16 @@ G.moiGame = function (ten, seedStr, home) {
     fleets: [], toi: [], tenLua: [],   // toi = hạm đội địch đang bay tới; tenLua = tên lửa đang bay
     npc: {}, debris: {},
     msgs: [], nk: [],
-    nextMaint: now + G.C.CHU_KY_BAO_TRI,
+    baoTri: {
+      nextAt: now + G.NHIP_V1.cycleSeconds,
+      cycle: 0,
+      missStreak: 0,
+      arrearsGalana: 0,
+      activatedAt: now,
+      rules: G.NHIP_V1.maintenanceRules
+    },
+    /* Alias state v4: chỉ giữ để client cũ đọc được trong một vòng nâng cấp. */
+    nextMaint: now + G.NHIP_V1.cycleSeconds,
     nextRaid: now + 3600 * 3,
     soChuKy: 0, noBaoTri: 0,
     lm: null,
@@ -1242,9 +1378,9 @@ G.moiGame = function (ten, seedStr, home) {
   htMe.temp = Math.round((Lme.temp[0] + Lme.temp[1]) / 2);
   htMe.oDat = Math.max(150, htMe.oDat);
   st.planets.push(htMe);
-  G.tin(st, 'he', 'Chào mừng tới năm ' + G.NAM_BOI_CANH,
+  G.tin(st, 'he', 'Chào mừng tới kỷ nguyên liên ngân hà',
     'Hạm đội thuộc địa đã hạ cánh tại ' + G.tdStr(home) + '. Bộ Chỉ Huy Liên Hành Tinh giao cho ' +
-    st.ten + ' quyền toàn quyền phát triển hành tinh này.\n\n' +
+    st.ten + ' quyền toàn quyền phát triển hành tinh này. Bối cảnh: ' + G.BOI_CANH + '.\n\n' +
     'Nhắc lại quy định: mỗi 6 giờ hành tinh phải qua một CHU KỲ BẢO TRÌ. ' +
     'Không đủ Galana để trả phí bảo trì thì sản lượng sụt và nghiên cứu đứng bánh.\n\n' +
     'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
@@ -1259,8 +1395,334 @@ G.htMoi = function (st, c, ten, thuDo) {
     b: {}, res: { metal: thuDo ? 1500 : 500, crystal: thuDo ? 800 : 300, deut: thuDo ? 200 : 100, food: thuDo ? 1200 : 400 },
     ships: {}, def: {}, mis: {}, linh: {},
     qB: [], qS: [],
-    doi: 0                     // số giờ bị bỏ đói cộng dồn
+    doi: 0,                    // alias cảnh báo đói của state cũ
+    danSu: G.danSuMacDinh()
   };
+};
+
+/* =======================================================================
+ * MIGRATION V3 -> V4: CẤP CÔNG TRÌNH -> SỐ LƯỢNG
+ * -----------------------------------------------------------------------
+ * Một level L cũ đã tiêu tốn xấp xỉ cost0 * (1 + f + ... + f^(L-1)).
+ * V4 lấy cost0 là giá một công trình, nên quy đổi tổng vốn ấy
+ * thành số lượng. Công thức kín giữ migration O(1) cho mỗi loại. */
+G.slTuCap = function (def, lv) {
+  lv = Math.max(0, Math.floor(Number(lv) || 0));
+  if (!lv) return 0;
+  var f = (def && def.factor) || 1;
+  var n = f === 1 ? lv : (Math.pow(f, lv) - 1) / (f - 1);
+  if (!isFinite(n) || n >= Number.MAX_SAFE_INTEGER) return Number.MAX_SAFE_INTEGER;
+  return Math.max(1, Math.round(n));
+};
+
+/* Mốc level cũ cao nhất đã đầu tư không quá n công trình. Chỉ dùng
+ * cho giao diện/API cũ "xây tiếp"; mô phỏng v4 không phụ thuộc level này. */
+G.capTuSL = function (def, n) {
+  n = Math.max(0, Math.floor(Number(n) || 0));
+  if (!n) return 0;
+  var f = (def && def.factor) || 1;
+  if (f === 1) return n;
+  var lv = Math.max(0, Math.floor(Math.log(1 + n * (f - 1)) / Math.log(f)));
+  while (lv > 0 && G.slTuCap(def, lv) > n) lv--;
+  while (G.slTuCap(def, lv + 1) <= n && lv < 1024) lv++;
+  return lv;
+};
+
+/* =======================================================================
+ * STATE V5: NHỊP BẢO TRÌ, DÂN SỐ VÀ NGHIÊN CỨU TRẢ GÓP
+ * -----------------------------------------------------------------------
+ * Tư liệu xác nhận nhịp toàn đế quốc 6 giờ, dân số sàn 250.000 và chi phí
+ * nghiên cứu bị rút theo từng nhịp. Các tỷ lệ cụ thể nằm trong G.NHIP_V1
+ * và đều được đánh dấu [TÁI DỰNG] tại data.js. */
+G.danSuMacDinh = function () {
+  return {
+    population: G.NHIP_V1.populationStart,
+    supportBp: G.NHIP_V1.defaultSupportBp,
+    taxBp: G.NHIP_V1.defaultTaxBp,
+    foodDemandCycle: 0,
+    foodShortfallCycle: 0,
+    decayRemainder: 0
+  };
+};
+
+G.sucChuaDan = function (p) {
+  var city = G.B('city');
+  var moiTP = city && isFinite(city.housing) ? city.housing : G.NHIP_V1.cityHousing;
+  return Math.max(G.NHIP_V1.populationFloor,
+    Math.floor(G.NHIP_V1.baseHousing + Math.max(0, Number((p.b || {}).city) || 0) * moiTP));
+};
+
+G.nhuCauTPChuKy = function (st, p) {
+  var ds = p && p.danSu;
+  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds && ds.population) || 0));
+  var soCT = 0, soThu = 0, k;
+  for (k in ((p && p.b) || {})) soCT += Math.max(0, Number(p.b[k]) || 0);
+  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
+  var thuyThu = G.thuyThu && p ? G.thuyThu(p.ships || {}) : 0;
+  return population * G.NHIP_V1.foodPerPersonCycle +
+    (0.05 * thuyThu + 0.5 * soCT + 0.01 * soThu) *
+      (G.NHIP_V1.cycleSeconds / 3600) * G.C.TOC_DO_SERVER;
+};
+
+/* Civil v4 chỉ dùng khi tua phần thời gian nằm trước activatedAt. Đây là
+ * compatibility bridge, không phải luật dân số mới. */
+G.danSuV4Gio = function (st, p) {
+  var soThu = 0, k;
+  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
+  var anUong = (0.05 * G.thuyThu((p && p.ships) || {}) +
+    0.5 * G.tongSoCT(p) + 0.01 * soThu) * G.C.TOC_DO_SERVER;
+  var thue = G.C.THUE_CO_BAN * G.tongSoCT(p) * G.C.TOC_DO_SERVER * (p.doi > 0 ? 0.5 : 1);
+  return { anUong: anUong, thue: thue };
+};
+
+/* Thuế chạy liên tục để đổi thuế giữa chu kỳ được chia đúng theo thời gian. */
+G.thueDanSuGio = function (st, p) {
+  var ds = p && p.danSu;
+  if (!ds) return 0;
+  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds.population) || 0));
+  var tax = Math.max(G.NHIP_V1.minTaxBp, Math.min(G.NHIP_V1.maxTaxBp, Math.floor(Number(ds.taxBp) || 0)));
+  var support = Math.max(0, Math.min(G.NHIP_V1.maxSupportBp, Math.floor(Number(ds.supportBp) || 0)));
+  return population * G.NHIP_V1.taxGalanaPerPersonHour *
+    G.C.TOC_DO_SERVER * tax / 10000 * support / 10000;
+};
+G.thueDanSuChuKy = function (st, p) {
+  return G.thueDanSuGio(st, p) * (G.NHIP_V1.cycleSeconds / 3600);
+};
+
+G.timHanhTinh = function (st, planetKey) {
+  var ps = st && Array.isArray(st.planets) ? st.planets : [];
+  for (var i = 0; i < ps.length; i++) if (ps[i].c && G.tdKey(ps[i].c) === planetKey) return ps[i];
+  return null;
+};
+
+G.dongBoBaoTriCu = function (st) {
+  if (!st || !st.baoTri) return st;
+  st.nextMaint = st.baoTri.nextAt;
+  st.soChuKy = st.baoTri.cycle;
+  st.noBaoTri = st.baoTri.arrearsGalana;
+  return st;
+};
+
+function vectorChiPhi(o) {
+  var out = {};
+  o = o && typeof o === 'object' ? o : {};
+  for (var k in o) {
+    var n = Number(o[k]);
+    if (isFinite(n) && n > 0) out[k] = n;
+  }
+  return out;
+}
+function vectorCong(a, b) {
+  var out = vectorChiPhi(a), k;
+  b = vectorChiPhi(b);
+  for (k in b) out[k] = (out[k] || 0) + b[k];
+  return out;
+}
+
+G.chiPhiConLai = function (q) {
+  var out = {}, tong = vectorChiPhi(q && q.totalCost), da = vectorChiPhi(q && q.paidCost);
+  for (var k in tong) {
+    var con = Math.max(0, tong[k] - (da[k] || 0));
+    if (con > 0) out[k] = con;
+  }
+  return out;
+};
+
+/* Mỗi kỳ lấy ceil(phần còn lại / số kỳ còn lại), nên kỳ cuối khép đúng
+ * totalCost và không tích luỹ sai số ở các vector tài nguyên khác nhau. */
+G.kyNghienCuu = function (q) {
+  var out = {}, con = G.chiPhiConLai(q);
+  var soKy = Math.max(0, Math.floor(Number(q && q.installmentsLeft) || 0));
+  if (!soKy) return out;
+  for (var k in con) out[k] = Math.ceil(con[k] / soKy);
+  return out;
+};
+
+G.conLaiNghienCuu = function (st, q) {
+  q = q || (st && st.ncQueue);
+  return q ? Math.max(0, Math.floor(Number(q.finishAt) || 0) - Math.floor(Number(st && st.now) || 0)) : 0;
+};
+
+function chuanHoaNen(st) {
+  st.planets = Array.isArray(st.planets) ? st.planets : [];
+  st.fleets = Array.isArray(st.fleets) ? st.fleets : [];
+  st.toi = Array.isArray(st.toi) ? st.toi : [];
+  st.tenLua = Array.isArray(st.tenLua) ? st.tenLua : [];
+  st.msgs = Array.isArray(st.msgs) ? st.msgs : [];
+  st.nk = Array.isArray(st.nk) ? st.nk : [];
+  st.tech = st.tech && typeof st.tech === 'object' ? st.tech : {};
+}
+
+function nangV3LenV4(st) {
+  var ps = st.planets;
+  for (var i = 0; i < ps.length; i++) {
+    var p = ps[i], cu = p.b && typeof p.b === 'object' ? p.b : {}, moi = {}, k;
+    for (k in cu) {
+      var d = G.B(k), lv = Math.max(0, Math.floor(Number(cu[k]) || 0));
+      if (lv) moi[k] = d ? G.slTuCap(d, lv) : lv;
+    }
+    p.b = moi;
+    p.qB = Array.isArray(p.qB) ? p.qB : [];
+    p.qS = Array.isArray(p.qS) ? p.qS : [];
+    p.res = p.res && typeof p.res === 'object' ? p.res : {};
+    p.ships = p.ships && typeof p.ships === 'object' ? p.ships : {};
+    p.def = p.def && typeof p.def === 'object' ? p.def : {};
+    p.mis = p.mis && typeof p.mis === 'object' ? p.mis : {};
+    p.linh = p.linh && typeof p.linh === 'object' ? p.linh : {};
+    var truoc = {};
+    for (k in cu) truoc[k] = Math.max(0, Math.floor(Number(cu[k]) || 0));
+    for (var q = 0; q < p.qB.length; q++) {
+      var m = p.qB[q], bd = G.B(m.id);
+      if (!bd) continue;
+      if (m.n === undefined) {
+        var lvTruoc = truoc[m.id] || 0;
+        var lvDich = Math.max(lvTruoc + 1, Math.floor(Number(m.lv) || 0));
+        m.n = Math.max(1, G.slTuCap(bd, lvDich) - G.slTuCap(bd, lvTruoc));
+        truoc[m.id] = lvDich;
+      } else {
+        m.n = Math.max(1, Math.floor(Number(m.n) || 1));
+      }
+      delete m.lv;
+    }
+  }
+  st.v = 4;
+  st.moHinhCT = 'so-luong-v1';
+}
+
+function nangV4LenV5(st, activatedAt) {
+  var mocState = Math.max(0, Math.floor(Number(st.lastTick || st.now) || 0));
+  activatedAt = Math.max(mocState, Math.floor(Number(activatedAt) || 0));
+  var btCu = Math.max(0, Number(st.noBaoTri) || 0);
+  /* Giữ pha đồng hồ đế quốc neo từ lúc đăng ký. Bỏ qua các checkpoint cũ
+   * trước biên kích hoạt, nhưng không đổi phút/giây kết toán quen thuộc. */
+  var nextAt = Math.floor(Number(st.nextMaint) || 0);
+  if (!(nextAt > 0)) nextAt = Math.floor(Number(st.t0) || 0) + G.NHIP_V1.cycleSeconds;
+  if (!(nextAt > 0)) nextAt = activatedAt + G.NHIP_V1.cycleSeconds;
+  if (nextAt <= activatedAt) nextAt +=
+    (Math.floor((activatedAt - nextAt) / G.NHIP_V1.cycleSeconds) + 1) * G.NHIP_V1.cycleSeconds;
+  st.moHinhNhip = G.NHIP_V1.marker;
+  st.baoTri = {
+    nextAt: nextAt,
+    cycle: Math.max(0, Math.floor(Number(st.soChuKy) || 0)),
+    missStreak: btCu > 0 ? 1 : 0,
+    arrearsGalana: btCu,
+    activatedAt: activatedAt,
+    rules: G.NHIP_V1.maintenanceRules
+  };
+
+  for (var i = 0; i < st.planets.length; i++) {
+    var p = st.planets[i];
+    p.b = p.b && typeof p.b === 'object' ? p.b : {};
+    p.qB = Array.isArray(p.qB) ? p.qB : [];
+    p.qS = Array.isArray(p.qS) ? p.qS : [];
+    p.res = p.res && typeof p.res === 'object' ? p.res : {};
+    p.ships = p.ships && typeof p.ships === 'object' ? p.ships : {};
+    p.def = p.def && typeof p.def === 'object' ? p.def : {};
+    p.mis = p.mis && typeof p.mis === 'object' ? p.mis : {};
+    p.linh = p.linh && typeof p.linh === 'object' ? p.linh : {};
+    p.danSu = G.danSuMacDinh();
+  }
+
+  /* Queue v4 đã trừ toàn bộ cost ngay lúc xếp. Đánh dấu phần ấy là paidCost
+   * để v5 không thu lần hai; vốn Galana còn lại tiếp tục chia theo checkpoint
+   * mới, bắt đầu sau activatedAt — tuyệt đối không gây thất bại hồi tố. */
+  if (st.ncQueue) {
+    var cu = st.ncQueue;
+    var tongTG = Math.max(1, Math.floor(Number(cu.tong) || Number(cu.conLai) || G.NHIP_V1.minResearchSeconds));
+    var conTG = Math.max(0, Math.floor(Number(cu.conLai) || 0));
+    var totalCost = vectorChiPhi(cu.cost);
+    var von = Math.max(0, Number(cu.von) || 0);
+    var vonCon = Math.max(0, Math.min(von, Number(cu.vonConLai) || 0));
+    if (von > 0) totalCost.galana = (totalCost.galana || 0) + von;
+    var paidCost = vectorChiPhi(cu.cost);
+    if (von > vonCon) paidCost.galana = von - vonCon;
+    var conVector = vectorCong({}, totalCost), k;
+    for (k in paidCost) conVector[k] = Math.max(0, (conVector[k] || 0) - paidCost[k]);
+    var coCon = false; for (k in conVector) if (conVector[k] > 0) { coCon = true; break; }
+    var installmentsTotal = Math.max(2, Math.ceil(tongTG / G.NHIP_V1.cycleSeconds));
+    var installmentsLeft = coCon ? Math.max(1, Math.min(installmentsTotal,
+      Math.ceil(Math.max(1, conTG) / G.NHIP_V1.cycleSeconds))) : 0;
+    var planet = st.planets[Math.max(0, Math.floor(Number(cu.pi) || 0))] || st.planets[0];
+    st.ncQueue = {
+      id: cu.id,
+      lv: Math.max(1, Math.floor(Number(cu.lv) || ((st.tech[cu.id] || 0) + 1))),
+      planetKey: planet && planet.c ? G.tdKey(planet.c) : (st.home ? G.tdKey(st.home) : ''),
+      startedAt: activatedAt - Math.max(0, tongTG - conTG),
+      finishAt: activatedAt + conTG,
+      totalCost: totalCost,
+      paidCost: paidCost,
+      installmentsTotal: installmentsTotal,
+      installmentsLeft: installmentsLeft,
+      failures: cu.treo ? 1 : 0,
+      status: cu.treo ? 'retry' : 'active',
+      rules: G.NHIP_V1.researchRules,
+      refundPolicy: G.NHIP_V1.legacyRefundPolicy
+    };
+  }
+
+  st.v = 5;
+  G.dongBoBaoTriCu(st);
+}
+
+/* STATE V6: `pha:'giu'` là một vị trí thật trên quỹ đạo, không còn mượn pha
+ * bay đi với cờ `dangGiu`. Save v5 đang đậu được một đoạn ân hạn bắt đầu tại
+ * activatedAt: không thu hồi tố quãng offline trước lúc luật này xuất hiện. */
+function nangV5LenV6(st, activatedAt) {
+  var mocState = Math.max(0, Math.floor(Number(st.lastTick || st.now) || 0));
+  activatedAt = Math.max(mocState, Math.floor(Number(activatedAt) || 0));
+  var qd = G.QUY_DAO_V1;
+  for (var i = 0; i < st.fleets.length; i++) {
+    var f = st.fleets[i];
+    if (!f || f.mission !== 'hold') continue;
+    if (f.pha === 'di' && f.dangGiu) {
+      var hetCu = Math.floor(Number(f.den_t) || activatedAt);
+      var giu = Math.max(1, Math.floor(Number(f.giu) || qd.segmentSeconds));
+      f.pha = 'giu';
+      /* V5 đã thay den_t bằng mốc hết lượt ngay lúc tới nơi, nên có thể suy
+       * ngược thời điểm neo thật từ den_t - giu. Ân hạn nhiên liệu vẫn bắt
+       * đầu riêng tại activatedAt, không được làm sai lịch sử giuLuc. */
+      f.giuLuc = Math.min(activatedAt, Math.max(0, hetCu - giu));
+      f.giuDen_t = Math.max(hetCu, activatedAt);
+      f.tiepNL_t = Math.min(f.giuDen_t, activatedAt + qd.segmentSeconds);
+      f.giuTaiTk = f.giuTaiTk === undefined ? null : f.giuTaiTk;
+      f.giuRules = qd.legacyRules;
+      f.dangGiu = true;                 // alias cho client v5 trong một vòng nâng cấp
+    } else {
+      /* Outbound/return không được biến thành đang đậu chỉ vì mission=hold. */
+      f.dangGiu = false;
+      delete f.giuLuc;
+      delete f.giuDen_t;
+      delete f.tiepNL_t;
+      delete f.giuTaiTk;
+      delete f.giuRules;
+    }
+  }
+  st.v = 6;
+  st.moHinhQuyDao = qd.marker;
+}
+
+/* Nâng tuần tự, không nhảy thẳng: save v3 luôn đi qua đúng phép quy đổi vốn
+ * công trình v4, schema nhịp v5 rồi schema quỹ đạo v6. `activatedAt` là
+ * wall-clock do loader/server truyền vào; mặc định dùng giờ hiện tại. */
+G.nangCapState = function (st, activatedAt) {
+  if (!st) return st;
+  var phienBan = Number(st.v) || 0;
+  if (phienBan > G.STATE_VERSION)
+    throw new Error('Save state v' + phienBan + ' mới hơn engine v' + G.STATE_VERSION + '; từ chối hạ cấp dữ liệu.');
+  if (phienBan === G.STATE_VERSION) return st; // idempotent byte-for-byte
+  if (phienBan === 4 && st.moHinhCT && st.moHinhCT !== 'so-luong-v1')
+    throw new Error('Save state v4 không có marker mô hình số lượng hợp lệ.');
+  chuanHoaNen(st);
+  var moc = activatedAt === undefined || activatedAt === null ? G.giay() : Number(activatedAt);
+  if (!isFinite(moc)) moc = G.giay();
+  moc = Math.floor(moc);
+  if (phienBan < 4) { nangV3LenV4(st); phienBan = 4; }
+  if (phienBan === 4) {
+    nangV4LenV5(st, moc);
+    phienBan = 5;
+  }
+  if (phienBan === 5) nangV5LenV6(st, moc);
+  return st;
 };
 
 /* =======================================================================
@@ -1269,6 +1731,13 @@ G.htMoi = function (st, c, ten, thuDo) {
 G.giaXay = function (def, lv) {
   var out = {}, f = Math.pow(def.factor || 2, Math.max(0, lv - 1));
   for (var k in def.cost) out[k] = Math.floor(def.cost[k] * f);
+  return out;
+};
+/* Công trình v4 mua theo lô: giá đơn vị không phụ thuộc số đã có. */
+G.giaCongTrinh = function (def, n) {
+  n = Math.max(0, Math.floor(Number(n) || 0));
+  var out = {};
+  for (var k in def.cost) out[k] = def.cost[k] * n;
   return out;
 };
 G.giaDonVi = function (def, n) {
@@ -1302,14 +1771,23 @@ G.hoanTien = function (st, p, cost, tyLe) {
 G.thoaDK = function (st, p, def) {
   if (!def.req) return true;
   var k;
-  if (def.req.b) for (k in def.req.b) if ((p.b[k] || 0) < def.req.b[k]) return false;
+  if (def.req.b) for (k in def.req.b) if ((p.b[k] || 0) < G.slYeuCau(k, def.req.b[k])) return false;
   if (def.req.r) for (k in def.req.r) if ((st.tech[k] || 0) < def.req.r[k]) return false;
   return true;
+};
+/* req.b trong data cũ là mốc level; chuyển một lần ở biên so sánh để
+ * không phải viết lại hàng trăm điều kiện tàu/công sự/nghiên cứu. */
+G.slYeuCau = function (id, mucCapCu) {
+  var d = G.B(id);
+  return d ? G.slTuCap(d, mucCapCu) : Math.max(0, Math.floor(mucCapCu || 0));
 };
 G.thieuDK = function (st, p, def) {
   var out = [], k;
   if (!def.req) return out;
-  if (def.req.b) for (k in def.req.b) if ((p.b[k] || 0) < def.req.b[k]) out.push(G.B(k).ten + ' cấp ' + def.req.b[k]);
+  if (def.req.b) for (k in def.req.b) {
+    var can = G.slYeuCau(k, def.req.b[k]);
+    if ((p.b[k] || 0) < can) out.push(G.B(k).ten + ' × ' + can);
+  }
   if (def.req.r) for (k in def.req.r) if ((st.tech[k] || 0) < def.req.r[k]) out.push(G.R(k).ten + ' cấp ' + def.req.r[k]);
   return out;
 };
@@ -1317,7 +1795,24 @@ G.thieuDK = function (st, p, def) {
 /* =======================================================================
  * SẢN LƯỢNG
  * ===================================================================== */
-G.tongCapCT = function (p) { var t = 0; for (var k in p.b) t += p.b[k]; return t; };
+G.tongSoCT = function (p) { var t = 0; for (var k in p.b) t += Math.max(0, p.b[k] || 0); return t; };
+/* Alias tương thích tạm thời; UI cũ còn gọi tên này. */
+G.tongCapCT = G.tongSoCT;
+/* Primitive mutation dùng chung cho queue, combat và các degradation sau này. */
+G.themCongTrinh = function (p, id, n) {
+  n = Math.max(0, Math.floor(Number(n) || 0));
+  if (!n) return 0;
+  p.b[id] = Math.max(0, Math.floor(Number(p.b[id]) || 0)) + n;
+  return n;
+};
+G.giamCongTrinh = function (p, id, n) {
+  var co = Math.max(0, Math.floor(Number(p.b[id]) || 0));
+  n = Math.min(co, Math.max(0, Math.floor(Number(n) || 0)));
+  if (!n) return 0;
+  p.b[id] = co - n;
+  if (!p.b[id]) delete p.b[id];
+  return n;
+};
 
 G.dungTich = function (p) {
   return {
@@ -1338,69 +1833,96 @@ G.sanLuong = function (st, p) {
   var sp = G.C.TOC_DO_SERVER;
   var L = G.loaiHT(st, p);
   var ctx = { temp: p.temp, tech: st.tech };
-  var dienCo = 0, dienDung = 0, i, b, lv;
+  var dienCo = 0, dienDung = 0, i, b, n;
 
   for (i = 0; i < G.BUILDINGS.length; i++) {
-    b = G.BUILDINGS[i]; lv = p.b[b.id] || 0;
-    if (!lv) continue;
-    if (b.prod) { var pr = b.prod(lv, ctx); if (pr.energy) dienCo += pr.energy * (b.id === 'solar' ? L.dien : 1); }
-    if (b.use) dienDung += b.use(lv);
+    b = G.BUILDINGS[i]; n = p.b[b.id] || 0;
+    if (!n) continue;
+    if (b.prod) { var pr = b.prod(n, ctx); if (pr.energy) dienCo += pr.energy * (b.id === 'solar' ? L.dien : 1); }
+    if (b.use) dienDung += b.use(n);
   }
   /* vệ tinh phòng thủ vừa bắn vừa phát điện [SUY LUẬN] */
   var vt = p.def.satellite || 0;
   if (vt) dienCo += vt * Math.max(6, Math.floor((p.temp + 160) / 5));
 
   var hs = dienDung > 0 ? Math.min(1, dienCo / dienDung) : 1;
-  /* Hệ số ảnh hưởng: nợ bảo trì -30%, liên minh +5%. Riêng cái đói phạt -50%
-     nhưng KHÔNG phạt lên chính lương thực, nếu không hành tinh sẽ không bao giờ
-     tự thoát ra được khỏi cảnh đói. */
-  var chung = (st.noBaoTri > 0 ? 0.7 : 1) * (st.lm ? 1.05 : 1);
-  var doi = chung * (p.doi > 0 ? 0.5 : 1);
+  /* V5 không còn hệ số phạt mơ hồ từ alias noBaoTri/p.doi. Hậu quả của một
+   * checkpoint hụt được thể hiện trực tiếp bằng dân rời đi/công trình hỏng. */
+  var chung = st.lm ? 1.05 : 1;
+  var doi = chung;
 
   var r = { metal: 30 * sp, crystal: 15 * sp, deut: 0, food: 10 * sp, tech: 0, galana: 0 };
   for (i = 0; i < G.BUILDINGS.length; i++) {
-    b = G.BUILDINGS[i]; lv = p.b[b.id] || 0;
-    if (!lv || !b.prod) continue;
-    var o = b.prod(lv, ctx);
+    b = G.BUILDINGS[i]; n = p.b[b.id] || 0;
+    if (!n || !b.prod) continue;
+    var o = b.prod(n, ctx);
     if (o.metal) r.metal += o.metal * hs * sp * doi * L.kl;
     if (o.crystal) r.crystal += o.crystal * hs * sp * doi * L.tt;
     if (o.deut) r.deut += o.deut * hs * sp * doi * L.dt;
     if (o.food) r.food += o.food * hs * sp * chung * L.lt;
     if (o.tech) r.tech += o.tech * hs * sp * doi;
   }
-  /* lò nhiệt hạch đốt deuterium */
+  /* lò nhiệt hạch đốt Nhiên Liệu */
   var fu = p.b.fusion || 0;
   var dotDT = fu ? G.B('fusion').deutUse(fu) * sp : 0;
   r.deut -= dotDT;
 
-  /* Lương thực bị tiêu thụ: thủy thủ đoàn + dân cư + công sự */
-  var soThu = 0; for (var k in p.def) soThu += p.def[k];
-  var anUong = (0.05 * G.thuyThu(p.ships) + 0.5 * G.tongCapCT(p) + 0.01 * soThu) * sp;
+  /* Thực Phẩm bị tiêu thụ liên tục; checkpoint chỉ đọc phần thiếu hụt đã
+   * tích luỹ, không trừ nhu cầu thêm lần nữa. */
+  var anUong = G.nhuCauTPChuKy(st, p) / (G.NHIP_V1.cycleSeconds / 3600);
   r.food -= anUong;
 
-  /* Thuế: Galana chảy về từ dân cư trên hành tinh */
-  r.galana = G.C.THUE_CO_BAN * G.tongCapCT(p) * sp * (p.doi > 0 ? 0.5 : 1);
+  r.galana = G.thueDanSuGio(st, p);
 
-  return { r: r, dienCo: dienCo, dienDung: dienDung, hs: hs, dotDT: dotDT, anUong: anUong, doi: p.doi > 0, loai: L };
+  return { r: r, dienCo: dienCo, dienDung: dienDung, hs: hs, dotDT: dotDT, anUong: anUong,
+    doi: !!(p.danSu && p.danSu.foodShortfallCycle > 0), loai: L };
 };
 
 /* Cộng tài nguyên trong dt giây */
 G.sanXuat = function (st, p, dt) {
   var s = G.sanLuong(st, p), cap = G.dungTich(p), h = dt / 3600, k;
+  if (!p.danSu) p.danSu = G.danSuMacDinh();
+  /* Một tick ngay sau migration có thể gồm nhiều ngày thuộc luật v4. Chỉ
+   * đoạn sau activatedAt được tính dân số/thuế v5; nếu không, checkpoint đầu
+   * sẽ phạt đói hồi tố dù migration đã đặt counter về 0. */
+  var batDau = Math.floor(Number(st.lastTick) || Number(st.now) || 0);
+  var active = st.baoTri ? Math.floor(Number(st.baoTri.activatedAt) || 0) : batDau;
+  var giayDanSu = Math.max(0, batDau + dt - Math.max(batDau, active));
+  var hDanSu = Math.min(h, giayDanSu / 3600);
+  var hV4 = Math.max(0, h - hDanSu);
+  var danSuV4 = hV4 > 0 ? G.danSuV4Gio(st, p) : { anUong: s.anUong, thue: 0 };
+  p.danSu.foodDemandCycle = Math.max(0, Number(p.danSu.foodDemandCycle) || 0) + s.anUong * hDanSu;
+  function congKho(v0, toc, gio, gioiHan) {
+    var v1 = v0 + toc * gio;
+    if (v1 < 0) v1 = 0;
+    if (v1 > gioiHan && v1 > v0) v1 = Math.max(v0, gioiHan);
+    return v1;
+  }
   for (k = 0; k < G.RES_HANH_TINH.length; k++) {
     var id = G.RES_HANH_TINH[k];
-    var v = (p.res[id] || 0) + s.r[id] * h;
-    if (v < 0) v = 0;
-    /* vượt kho thì tràn ra ngoài, chỉ chặn phần sản xuất chứ không xoá hàng có sẵn */
-    if (v > cap[id] && v > (p.res[id] || 0)) v = Math.max(p.res[id] || 0, cap[id]);
+    var co = p.res[id] || 0, v;
+    if (id === 'food' && hDanSu < h) {
+      /* Thay nhu cầu dân số v5 bằng civil v4 trên phần trước activatedAt. */
+      var tocFoodV4 = s.r.food + s.anUong - danSuV4.anUong;
+      var truocPost = congKho(co, tocFoodV4, hV4, cap.food);
+      var rawPost = truocPost + s.r.food * hDanSu;
+      if (rawPost < 0)
+        p.danSu.foodShortfallCycle = Math.max(0, Number(p.danSu.foodShortfallCycle) || 0) - rawPost;
+      v = congKho(truocPost, s.r.food, hDanSu, cap.food);
+    } else {
+      var raw = co + s.r[id] * h;
+      if (id === 'food' && raw < 0)
+        p.danSu.foodShortfallCycle = Math.max(0, Number(p.danSu.foodShortfallCycle) || 0) - raw;
+      v = congKho(co, s.r[id], h, cap[id]);
+    }
     p.res[id] = v;
   }
-  st.galana += s.r.galana * h;
+  st.galana += danSuV4.thue * hV4 + s.r.galana * hDanSu;
   st.techPts += s.r.tech * h;
 
-  /* Đói: khi hết lương thực mà nhu cầu vẫn âm */
-  if (p.res.food <= 0 && s.r.food < 0) p.doi = Math.min(48, (p.doi || 0) + h);
-  else if (p.doi > 0) p.doi = Math.max(0, p.doi - h * 2);
+  /* Đói: khi hết Thực Phẩm mà nhu cầu vẫn âm */
+  if (p.res.food <= 0 && s.r.food < 0) p.doi = Math.min(48, (p.doi || 0) + hDanSu);
+  else if (p.doi > 0) p.doi = Math.max(0, p.doi - hDanSu * 2);
 };
 
 /* =======================================================================
@@ -1408,18 +1930,20 @@ G.sanXuat = function (st, p, dt) {
  * ===================================================================== */
 G.tgXay = function (st, p, cost) {
   var mc = (cost.metal || 0) + (cost.crystal || 0);
-  var h = mc / 2500 / (1 + (p.b.robot || 0)) * Math.pow(0.5, p.b.nanite || 0) / G.C.TOC_DO_SERVER;
+  var congSuat = 1 + (p.b.robot || 0) + 10 * (p.b.nanite || 0);
+  var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
 G.tgTau = function (st, p, cost) {
   var mc = (cost.metal || 0) + (cost.crystal || 0);
-  var h = mc / 2500 / (1 + (p.b.shipyard || 0)) * Math.pow(0.5, p.b.nanite || 0) / G.C.TOC_DO_SERVER;
+  var congSuat = Math.max(1, p.b.shipyard || 0) * G.hsNhaXuong(st.tech) + 10 * (p.b.nanite || 0);
+  var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
 G.tgNC = function (st, p, cost) {
   var mc = (cost.metal || 0) + (cost.crystal || 0) + (cost.tech || 0) * 0.5;
-  var h = mc / 1000 / (1 + (p.b.lab || 0)) / G.C.TOC_DO_SERVER;
-  return Math.max(1, Math.round(h * 3600));
+  var h = mc / 1000 / Math.max(1, p.b.lab || 0) / G.C.TOC_DO_SERVER;
+  return Math.max(G.NHIP_V1.minResearchSeconds, Math.round(h * 3600));
 };
 
 /* =======================================================================
@@ -1430,21 +1954,32 @@ G.capDangXay = function (p, id) {
   for (var i = 0; i < p.qB.length; i++) if (p.qB[i].id === id) n++;
   return n;
 };
-G.xepXay = function (st, p, id) {
+G.soDangXay = function (p, id) {
+  var n = 0;
+  for (var i = 0; i < p.qB.length; i++) if (!id || p.qB[i].id === id) n += Math.max(0, p.qB[i].n || 0);
+  return n;
+};
+G.loMacDinhXay = function (p, id) {
+  var d = G.B(id), co = (p.b[id] || 0) + G.soDangXay(p, id);
+  if (!d) return 1;
+  var dich = G.slTuCap(d, G.capTuSL(d, co) + 1);
+  return Math.max(1, dich - co);
+};
+G.xepXay = function (st, p, id, n) {
   var d = G.B(id);
   if (!d) return 'Không có công trình này.';
   if (p.qB.length >= 5) return 'Hàng đợi xây dựng đã đầy (5 mục).';
   if (!G.thoaDK(st, p, d)) return 'Chưa đủ điều kiện: ' + G.thieuDK(st, p, d).join(', ') + '.';
-  var lv = (p.b[id] || 0) + G.capDangXay(p, id) + 1;
-  var oDung = G.oDaDung(p);
-  if (d.nhom !== undefined || true) {
-    if (!p.b[id] && oDung >= G.oToiDa(p)) return 'Hành tinh đã hết ô đất. Xây Cải Tạo Hành Tinh để mở thêm.';
-  }
-  var cost = G.giaXay(d, lv);
+  n = n === undefined || n === null ? G.loMacDinhXay(p, id) : Math.floor(Number(n));
+  if (!isFinite(n) || n < 1 || n > Number.MAX_SAFE_INTEGER) return 'Số lượng xây không hợp lệ.';
+  var daCoLoai = (p.b[id] || 0) > 0 || G.soDangXay(p, id) > 0;
+  if (id !== 'terraform' && !daCoLoai && G.oDaDungDuKien(p) >= G.oToiDa(p))
+    return 'Hành tinh đã hết khu đất. Xây Cải Tạo Hành Tinh để mở thêm.';
+  var cost = G.giaCongTrinh(d, n);
   if (!G.duTien(st, p, cost)) return 'Không đủ tài nguyên.';
   G.truTien(st, p, cost);
   var tg = G.tgXay(st, p, cost);
-  var m = { id: id, lv: lv, cost: cost, tg: tg, xong: null };
+  var m = { id: id, n: n, cost: cost, tg: tg, xong: null };
   p.qB.push(m);
   if (p.qB.length === 1) m.xong = st.now + tg;
   return null;
@@ -1458,6 +1993,13 @@ G.huyXay = function (st, p, i) {
 
 G.oToiDa = function (p) { return p.oDat + 6 * (p.b.terraform || 0); };
 G.oDaDung = function (p) { var n = 0; for (var k in p.b) if (p.b[k] > 0) n++; return n; };
+G.oDaDungDuKien = function (p) {
+  var co = {}, n = 0, k, i;
+  for (k in p.b) if (p.b[k] > 0) co[k] = true;
+  for (i = 0; i < p.qB.length; i++) if ((p.qB[i].n || 0) > 0) co[p.qB[i].id] = true;
+  for (k in co) n++;
+  return n;
+};
 
 G.xepTau = function (st, p, id, n) {
   n = Math.max(1, Math.floor(n));
@@ -1492,7 +2034,9 @@ G.huyDong = function (st, p, i) {
   G.hoanTien(st, p, G.giaDonVi(G.UNIT(m.id) || G.M(m.id), m.n), 1);
 };
 
-/* --- Nghiên cứu: chi phí trả ngay + VỐN ĐẦU TƯ trừ dần mỗi chu kỳ ----- */
+/* --- Nghiên cứu v5: tổng chi phí chia đều qua checkpoint 6 giờ ---------
+ * Không trừ hay giữ chỗ tài nguyên lúc xếp; fleet.js là nơi duy nhất kết
+ * toán từng installment tại checkpoint và ghi nhận lần thất bại. */
 G.xepNC = function (st, p, id) {
   if (st.ncQueue) return 'Phòng nghiên cứu đang làm việc khác.';
   var d = G.R(id);
@@ -1500,24 +2044,31 @@ G.xepNC = function (st, p, id) {
   if (!p.b.lab) return 'Cần Phòng Nghiên Cứu.';
   if (!G.thoaDK(st, p, d)) return 'Chưa đủ điều kiện: ' + G.thieuDK(st, p, d).join(', ') + '.';
   var lv = (st.tech[id] || 0) + 1;
-  var cost = G.giaXay(d, lv);
-  if (!G.duTien(st, p, cost)) return 'Không đủ tài nguyên.';
-  G.truTien(st, p, cost);
-  var tg = G.tgNC(st, p, cost);
-  var von = Math.round(((cost.metal || 0) + (cost.crystal || 0) + (cost.deut || 0)) * 0.15 + (cost.tech || 0) * 0.05);
-  var soKy = Math.max(1, Math.ceil(tg / G.C.CHU_KY_BAO_TRI));
-  st.ncQueue = {
-    id: id, lv: lv, cost: cost, tong: tg, conLai: tg,
-    von: von, vonConLai: von, vonMoiKy: Math.ceil(von / soKy),
-    treo: false, pi: st.planets.indexOf(p)
+  var totalCost = G.giaXay(d, lv);
+  var tg = G.tgNC(st, p, totalCost);
+  var soKy = Math.max(2, Math.ceil(tg / G.NHIP_V1.cycleSeconds));
+  var q = {
+    id: id,
+    lv: lv,
+    planetKey: G.tdKey(p.c),
+    startedAt: st.now,
+    finishAt: st.now + tg,
+    totalCost: totalCost,
+    paidCost: {},
+    installmentsTotal: soKy,
+    installmentsLeft: soKy,
+    failures: 0,
+    status: 'active',
+    rules: G.NHIP_V1.researchRules,
+    refundPolicy: G.NHIP_V1.refundPolicy
   };
+  st.ncQueue = q;
   return null;
 };
 G.huyNC = function (st) {
   if (!st.ncQueue) return;
-  var q = st.ncQueue, p = st.planets[q.pi] || st.planets[0];
-  G.hoanTien(st, p, q.cost, 1);
-  st.galana += (q.von - q.vonConLai);
+  var q = st.ncQueue, p = G.timHanhTinh(st, q.planetKey) || st.planets[0];
+  if (p && q.refundPolicy === G.NHIP_V1.legacyRefundPolicy) G.hoanTien(st, p, q.paidCost || {}, 1);
   st.ncQueue = null;
 };
 
@@ -1529,9 +2080,15 @@ G.boHoang = function (st, pi) {
   if (!p) return 'Hành tinh không tồn tại.';
   if (p.thuDo || pi === 0) return 'Không bỏ được hành tinh mẹ.';
   if (st.planets.length <= 1) return 'Đây là hành tinh cuối cùng.';
+  if (st.ncQueue && st.ncQueue.planetKey === G.tdKey(p.c))
+    return 'Không thể bỏ hành tinh đang chủ trì đề tài nghiên cứu — hãy huỷ đề tài trước.';
   var i;
-  for (i = 0; i < st.fleets.length; i++)
-    if (st.fleets[i].pi === pi) return 'Còn hạm đội xuất phát từ hành tinh này đang bay — gọi về đã.';
+  for (i = 0; i < st.fleets.length; i++) {
+    if (st.fleets[i].pi === pi) return 'Còn hạm đội xuất phát từ hành tinh này đang hoạt động — gọi về đã.';
+    if (st.fleets[i].mission === 'hold' && st.fleets[i].pha === 'giu' &&
+        G.tdKey(st.fleets[i].den) === G.tdKey(p.c))
+      return 'Còn hạm đội đang giữ quỹ đạo hành tinh này — gọi về đã.';
+  }
   for (i = 0; i < (st.tenLua || []).length; i++)
     if (st.tenLua[i].pi === pi) return 'Còn tên lửa phóng từ hành tinh này đang bay.';
   for (i = 0; i < st.toi.length; i++)
@@ -1543,7 +2100,6 @@ G.boHoang = function (st, pi) {
   for (i = 0; i < st.fleets.length; i++) doi(st.fleets[i]);
   for (i = 0; i < (st.tenLua || []).length; i++) doi(st.tenLua[i]);
   for (i = 0; i < st.toi.length; i++) doi(st.toi[i]);
-  if (st.ncQueue) { if (st.ncQueue.pi > pi) st.ncQueue.pi--; else if (st.ncQueue.pi === pi) st.ncQueue.pi = 0; }
   G.tin(st, 'he', 'Đã bỏ hoang ' + ten,
     'Toàn bộ công trình, tàu và tài nguyên trên ' + ten + ' ' + G.tdStr(p.c) + ' bị bỏ lại. ' +
     'Ô toạ độ này giờ trống, ai cũng có thể tới chiếm.');
@@ -1554,10 +2110,14 @@ G.boHoang = function (st, pi) {
  * ĐIỂM & XẾP HẠNG
  * ===================================================================== */
 G.diem = function (st) {
+  G.nangCapState(st);
   var d = { ct: 0, nc: 0, ham: 0, thu: 0 }, i, j, k;
   for (i = 0; i < st.planets.length; i++) {
     var p = st.planets[i];
-    for (k in p.b) for (j = 1; j <= p.b[k]; j++) d.ct += G.giaTriDiem(G.giaXay(G.B(k), j));
+    for (k in p.b) {
+      var bd = G.B(k);
+      if (bd && p.b[k] > 0) d.ct += G.giaTriDiem(bd.cost, p.b[k]);
+    }
     for (k in p.ships) d.ham += G.giaTriDiem(G.S(k).cost, p.ships[k]);
     for (k in p.def) d.thu += G.giaTriDiem(G.D(k).cost, p.def[k]);
   }
@@ -1587,8 +2147,8 @@ G.ghi = function (st, s) {
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
- *   2) Mỗi 6 giờ có một CHU KỲ BẢO TRÌ: trừ phí Galana + trả góp vốn
- *      nghiên cứu. Không trả nổi thì nợ, sản lượng sụt, nghiên cứu treo. */
+ *   2) Mỗi 6 giờ có một CHU KỲ BẢO TRÌ: bảo trì được xét trước, rồi từng
+ *      vector nghiên cứu được trả nguyên khối tại đúng checkpoint. */
 'use strict';
 var G = window.G = window.G || {};
 
@@ -1627,14 +2187,192 @@ G.nhienLieu = function (st, ships, kc, pct) {
   return Math.max(Math.ceil(can * 0.4), can - bu);
 };
 
+/* [TÁI DỰNG] Nhiên liệu giữ quỹ đạo tính theo tổng định mức động cơ và số
+ * giờ đậu. Hàm thuần để UI, server và kiểm thử dùng đúng cùng một con số. */
+G.nhienLieuGiu = function (st, ships, seconds) {
+  var base = 0;
+  seconds = Number(seconds);
+  if (!isFinite(seconds) || seconds <= 0) return 0;
+  ships = ships || {};
+  for (var id in ships) {
+    var raw = Number(ships[id]);
+    var s = G.S(id), n = isFinite(raw) ? Math.max(0, Math.floor(raw || 0)) : 0;
+    if (s && n) base += s.fuel * n;
+  }
+  void st;
+  return seconds > 0 && base > 0
+    ? Math.ceil(base * G.QUY_DAO_V1.fuelPerBaseHour * seconds / 3600)
+    : 0;
+};
+
+/* Tổng dự kiến phải cộng theo từng đoạn vì mỗi lần trả được làm tròn riêng. */
+G.nhienLieuGiuTong = function (st, ships, totalSeconds) {
+  totalSeconds = Number(totalSeconds);
+  if (!isFinite(totalSeconds) || totalSeconds <= 0) return 0;
+  var tongGiay = Math.floor(totalSeconds), doan = G.QUY_DAO_V1.segmentSeconds;
+  var dayDu = Math.floor(tongGiay / doan), le = tongGiay % doan;
+  return dayDu * G.nhienLieuGiu(st, ships, doan) + G.nhienLieuGiu(st, ships, le);
+};
+
+/* Mốc kế tiếp theo pha thật. Trả Infinity cho object hỏng thay vì để undefined
+ * làm cả scheduler thành NaN. */
+G.mocHamKe = function (f) {
+  if (!f) return Infinity;
+  var t = Infinity;
+  if (f.pha === 'di') t = Number(f.den_t);
+  else if (f.pha === 've') t = Number(f.ve_t);
+  else if (f.pha === 'giu') {
+    var het = Number(f.giuDen_t), nl = Number(f.tiepNL_t);
+    if (isFinite(het)) t = Math.min(t, het);
+    if (isFinite(nl)) t = Math.min(t, nl);
+  }
+  return isFinite(t) ? t : Infinity;
+};
+
+G.xoaTrangThaiGiu = function (f) {
+  f.dangGiu = false;                       // alias v5
+  delete f.giuLuc;
+  delete f.giuDen_t;
+  delete f.tiepNL_t;
+  delete f.giuTaiTk;
+  delete f.giuRules;
+};
+
+/* Một đường duy nhất để bắt đầu lượt về. `daToiDich` đúng khi hạm đã tới đích
+ * (kể cả đang giữ quỹ đạo); recall giữa đường dùng chính quãng đã bay. */
+G.batDauVe = function (st, f, daToiDich, ghi) {
+  var tg;
+  if (daToiDich || f.pha === 'giu')
+    tg = G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
+  else
+    tg = Math.max(2, st.now - (Number(f.diLuc) || st.now));
+  G.xoaTrangThaiGiu(f);
+  f.pha = 've';
+  f.veLuc = st.now;
+  f.ve_t = st.now + Math.max(2, Math.round(tg || 0));
+  if (ghi) G.ghi(st, ghi);
+  return f.ve_t;
+};
+
+/* Hook server có thể trả chuỗi lỗi, `{loi}` hoặc `{tk}`. Ở bản một người,
+ * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc. */
+G.kiemTraGiu = function (st, f, o) {
+  o = o || G.oHanhTinh(st, f.den);
+  if (!o || (o.loai !== 'toi' && o.loai !== 'nguoi'))
+    return 'Giữ quỹ đạo chỉ dùng được tại hành tinh của ta hoặc đồng minh.';
+  if (G.HOOK && G.HOOK.kiemTraGiu) {
+    var kq = G.HOOK.kiemTraGiu(st, f, o);
+    var loi = typeof kq === 'string' ? kq : (kq && kq.loi);
+    if (loi) return loi;
+    if (kq && kq.tk !== undefined && kq.tk !== null) {
+      if (f.giuTaiTk !== undefined && f.giuTaiTk !== null && f.giuTaiTk !== kq.tk)
+        return 'Hành tinh giữ quỹ đạo đã đổi chủ.';
+      f.giuTaiTk = kq.tk;
+    }
+    return null;
+  }
+  if (G.HOOK) {
+    /* Bridge ngắn cho server đang nâng song song: quan hệ vẫn do hook phát
+     * lệnh quyết định; hook arrival mới sẽ thay nhánh này. */
+    var pGoc = st.planets[f.pi] || st.planets[0];
+    var loiCu = G.HOOK.kiemTraGui && G.HOOK.kiemTraGui(st, pGoc, f.den, 'hold');
+    if (loiCu) return typeof loiCu === 'string' ? loiCu : loiCu.loi;
+    /* Nếu server chưa cung cấp bất kỳ hook quyền nào thì fail closed cho
+     * hành tinh người khác; hành tinh của chính state vẫn xác minh được. */
+    return o.loai === 'toi' ? null : 'Máy chủ chưa xác minh được quyền giữ quỹ đạo tại hành tinh này.';
+  }
+  return o.loai === 'toi' ? null : 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+};
+
+/* Trả trước đoạn đầu rồi mới hiện diện trên quỹ đạo. */
+G.batDauGiu = function (st, f, o) {
+  var loi = G.kiemTraGiu(st, f, o);
+  if (loi) return loi;
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var giu = Math.max(1, Math.floor(Number(f.giu) || 3600));
+  var het = st.now + giu;
+  var mocNL = Math.min(het, st.now + G.QUY_DAO_V1.segmentSeconds);
+  var can = G.nhienLieuGiu(st, f.ships, mocNL - st.now);
+  if ((f.cargo.deut || 0) < can)
+    return 'Không đủ Nhiên Liệu trong khoang để trả đoạn giữ quỹ đạo đầu tiên (cần ' + G.so(can) + ').';
+  f.cargo.deut = (f.cargo.deut || 0) - can;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  f.pha = 'giu';
+  f.giuLuc = st.now;
+  f.giuDen_t = het;
+  f.tiepNL_t = mocNL;
+  if (f.giuTaiTk === undefined) f.giuTaiTk = null;
+  f.giuRules = G.QUY_DAO_V1.holdRules;
+  f.dangGiu = true;                       // alias v5
+  G.ghi(st, 'Hạm đội #' + f.id + ' đã neo quỹ đạo tại ' + G.tdStr(f.den) +
+    ', trả trước ' + G.so(can) + ' Nhiên Liệu tới ' + G.tg(mocNL - st.now) + ' tiếp theo.');
+  return null;
+};
+
+G.hamThanhPheLieu = function (st, f, noi) {
+  var pl = G.pheLieu(st, G.tdKey(f.den));
+  var kl = 0, tt = 0, mat = 0;
+  for (var id in f.ships) {
+    var s = G.S(id), n = Math.max(0, Math.floor(Number(f.ships[id]) || 0));
+    if (!s || !n) continue;
+    kl += (s.cost.metal || 0) * n * G.C.PHE_LIEU;
+    tt += (s.cost.crystal || 0) * n * G.C.PHE_LIEU;
+    mat += n;
+  }
+  kl = Math.round(kl); tt = Math.round(tt);
+  pl.metal = (Number(pl.metal) || 0) + kl;
+  pl.crystal = (Number(pl.crystal) || 0) + tt;
+  st.stats = st.stats && typeof st.stats === 'object' ? st.stats : {};
+  st.stats.tauMat = (st.stats.tauMat || 0) + mat;
+  G.tin(st, 'ham', 'Hạm đội #' + f.id + ' tan rã trên quỹ đạo',
+    noi + '\nXác tàu tạo thành ' + G.so(kl) + ' Kim Loại và ' + G.so(tt) + ' Thạch Anh phế liệu tại ' + G.tdStr(f.den) + '.');
+  G.xoaHam(st, f);
+};
+
+/* Hết một đoạn đã trả: xác minh quyền đậu trước, rồi mới trả trước đoạn kế. */
+G.nhipGiu = function (st, f) {
+  if (st.now >= f.giuDen_t) {
+    G.batDauVe(st, f, true, 'Hạm đội #' + f.id + ' hết ca giữ quỹ đạo, quay về.');
+    return;
+  }
+  var loi = G.kiemTraGiu(st, f);
+  if (loi) {
+    G.batDauVe(st, f, true, 'Hạm đội #' + f.id + ' rời quỹ đạo ' + G.tdStr(f.den) + ': ' + loi);
+    return;
+  }
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var mocMoi = Math.min(f.giuDen_t, st.now + G.QUY_DAO_V1.segmentSeconds);
+  var can = G.nhienLieuGiu(st, f.ships, mocMoi - st.now);
+  /* Đoạn đầu của save v5 là ân hạn; từ ranh giới này trở đi cùng một luật. */
+  f.giuRules = G.QUY_DAO_V1.holdRules;
+  if ((f.cargo.deut || 0) < can) {
+    G.hamThanhPheLieu(st, f, 'Khoang nhiên liệu không đủ ' + G.so(can) +
+      ' đơn vị để duy trì đoạn quỹ đạo kế tiếp; đội hình mất ổn định và bị phá huỷ.');
+    return;
+  }
+  f.cargo.deut = (f.cargo.deut || 0) - can;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  f.tiepNL_t = mocMoi;
+  G.ghi(st, 'Hạm đội #' + f.id + ' tiếp nhiên liệu quỹ đạo ' + G.so(can) +
+    ', đủ hoạt động thêm ' + G.tg(mocMoi - st.now) + '.');
+};
+
+G.hamGiuTai = function (st, c) {
+  var key = G.tdKey(c), out = [];
+  for (var i = 0; i < st.fleets.length; i++) {
+    var f = st.fleets[i];
+    if (f.mission === 'hold' && f.pha === 'giu' && G.tdKey(f.den) === key &&
+        Number(f.giuDen_t) > st.now && !G.trong(f.ships)) out.push(f);
+  }
+  return out;
+};
+
 /* --- Gửi hạm đội ------------------------------------------------------- */
 G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var p = st.planets[pi];
   if (!p) return 'Hành tinh không tồn tại.';
   if (G.trong(ships)) return 'Chưa chọn tàu nào.';
   if (st.fleets.length >= G.khe(st)) return 'Hết khe hạm đội (' + G.khe(st) + '). Nâng Công Nghệ Máy Tính hoặc Đài Chỉ Huy.';
-  if (p.doi > 0) return 'Hành tinh đang bị bỏ đói — không đủ lương thực cho thủy thủ đoàn xuất phát.';
-  if (st.noBaoTri > 0 && mission === 'attack') return 'Đang nợ phí bảo trì: hạm đội bị niêm phong, không được xuất kích tấn công.';
   if (G.bang(den, p.c) ) return 'Mục tiêu trùng với hành tinh xuất phát.';
   var id, sach = {};
   for (id in ships) {
@@ -1655,11 +2393,20 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   }
   if (mission === 'colonize' && !ships.colony) return 'Nhiệm vụ thực dân cần Tàu Thực Dân.';
   if (mission === 'recycle' && !ships.recycler) return 'Nhiệm vụ thu hồi cần Tàu Thu Hồi.';
+  /* Bản một người không có khái niệm NPC đồng minh: chỉ một hành tinh khác
+   * của chính đế quốc là điểm neo hợp lệ. Server kiểm tra quan hệ bằng hook. */
+  if (mission === 'hold' && !G.HOOK && G.oHanhTinh(st, den).loai !== 'toi')
+    return 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+  if (G.HOOK && G.HOOK.kiemTraGui) {
+    var loiQuyen = G.HOOK.kiemTraGui(st, p, den, mission);
+    var noiQuyen = typeof loiQuyen === 'string' ? loiQuyen : (loiQuyen && loiQuyen.loi);
+    if (noiQuyen) return noiQuyen;
+  }
 
   var kc = G.khoangCach(p.c, den);
   var tg = G.tgBay(st, ships, kc, pct);
   var nl = G.nhienLieu(st, ships, kc, pct);
-  if ((p.res.deut || 0) < nl) return 'Không đủ deuterium (cần ' + G.so(nl) + ').';
+  if ((p.res.deut || 0) < nl) return 'Không đủ Nhiên Liệu (cần ' + G.so(nl) + ').';
 
   /* quân đổ bộ: chỉ theo nhiệm vụ Tấn Công / Triển Khai / Vận Chuyển, cần chỗ chở */
   linh = linh || {};
@@ -1685,6 +2432,13 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var tongHang = 0;
   for (id in cargo) { cargo[id] = Math.max(0, Math.floor(cargo[id] || 0)); tongHang += cargo[id]; }
   if (tongHang > suc - (mission === 'attack' ? 0 : 0)) return 'Khoang hàng chỉ chứa được ' + G.so(suc) + '.';
+  if (mission === 'hold') {
+    var giuGiay = Math.max(1, Math.floor(Number(giuGio) || 1) * 3600);
+    var nlDoanDau = G.nhienLieuGiu(st, ships, Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds));
+    if ((cargo.deut || 0) < nlDoanDau)
+      return 'Giữ quỹ đạo cần chở ít nhất ' + G.so(nlDoanDau) +
+        ' Nhiên Liệu cho đoạn đầu (' + G.tg(Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds)) + ').';
+  }
   for (id in cargo) if ((p.res[id] || 0) < cargo[id] + (id === 'deut' ? nl : 0)) return 'Không đủ ' + G.byId(G.RES, id).ten + ' để xếp hàng.';
 
   /* trừ tàu, quân, hàng, nhiên liệu */
@@ -1697,8 +2451,8 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var f = {
     id: st.fleetIdSeq++, pi: pi, tu: { g: p.c.g, h: p.c.h, p: p.c.p }, den: { g: den.g, h: den.h, p: den.p },
     mission: mission, ships: ships, linh: linh, cargo: cargo, pct: pct || 100,
-    diLuc: st.now, den_t: st.now + tg, ve_t: null, pha: 'di',
-    giu: (mission === 'hold') ? (giuGio || 1) * 3600 : 0,
+    diLuc: st.now, den_t: st.now + tg, veLuc: null, ve_t: null, pha: 'di',
+    giu: (mission === 'hold') ? Math.max(1, Math.floor(Number(giuGio) || 1) * 3600) : 0,
     nl: nl, kc: kc, doiHuong: 0
   };
   st.fleets.push(f);
@@ -1712,26 +2466,55 @@ G.doiMucTieu = function (st, fid, den) {
   var f = null, i;
   for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
   if (!f) return 'Không tìm thấy hạm đội.';
-  if (f.pha !== 'di') return 'Hạm đội đang trên đường về, không đổi được mục tiêu.';
   if (st.galana < G.C.DOI_MUC_TIEU_GALANA) return 'Cần ' + G.C.DOI_MUC_TIEU_GALANA + ' Galana để phát lệnh đổi hướng.';
-  if (G.bang(den, f.den)) return 'Đã đang bay tới đó rồi.';
+  var dangVe = f.pha === 've';
+  var dangGiu = f.pha === 'giu' || (f.mission === 'thamhiem' && f.dangGiu);
+  var dau = dangGiu ? f.den : (dangVe ? f.den : f.tu);
+  var cuoi = dangGiu ? f.den : (dangVe ? f.tu : f.den);
+  if (G.bang(den, cuoi)) return 'Đã đang bay tới đó rồi.';
+  if (f.mission === 'hold' && !G.HOOK && G.oHanhTinh(st, den).loai !== 'toi')
+    return 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+  if (G.HOOK && G.HOOK.kiemTraGui) {
+    var pGoc = st.planets[f.pi] || st.planets[0];
+    var loiQuyen = G.HOOK.kiemTraGui(st, pGoc, den, f.mission);
+    var noiQuyen = typeof loiQuyen === 'string' ? loiQuyen : (loiQuyen && loiQuyen.loi);
+    if (noiQuyen) return noiQuyen;
+  }
 
-  var tong = f.den_t - f.diLuc;
-  var fr = tong > 0 ? Math.min(1, Math.max(0, (st.now - f.diLuc) / tong)) : 1;
+  var ketThuc = dangGiu ? st.now : (dangVe ? f.ve_t : f.den_t);
+  var batDau = dangGiu ? st.now : (dangVe ? f.veLuc : f.diLuc);
+  if (!(batDau >= 0)) {
+    /* save cũ chưa có veLuc: suy ngược từ thời gian bay đầy đủ */
+    batDau = ketThuc - G.tgBay(st, f.ships, G.khoangCach(dau, cuoi), f.pct);
+  }
+  var tong = ketThuc - batDau;
+  var fr = dangGiu ? 1 : (tong > 0 ? Math.min(1, Math.max(0, (st.now - batDau) / tong)) : 1);
   /* vị trí hiện tại nội suy trên đường bay -> khoảng cách tới mục tiêu mới */
-  var kcMoi = (1 - fr) * G.khoangCach(f.tu, den) + fr * G.khoangCach(f.den, den);
+  var kcMoi = (1 - fr) * G.khoangCach(dau, den) + fr * G.khoangCach(cuoi, den);
   kcMoi = Math.max(5, Math.round(kcMoi));
   var tg = G.tgBay(st, f.ships, kcMoi, f.pct);
   var nlThem = G.nhienLieu(st, f.ships, kcMoi, f.pct);
+  f.cargo = f.cargo || {};
   var dt = f.cargo.deut || 0;
   /* nhiên liệu phụ trội lấy từ khoang hàng nếu có, thiếu thì trả bằng Galana */
   var traGalana = G.C.DOI_MUC_TIEU_GALANA;
-  if (dt >= nlThem) f.cargo.deut = dt - nlThem;
-  else { traGalana += Math.ceil((nlThem - dt) * 3); f.cargo.deut = 0; }
+  var deutCon = Math.max(0, dt - nlThem);
+  if (dt < nlThem) traGalana += Math.ceil((nlThem - dt) * 3);
+  if (f.mission === 'hold') {
+    var nlGiuDau = G.nhienLieuGiu(st, f.ships,
+      Math.min(Math.max(1, Number(f.giu) || 3600), G.QUY_DAO_V1.segmentSeconds));
+    if (deutCon < nlGiuDau)
+      return 'Sau khi đổi hướng phải còn ' + G.so(nlGiuDau) +
+        ' Nhiên Liệu trong khoang cho đoạn giữ quỹ đạo đầu tiên.';
+  }
   if (st.galana < traGalana) return 'Cần ' + G.so(traGalana) + ' Galana (gồm phí nhiên liệu phụ trội).';
+  f.cargo.deut = deutCon;
+  if (!f.cargo.deut) delete f.cargo.deut;
   st.galana -= traGalana;
 
   f.den = { g: den.g, h: den.h, p: den.p };
+  G.xoaTrangThaiGiu(f);
+  f.pha = 'di'; f.veLuc = null; f.ve_t = null;
   f.diLuc = st.now; f.den_t = st.now + tg; f.kc = kcMoi; f.doiHuong++;
   G.ghi(st, 'Hạm đội #' + f.id + ' đổi hướng giữa đường → ' + G.tdStr(den) + ' (phí ' + G.so(traGalana) + ' Galana).');
   return null;
@@ -1742,8 +2525,7 @@ G.goiVe = function (st, fid) {
     var f = st.fleets[i];
     if (f.id !== fid) continue;
     if (f.pha === 've') return 'Hạm đội đã đang về.';
-    var daBay = st.now - f.diLuc;
-    f.pha = 've'; f.ve_t = st.now + Math.max(2, daBay);
+    G.batDauVe(st, f, f.pha === 'giu' || !!f.dangGiu, null);
     G.ghi(st, 'Hạm đội #' + f.id + ' được gọi về, tới sau ' + G.tg(f.ve_t - st.now) + '.');
     return null;
   }
@@ -1754,9 +2536,7 @@ G.goiVe = function (st, fid) {
 G.hamToiDich = function (st, f) {
   var o = G.oHanhTinh(st, f.den);
   var veNha = function (ghi) {
-    f.pha = 've';
-    f.ve_t = st.now + G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
-    if (ghi) G.ghi(st, ghi);
+    G.batDauVe(st, f, true, ghi);
   };
 
   if (f.mission === 'thamhiem') {
@@ -1771,8 +2551,9 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'hold') {
-    if (!f.dangGiu) { f.dangGiu = true; f.den_t = st.now + f.giu; return; }
-    f.dangGiu = false; veNha('Hạm đội #' + f.id + ' hết giờ giữ chỗ, quay về.'); return;
+    var loiGiu = G.batDauGiu(st, f, o);
+    if (loiGiu) veNha('Hạm đội #' + f.id + ' không thể neo quỹ đạo: ' + loiGiu + ' Hạm đội quay về.');
+    return;
   }
 
   if (f.mission === 'deploy' || f.mission === 'transport') {
@@ -1815,7 +2596,7 @@ G.hamToiDich = function (st, f) {
     f.cargo.metal = (f.cargo.metal || 0) + Math.floor(lay.metal);
     f.cargo.crystal = (f.cargo.crystal || 0) + Math.floor(lay.crystal);
     G.tin(st, 'ham', 'Thu hồi phế liệu ' + G.tdStr(f.den),
-      'Đã vét được ' + G.so(lay.metal) + ' Kim Loại và ' + G.so(lay.crystal) + ' Tinh Thể từ bãi phế liệu.');
+      'Đã vét được ' + G.so(lay.metal) + ' Kim Loại và ' + G.so(lay.crystal) + ' Thạch Anh từ bãi phế liệu.');
     veNha(null); return;
   }
 
@@ -1955,60 +2736,217 @@ G.doThamNPC = function (st, f, n) {
   st.spy[G.tdKey(f.den)] = bc;
 };
 
-/* --- Chu kỳ bảo trì 6 giờ --------------------------------------------- */
-G.baoTri = function (st) {
-  st.soChuKy++;
+/* --- Nhịp đế quốc 6 giờ: bảo trì -> nghiên cứu -> dân sự ---------------
+ * Mọi phép kết toán chỉ chạy ở checkpoint của tài khoản. Không tự trả nợ
+ * giữa hai checkpoint: cùng một save và cùng một mốc thời gian phải luôn cho
+ * cùng một kết quả, dù người chơi có mở game nhiều lần hay không.          */
+G.phiBaoTriNhip = function (st) {
+  var c = G.NHIP_V1 || {};
+  /* Giữ đúng công thức cân bằng đã phát hành trước v5; schema mới chỉ đổi
+   * thời điểm/giao dịch và hậu quả, không âm thầm đổi hoá đơn người chơi. */
   var d = G.diem(st);
-  var tho = 0.015 * (d.ham + d.thu) + 0.008 * d.ct;
-  var giam = Math.min(0.6, 0.06 * G.tongB(st, 'maintDepot'));
-  var phi = Math.round((tho * (1 - giam)) * 10) / 10;
-  var vonNC = 0, ncTen = null;
+  var raw = (c.maintenanceMilitaryPointRate === undefined ? 0.015 : c.maintenanceMilitaryPointRate) *
+      (d.ham + d.thu) +
+    (c.maintenanceBuildingPointRate === undefined ? 0.008 : c.maintenanceBuildingPointRate) * d.ct;
+  var giamBp = Math.min(c.maintenanceDepotMaxReductionBp === undefined ? 6000 : c.maintenanceDepotMaxReductionBp,
+    G.tongB(st, 'maintDepot') * (c.maintenanceDepotReductionBp === undefined ? 600 : c.maintenanceDepotReductionBp));
+  return { raw: raw, giamBp: giamBp, phi: Math.round(raw * (10000 - giamBp) / 10000 * 10) / 10 };
+};
 
-  if (st.ncQueue && st.ncQueue.vonConLai > 0) {
-    vonNC = Math.min(st.ncQueue.vonConLai, st.ncQueue.vonMoiKy);
-    ncTen = G.R(st.ncQueue.id).ten;
+G.timHanhTinhNhip = function (st, key) {
+  for (var i = 0; i < st.planets.length; i++) if (G.tdKey(st.planets[i].c) === key) return st.planets[i];
+  return null;
+};
+
+G.moTaVectorNhip = function (cost) {
+  var ra = [], k;
+  for (k in cost) if (cost[k] > 0) {
+    var r = G.byId(G.RES, k);
+    ra.push((r ? r.ten : k) + ' ' + G.so(cost[k]));
   }
-  var can = phi + vonNC + st.noBaoTri;
-  var tra = Math.min(st.galana, can);
-  st.galana -= tra;
-  var thieu = can - tra;
+  return ra.length ? ra.join(', ') : '0';
+};
 
-  var dong = [];
-  dong.push('Chu kỳ bảo trì #' + st.soChuKy + ' — ' + G.gio(st.now * 1000));
-  dong.push('Phí bảo trì hạ tầng & hạm đội: ' + G.so(phi) + ' Galana' + (giam > 0 ? ' (đã giảm ' + Math.round(giam * 100) + '% nhờ Trung Tâm Bảo Trì)' : ''));
-  if (st.noBaoTri > 0) dong.push('Nợ kỳ trước: ' + G.so(st.noBaoTri) + ' Galana');
+/* Một lần thất bại chỉ được dời đúng một nhịp, kể cả nguyên nhân đồng thời là
+ * thiếu bảo trì và thiếu vector tài nguyên của đề tài. */
+G.thatBaiNCNhip = function (st, q, lyDo, dong) {
+  if (!q) return;
+  var c = G.NHIP_V1 || {}, chuKy = c.cycleSeconds || G.C.CHU_KY_BAO_TRI;
+  q.failures = Math.max(0, Math.floor(Number(q.failures) || 0)) + 1;
+  q.status = 'retry';
+  q.treo = true;                    // alias cho UI/save v4
+  q.finishAt = (Number(q.finishAt) || st.now) + chuKy;
+  q.conLai = Math.max(0, q.finishAt - st.now);
+  if (dong) dong.push('NGHIÊN CỨU THẤT BẠI KỲ NÀY: ' + lyDo + '. Hoãn đúng 6 giờ, thử lại ở checkpoint kế tiếp.');
+};
 
-  /* ưu tiên trả phí bảo trì trước, còn lại mới rót vào nghiên cứu */
-  var conTra = tra;
-  var traNo = Math.min(conTra, st.noBaoTri); conTra -= traNo; st.noBaoTri -= traNo;
-  var traPhi = Math.min(conTra, phi); conTra -= traPhi;
-  var traVon = Math.min(conTra, vonNC);
-
-  if (vonNC > 0) {
-    if (traVon >= vonNC) {
-      st.ncQueue.vonConLai -= vonNC;
-      st.ncQueue.treo = false;
-      dong.push('Rót vốn nghiên cứu "' + ncTen + '": ' + G.so(vonNC) + ' Galana (còn lại ' + G.so(st.ncQueue.vonConLai) + ')');
-    } else {
-      st.ncQueue.vonConLai -= traVon;
-      st.ncQueue.treo = true;
-      dong.push('THIẾU VỐN nghiên cứu "' + ncTen + '" — đề tài BỊ TREO cho tới khi có đủ Galana.');
-    }
+/* Trả một vector kỳ nghiên cứu theo nguyên tắc tất-cả-hoặc-không-gì. */
+G.thanhToanNCNhip = function (st, dong) {
+  var q = st.ncQueue;
+  if (!q) return true;
+  if (Math.max(0, Math.floor(Number(q.installmentsLeft) || 0)) <= 0) {
+    /* Có thể đã trả đủ nhưng checkpoint trước thiếu bảo trì nên status=retry.
+     * Một checkpoint thành công phải mở lại đồng hồ, dù không còn vector. */
+    q.status = 'active'; q.treo = false;
+    return true;
   }
-  if (thieu > 0) {
-    st.noBaoTri = thieu;
-    dong.push('KHÔNG ĐỦ GALANA: nợ lại ' + G.so(thieu) + '. Sản lượng toàn đế quốc giảm 30% và hạm đội bị niêm phong (không tấn công được) cho tới khi trả xong.');
+  var p = G.timHanhTinhNhip(st, q.planetKey);
+  if (!p) {
+    G.thatBaiNCNhip(st, q, 'không còn hành tinh chủ trì ' + q.planetKey, dong);
+    return false;
+  }
+  var ky = G.kyNghienCuu ? G.kyNghienCuu(q) : (G.phanKyNC ? G.phanKyNC(q) : {});
+  if (!G.duTien(st, p, ky)) {
+    G.thatBaiNCNhip(st, q, 'không đủ nguyên liệu cho kỳ trả góp (' + G.moTaVectorNhip(ky) + ')', dong);
+    return false;
+  }
+  G.truTien(st, p, ky);             // chỉ mutate sau khi cả vector đã qua kiểm tra
+  if (!q.paidCost || typeof q.paidCost !== 'object') q.paidCost = {};
+  for (var k in ky) q.paidCost[k] = (Number(q.paidCost[k]) || 0) + ky[k];
+  q.installmentsLeft = Math.max(0, Math.floor(Number(q.installmentsLeft) || 0) - 1);
+  q.status = 'active'; q.treo = false;
+  q.conLai = Math.max(0, (Number(q.finishAt) || st.now) - st.now);
+  dong.push('Đã trả nguyên kỳ nghiên cứu "' + G.R(q.id).ten + '": ' + G.moTaVectorNhip(ky) +
+    ' (còn ' + q.installmentsLeft + '/' + q.installmentsTotal + ' kỳ).');
+  return true;
+};
+
+G.gioiHanBpNhip = function (n, toiDa) {
+  return Math.max(0, Math.min(toiDa === undefined ? 10000 : toiDa, Math.round(Number(n) || 0)));
+};
+
+/* Phá tỷ lệ công trình nhưng chỉ quét một lần qua mỗi loại. Phân bổ theo
+ * tổng tích luỹ giúp kết quả tỷ lệ, xác định và không lặp theo từng đơn vị. */
+G.suyThoaiCongTrinhNhip = function (p, bp) {
+  var ds = [], tong = 0, k, i;
+  for (k in p.b) if (G.B(k) && p.b[k] > 0) { ds.push(k); tong += p.b[k]; }
+  ds.sort();
+  if (!tong || bp <= 0) return 0;
+  var raw = tong * bp / 10000 + (Number(p.danSu.decayRemainder) || 0);
+  var canPha = Math.min(tong, Math.floor(raw));
+  p.danSu.decayRemainder = raw - canPha;
+  var daPha = 0, daXet = 0, mocTruoc = 0;
+  for (i = 0; i < ds.length && daPha < canPha; i++) {
+    var co = Math.max(0, Math.floor(Number(p.b[ds[i]]) || 0));
+    daXet += co;
+    var moc = Math.floor(daXet * canPha / tong);
+    var n = Math.min(co, moc - mocTruoc);
+    if (n > 0) daPha += G.giamCongTrinh(p, ds[i], n);
+    mocTruoc = moc;
+  }
+  return daPha;
+};
+
+G.nhipDanSu = function (st, p, baoTriDat, muc, dong) {
+  var c = G.NHIP_V1 || {}, ds = p.danSu;
+  var loai = G.loaiHT(st, p);
+  var san = c.populationFloor === undefined ? 250000 : c.populationFloor;
+  var dan = Math.max(san, Math.floor(Number(ds.population) || san));
+  /* sanXuat cộng nhu cầu THỰC của từng đoạn dt; nhờ vậy một kỳ bị chia bởi
+   * chuyến bay/xây dựng vẫn có cùng kết quả như một đoạn 6 giờ liền. */
+  var nhuCau = Math.max(0, Number(ds.foodDemandCycle) || 0);
+  var thieu = Math.max(0, Number(ds.foodShortfallCycle) || 0);
+  var tyLeThieu = nhuCau > 0 ? Math.min(1, thieu / nhuCau) : 0;
+  var matDoi = Math.floor(Math.max(0, dan - san) *
+    (c.foodShortfallMaxLossBp === undefined ? 500 : c.foodShortfallMaxLossBp) * tyLeThieu / 10000);
+  var matBaoTri = muc >= (c.populationLossMissStreak || 2)
+    ? Math.floor(Math.max(0, dan - san) * (c.maintenancePopulationLossBp === undefined ? 250 : c.maintenancePopulationLossBp) / 10000)
+    : 0;
+  if (matDoi || matBaoTri) dan = Math.max(san, dan - matDoi - matBaoTri);
+  else if (!tyLeThieu && baoTriDat) {
+    var sucChua = G.sucChuaDan ? G.sucChuaDan(p) : san;
+    var tangBp = (c.populationGrowthBp === undefined ? 25 : c.populationGrowthBp) *
+      (loai.dan === undefined ? 1 : loai.dan);
+    dan += Math.floor(Math.max(0, sucChua - dan) * tangBp / 10000);
+  }
+  ds.population = Math.max(san, dan);
+
+  /* Mốc tư liệu cho thấy thuế 0% và 4% cùng nhánh không gây áp lực. Support
+   * có thể vượt 100% (đã thấy 140%), nên không được clamp về 10.000 bp. */
+  var thueSo = Number(ds.taxBp);
+  if (!isFinite(thueSo)) thueSo = c.defaultTaxBp || 0;
+  ds.taxBp = Math.max(c.minTaxBp || 0, Math.min(c.maxTaxBp === undefined ? 10000 : c.maxTaxBp,
+    Math.round(thueSo)));
+  var toiDaUngHo = c.maxSupportBp === undefined ? 20000 : c.maxSupportBp;
+  var ungHo = G.gioiHanBpNhip(ds.supportBp === undefined ? c.defaultSupportBp : ds.supportBp, toiDaUngHo);
+  var hoi = c.supportRecoverBp === undefined ? 100 : c.supportRecoverBp;
+  var apLucThue = Math.max(0, ds.taxBp - 400);
+  var dichUngHo = G.gioiHanBpNhip(10000 - 3 * apLucThue + (Number(loai.ungHoBp) || 0), toiDaUngHo);
+  /* `hoi` là tốc độ hội tụ theo bp, không phải một bước cộng cứng. Nhờ vậy
+   * offset loại hành tinh có tác dụng ngay từ checkpoint đầu mà không khiến
+   * support nhảy đột ngột hàng trăm điểm phần trăm. */
+  var lechUngHo = dichUngHo - ungHo;
+  if (lechUngHo) {
+    var buocUngHo = Math.round(Math.abs(lechUngHo) * hoi / 10000);
+    if (!buocUngHo) buocUngHo = 1;
+    ungHo += lechUngHo > 0 ? buocUngHo : -buocUngHo;
+  }
+  ungHo -= Math.round((c.supportFoodPenaltyBp === undefined ? 400 : c.supportFoodPenaltyBp) * tyLeThieu);
+  if (!baoTriDat) ungHo -= (c.supportMaintenancePenaltyBp === undefined ? 200 : c.supportMaintenancePenaltyBp) * Math.max(1, muc);
+  ds.supportBp = G.gioiHanBpNhip(ungHo, toiDaUngHo);
+
+  var pha = muc >= (c.infrastructureDecayMissStreak || 3)
+    ? G.suyThoaiCongTrinhNhip(p, c.infrastructureDecayBp === undefined ? 100 : c.infrastructureDecayBp) : 0;
+  ds.foodDemandCycle = 0;
+  ds.foodShortfallCycle = 0;
+  p.doi = tyLeThieu > 0 ? 6 : 0;       // alias hình phạt/UI v4
+  if (thieu > 0 || matBaoTri > 0 || pha > 0) {
+    dong.push(p.ten + ' ' + G.tdStr(p.c) + ': thiếu ' + G.so(thieu) + ' Thực Phẩm; dân −' +
+      G.so(matDoi + matBaoTri) + ', ủng hộ ' + (ds.supportBp / 100).toFixed(1) + '%' +
+      (pha ? ', cơ sở vật chất −' + G.so(pha) : '') + '.');
+  }
+  return { foodShortfall: thieu, populationLost: matDoi + matBaoTri, buildingsLost: pha };
+};
+
+G.baoTri = function (st) {
+  var c = G.NHIP_V1 || {}, chuKy = c.cycleSeconds || G.C.CHU_KY_BAO_TRI;
+  var bt = st.baoTri;
+  if (!bt) return;                    // migration v5 là chủ sở hữu schema
+  /* Giữ pha đồng hồ tài khoản (từ lúc đăng ký), nhưng tuyệt đối không áp hậu
+   * quả ở checkpoint trước/đúng biên kích hoạt luật v5. Migration thường đã
+   * đẩy nextAt tới bội 6 giờ đầu tiên > activatedAt; nhánh này là hàng rào cho
+   * save thủ công/hỏng mà không reset pha thành activatedAt + 6 giờ. */
+  if (st.now <= bt.activatedAt || bt.nextAt <= bt.activatedAt) {
+    var moc = Number(bt.nextAt);
+    if (!isFinite(moc)) moc = Number(st.t0) || Number(bt.activatedAt) || st.now;
+    var soNhip = Math.floor((bt.activatedAt - moc) / chuKy) + 1;
+    bt.nextAt = moc + Math.max(1, soNhip) * chuKy;
+    if (G.dongBoBaoTriCu) G.dongBoBaoTriCu(st);
+    return;
+  }
+  bt.cycle = Math.max(0, Math.floor(Number(bt.cycle) || 0)) + 1;
+  var tinhPhi = G.phiBaoTriNhip(st);
+  var noCu = Math.max(0, Number(bt.arrearsGalana) || 0);
+  var can = noCu + tinhPhi.phi;
+  var dat = st.galana >= can;
+  var dong = ['Checkpoint đế quốc #' + bt.cycle + ' — ' + G.gio(st.now * 1000),
+    'Phí bảo trì kỳ này: ' + G.so(tinhPhi.phi) + ' Galana' +
+    (tinhPhi.giamBp ? ' (giảm ' + (tinhPhi.giamBp / 100).toFixed(1) + '%)' : '') +
+    (noCu ? '; nợ cũ ' + G.so(noCu) : '') + '.'];
+  if (dat) {
+    st.galana -= can;
+    bt.arrearsGalana = 0; bt.missStreak = 0;
+    dong.push('Bảo trì đã thanh toán nguyên khoản ' + G.so(can) + ' Galana.');
+    G.thanhToanNCNhip(st, dong);
   } else {
-    dong.push('Đã thanh toán đủ. Hành tinh hoạt động bình thường.');
+    /* [TÁI DỰNG] Không trừ lẻ: khoản tiền hiện có được giữ nguyên, hoá đơn kỳ
+     * này nhập vào nợ để checkpoint sau xét lại như một giao dịch duy nhất. */
+    bt.arrearsGalana = noCu + tinhPhi.phi;
+    bt.missStreak = Math.max(0, Math.floor(Number(bt.missStreak) || 0)) + 1;
+    var muc0 = Math.min(3, bt.missStreak);
+    dong.push('KHÔNG ĐỦ GALANA: không trừ một phần; tổng nợ thành ' + G.so(bt.arrearsGalana) +
+      '. Mức suy thoái ' + muc0 + '/3. [TÁI DỰNG]');
+    if (st.ncQueue && bt.missStreak >= (c.researchFailureMissStreak || 1))
+      G.thatBaiNCNhip(st, st.ncQueue, 'bảo trì đế quốc thất bại', dong);
   }
-
-  /* đói ăn: cảnh báo */
-  for (var i = 0; i < st.planets.length; i++) {
-    var p = st.planets[i];
-    if (p.doi > 0) dong.push('CẢNH BÁO: ' + p.ten + ' ' + G.tdStr(p.c) + ' đang thiếu Lương Thực — sản lượng còn một nửa.');
-  }
-  G.tin(st, 'bt', 'Bảo trì hành tinh (chu kỳ #' + st.soChuKy + ')', dong.join('\n'));
-  st.nextMaint = st.now + G.C.CHU_KY_BAO_TRI;
+  var muc = dat ? 0 : Math.min(3, bt.missStreak);
+  for (var i = 0; i < st.planets.length; i++) G.nhipDanSu(st, st.planets[i], dat, muc, dong);
+  var mocKeTiep = Number(bt.nextAt);
+  if (!isFinite(mocKeTiep)) mocKeTiep = st.now;
+  bt.nextAt = mocKeTiep + chuKy;       // giữ nguyên pha đồng hồ tài khoản
+  if (G.dongBoBaoTriCu) G.dongBoBaoTriCu(st);
+  else { st.nextMaint = bt.nextAt; st.soChuKy = bt.cycle; st.noBaoTri = bt.arrearsGalana; }
+  G.tin(st, 'bt', 'Nhịp đế quốc 6 giờ (chu kỳ #' + bt.cycle + ')', dong.join('\n'));
 };
 
 /* --- NPC tấn công người chơi ----------------------------------------- */
@@ -2063,13 +3001,35 @@ G.hepRaid = function (st) {
 G.dichToi = function (st, w) {
   var p = st.planets[w.pi] || st.planets[0];
   var Lp = G.loaiHT(st, p);
+  var hoTro = G.hamGiuTai(st, p.c);
+  var nhomTau = [{ ships: p.ships, tech: st.tech }];
+  for (var hg = 0; hg < hoTro.length; hg++)
+    nhomTau.push({ ships: hoTro[hg].ships, tech: st.tech });
   var kq = G.danhTran(
     { ten: w.ten, tech: w.tech, ships: w.ships },
-    { ten: st.ten + ' — ' + p.ten, tech: st.tech, ships: p.ships, def: p.def,
+    { ten: st.ten + ' — ' + p.ten, tech: st.tech, nhomTau: nhomTau, def: p.def,
       thuDat: Lp.thuDat, loaiHT: Lp.ten },
     G.hash('def' + w.id + st.now));
 
-  p.ships = kq.conShipsD; p.def = kq.conDefD;
+  /* Chỉ đếm tàu: matD tổng hợp còn chứa cả công sự, còn các mảng nhóm là
+   * nguồn chuẩn để cộng thiệt hại hạm hành tinh + mọi đội giữ quỹ đạo. */
+  st.stats = st.stats && typeof st.stats === 'object' ? st.stats : {};
+  var matTauTa = 0, dietTauDich = 0, mi, mid;
+  for (mi = 0; mi < kq.matNhomD.length; mi++)
+    for (mid in kq.matNhomD[mi]) matTauTa += kq.matNhomD[mi][mid] || 0;
+  for (mid in kq.matA) dietTauDich += kq.matA[mid] || 0;
+  st.stats.tauMat = (st.stats.tauMat || 0) + matTauTa;
+  st.stats.tauDietDich = (st.stats.tauDietDich || 0) + dietTauDich;
+
+  p.ships = kq.conNhomD[0]; p.def = kq.conDefD;
+  for (var hi = hoTro.length - 1; hi >= 0; hi--) {
+    var hf = hoTro[hi], matH = kq.matNhomD[hi + 1] || {}, soMatH = 0;
+    hf.ships = kq.conNhomD[hi + 1] || {};
+    for (var hm in matH) soMatH += matH[hm];
+    if (soMatH) G.tin(st, 'ham', 'Hạm đội #' + hf.id + ' tham chiến phòng thủ',
+      'Đội hình giữ quỹ đạo tại ' + G.tdStr(p.c) + ' mất ' + G.so(soMatH) + ' tàu trong trận đánh của ' + w.ten + '.');
+    if (G.trong(hf.ships)) G.xoaHam(st, hf);
+  }
   var cuop = { metal: 0, crystal: 0, deut: 0, food: 0 };
   if (kq.kq === 'thang') {      /* địch thắng */
     cuop = G.chiaHang(p.res, G.khoangHang(kq.conShipsA), G.C.CUOP_TOI_DA);
@@ -2125,14 +3085,19 @@ G.sukienKe = function (st) {
     if (p.qB.length && p.qB[0].xong) t = Math.min(t, p.qB[0].xong);
     if (p.qS.length) t = Math.min(t, st.lastTick + p.qS[0].tLeft + (p.qS[0].n - 1) * p.qS[0].tEach);
   }
-  if (st.ncQueue && !st.ncQueue.treo) t = Math.min(t, st.lastTick + st.ncQueue.conLai);
+  /* Chỉ lịch hoàn thành khi mọi kỳ đã trả và đề tài không chờ retry. Nếu
+   * chưa đủ vốn, checkpoint bảo trì kế tiếp là sự kiện duy nhất có thể mở
+   * khoá; đưa finishAt cũ vào đây sẽ tạo vòng lặp tại một timestamp đã qua. */
+  if (st.ncQueue && st.ncQueue.status === 'active' && st.ncQueue.installmentsLeft <= 0)
+    t = Math.min(t, st.ncQueue.finishAt);
   for (i = 0; i < st.fleets.length; i++) {
     var f = st.fleets[i];
-    t = Math.min(t, f.pha === 'di' ? f.den_t : f.ve_t);
+    t = Math.min(t, G.mocHamKe(f));
   }
   for (i = 0; i < st.toi.length; i++) t = Math.min(t, st.toi[i].den_t);
   if (st.tenLua) for (i = 0; i < st.tenLua.length; i++) t = Math.min(t, st.tenLua[i].khi);
-  t = Math.min(t, st.nextMaint, st.nextRaid);
+  var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
+  t = Math.min(t, nextNhip, st.nextRaid);
   return t;
 };
 
@@ -2141,7 +3106,10 @@ G.sukienKe = function (st) {
 G.MO_PHONG_NHE = false;
 
 G.tick = function (st, now) {
+  /* Server/client cũ có thể nạp thẳng save v3; tick là biên chung an toàn
+   * để migration chạy đúng một lần trước mọi phép tính. */
   now = now || G.giay();
+  G.nangCapState(st, now);
   if (now <= st.lastTick) { st.now = st.lastTick; return; }
   if (G.MO_PHONG_NHE) {
     var dtn = now - st.lastTick;
@@ -2149,7 +3117,9 @@ G.tick = function (st, now) {
       G.sanXuat(st, st.planets[i0], dtn);
       G.chayXuong(st, st.planets[i0], dtn);
     }
-    if (st.ncQueue && !st.ncQueue.treo) st.ncQueue.conLai -= dtn;
+    /* Client nhiều người chỉ hiển thị countdown tuyệt đối. Mọi khoản trừ,
+     * retry và hoàn thành nghiên cứu đều thuộc quyền server. */
+    if (st.ncQueue) st.ncQueue.conLai = Math.max(0, (Number(st.ncQueue.finishAt) || now) - now);
     st.lastTick = now; st.now = now;
     return;
   }
@@ -2163,7 +3133,7 @@ G.tick = function (st, now) {
         G.sanXuat(st, st.planets[i], dt);
         G.chayXuong(st, st.planets[i], dt);
       }
-      if (st.ncQueue && !st.ncQueue.treo) st.ncQueue.conLai -= dt;
+      if (st.ncQueue) st.ncQueue.conLai = Math.max(0, (Number(st.ncQueue.finishAt) || t) - t);
       st.lastTick = t; st.now = t;
     }
     if (ke <= t) {
@@ -2173,19 +3143,7 @@ G.tick = function (st, now) {
     } else break;
   }
   st.lastTick = now; st.now = now;
-
-  /* Có Galana thì tự trả nợ bảo trì ngay, không cần chờ hết chu kỳ */
-  if (st.noBaoTri > 0 && st.galana >= st.noBaoTri) {
-    var tra = st.noBaoTri;
-    st.galana -= tra; st.noBaoTri = 0;
-    G.tin(st, 'bt', 'Đã trả xong nợ bảo trì',
-      'Nợ ' + G.so(tra) + ' Galana đã thanh toán. Sản lượng và hạm đội trở lại bình thường.');
-  }
-  if (st.ncQueue && st.ncQueue.treo && st.galana >= Math.min(st.ncQueue.vonConLai, st.ncQueue.vonMoiKy)) {
-    var v = Math.min(st.ncQueue.vonConLai, st.ncQueue.vonMoiKy);
-    st.galana -= v; st.ncQueue.vonConLai -= v; st.ncQueue.treo = false;
-    G.tin(st, 'bt', 'Nghiên cứu chạy lại', 'Đã rót đủ vốn, đề tài "' + G.R(st.ncQueue.id).ten + '" tiếp tục.');
-  }
+  if (st.ncQueue) st.ncQueue.conLai = Math.max(0, (Number(st.ncQueue.finishAt) || now) - now);
 };
 
 /* Chia lượng cướp/giao vào khoang hàng: chia đều rồi dồn phần dư */
@@ -2214,32 +3172,39 @@ G.chiaHang = function (nguon, cho, tyLe) {
 
 G.xuLySuKien = function (st, t) {
   var i, p;
+  /* Checkpoint là biên giao dịch của cả đế quốc. Bảo trì luôn được kết toán
+   * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
+  var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
+  if (nextNhip <= t) G.baoTri(st);
   /* công trình */
   for (i = 0; i < st.planets.length; i++) {
     p = st.planets[i];
     while (p.qB.length && p.qB[0].xong && p.qB[0].xong <= t) {
       var m = p.qB.shift();
-      p.b[m.id] = m.lv;
-      G.ghi(st, p.ten + ': ' + G.B(m.id).ten + ' hoàn thành cấp ' + m.lv + '.');
+      var nXong = Math.max(1, Math.floor(Number(m.n) || 1));
+      G.themCongTrinh(p, m.id, nXong);
+      G.ghi(st, p.ten + ': hoàn thành ' + G.so(nXong) + ' ' + G.B(m.id).ten +
+        ' (hiện có ' + G.so(p.b[m.id]) + ').');
       if (p.qB.length) p.qB[0].xong = t + p.qB[0].tg;
     }
   }
   /* nghiên cứu */
-  if (st.ncQueue && !st.ncQueue.treo && st.ncQueue.conLai <= 0) {
+  if (st.ncQueue && st.ncQueue.status === 'active' && st.ncQueue.installmentsLeft <= 0 &&
+      st.ncQueue.finishAt <= t) {
     var q2 = st.ncQueue;
     st.tech[q2.id] = q2.lv;
-    var thuong = Math.round(G.giaTriDiem(q2.cost) * 12);
+    var thuong = Math.round(G.giaTriDiem(q2.totalCost || q2.cost || {}) * 12);
     st.techPts += thuong;
     G.tin(st, 'nc', 'Nghiên cứu hoàn thành', G.R(q2.id).ten + ' đã đạt cấp ' + q2.lv +
-      '.\nThu được ' + G.so(thuong) + ' điểm Công Nghệ.' +
-      (q2.vonConLai > 0 ? '\nVốn đầu tư còn lại ' + G.so(q2.vonConLai) + ' Galana được hoàn về ngân khố.' : ''));
-    if (q2.vonConLai > 0) st.galana += q2.vonConLai;
+      '.\nThu được ' + G.so(thuong) + ' điểm Kỹ Thuật. Toàn bộ ' + q2.installmentsTotal +
+      ' kỳ tài nguyên đã được thanh toán nguyên khối.');
     st.ncQueue = null;
   }
   /* hạm đội */
   for (i = st.fleets.length - 1; i >= 0; i--) {
     var f = st.fleets[i];
     if (f.pha === 'di' && f.den_t <= t) G.hamToiDich(st, f);
+    else if (f.pha === 'giu' && G.mocHamKe(f) <= t) G.nhipGiu(st, f);
     else if (f.pha === 've' && f.ve_t <= t) G.hamVeNha(st, f);
   }
   /* tên lửa tới đích */
@@ -2248,8 +3213,7 @@ G.xuLySuKien = function (st, t) {
   }
   /* địch tới */
   for (i = st.toi.length - 1; i >= 0; i--) if (st.toi[i].den_t <= t) G.dichToi(st, st.toi[i]);
-  /* bảo trì & đợt đánh */
-  if (st.nextMaint <= t) G.baoTri(st);
+  /* đợt đánh NPC (checkpoint bảo trì đã chạy ở đầu hàm) */
   if (st.nextRaid <= t) G.hepRaid(st);
 };
 
@@ -2278,7 +3242,10 @@ G.banTenLua = function (st, pi, den, n) {
   if (!tam) return 'Cần Động Cơ Xung cấp 1 trở lên mới có tầm bắn.';
   var soHe = Math.abs(den.h - p.c.h);
   if (soHe > tam) return 'Ngoài tầm: xa ' + soHe + ' hệ, tầm bắn hiện tại ' + tam + ' hệ (nâng Động Cơ Xung).';
-  if (st.noBaoTri > 0) return 'Đang nợ phí bảo trì: hầm tên lửa bị niêm phong.';
+  if (G.HOOK && G.HOOK.kiemTraGui) {
+    var loiQuyen = G.HOOK.kiemTraGui(st, p, den, 'attack');
+    if (loiQuyen) return loiQuyen;
+  }
 
   p.mis.icbm -= n;
   if (!p.mis.icbm) delete p.mis.icbm;
@@ -2365,6 +3332,7 @@ G.thamHiem = function (st, f) {
 
   var veNha = function (heSo) {
     f.pha = 've';
+    f.veLuc = st.now;
     var tg = G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
     f.ve_t = st.now + Math.round(tg * (heSo || 1));
   };
@@ -2376,7 +3344,7 @@ G.thamHiem = function (st, f) {
     var k;
     for (k in chia) if (chia[k] > 0) f.cargo[k] = (f.cargo[k] || 0) + chia[k];
     noi = 'Tìm thấy một đám mây vật chất chưa ai khai thác:\n' +
-      '  Kim Loại: ' + G.so(chia.metal) + '\n  Tinh Thể: ' + G.so(chia.crystal) + '\n  Deuterium: ' + G.so(chia.deut);
+      '  Kim Loại: ' + G.so(chia.metal) + '\n  Thạch Anh: ' + G.so(chia.crystal) + '\n  Nhiên Liệu: ' + G.so(chia.deut);
     veNha(); 
   } else if (lan < 0.42) {                            /* tàu trôi dạt */
     loai = 'tau';
@@ -2489,37 +3457,35 @@ G.sucPhaCT = function (linh) {
   return t;
 };
 
-/* Phá công trình bằng sức đổ bộ còn lại. Phá từ công trình ĐẮT nhất xuống,
- * và không bao giờ phá quá G.C.PHA_CT_TOI_DA phần tổng số cấp trong một trận. */
+/* Phá công trình bằng sức đổ bộ còn lại. Mỗi loại được xử lý
+ * theo lô, nên thời gian là O(số loại), không phụ thuộc hàng triệu nhà máy. */
 G.phaCongTrinh = function (st, p, suc) {
-  var tongCap = G.tongCapCT(p);
-  var conPha = Math.max(1, Math.floor(tongCap * G.C.PHA_CT_TOI_DA));
-  var pha = {}, soPha = 0;
-  var guard = 0;
-  while (suc > 0 && soPha < conPha && guard++ < 500) {
-    /* tìm cấp đắt nhất còn đứng */
-    var chon = null, giaChon = -1;
-    for (var k in p.b) {
-      if (!p.b[k]) continue;
-      var gia = G.giaTriDiem(G.giaXay(G.B(k), p.b[k])) * 1000;
-      if (gia > giaChon) { giaChon = gia; chon = k; }
-    }
-    if (!chon) break;
-    var canSuc = giaChon * G.C.SUC_PHA_MOI_TAI_NGUYEN;
-    if (suc < canSuc) break;
-    suc -= canSuc;
-    p.b[chon]--;
-    if (!p.b[chon]) delete p.b[chon];
-    pha[chon] = (pha[chon] || 0) + 1;
-    soPha++;
+  var tong = G.tongSoCT(p);
+  var conPha = tong > 0 ? Math.max(1, Math.floor(tong * G.C.PHA_CT_TOI_DA)) : 0;
+  var pha = {}, soPha = 0, ds = [], k;
+  for (k in p.b) {
+    var d = G.B(k);
+    if (d && p.b[k] > 0) ds.push({ id: k, gia: G.giaTriDiem(d.cost) * 1000 });
   }
-  return { pha: pha, soCap: soPha, chamTran: soPha >= conPha };
+  ds.sort(function (a, b) { return b.gia - a.gia || (a.id < b.id ? -1 : 1); });
+  for (var i = 0; i < ds.length && suc > 0 && soPha < conPha; i++) {
+    var x = ds[i];
+    var canSuc = Math.max(1, x.gia * G.C.SUC_PHA_MOI_TAI_NGUYEN);
+    var n = Math.min(p.b[x.id] || 0, conPha - soPha, Math.floor(suc / canSuc));
+    if (n < 1) continue;
+    suc -= n * canSuc;
+    var mat = G.giamCongTrinh(p, x.id, n);
+    pha[x.id] = mat;
+    soPha += mat;
+  }
+  /* soCap giữ tạm cho server/báo cáo v3; giá trị nay là số lượng. */
+  return { pha: pha, soLuong: soPha, soCap: soPha, chamTran: soPha >= conPha && conPha > 0 };
 };
 
 G.moTaPhaCT = function (o) {
   var ra = [];
-  for (var k in o) if (o[k]) ra.push(G.B(k).ten + ' −' + o[k] + ' cấp');
-  return ra.length ? ra.join(', ') : 'không phá được cấp công trình nào';
+  for (var k in o) if (o[k]) ra.push(G.B(k).ten + ' −' + G.so(o[k]));
+  return ra.length ? ra.join(', ') : 'không phá được công trình nào';
 };
 
 /* Chạy pha đổ bộ. Trả về mô tả kết quả (hoặc null nếu không có quân đổ bộ). */
@@ -2550,8 +3516,10 @@ G.doBoXuong = function (st, f, ben) {
 };
 
 /* ===== js/actions.js ===== */
-/* THIÊN HÀ ĐẠI CHIẾN — bảng hành động dùng chung
- * Đây là NƠI DUY NHẤT các hành động của người chơi được thực thi.
+/* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
+ * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
+ * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
+ * các phương thức server chuyên biệt vì chúng tác động dữ liệu dùng chung.
  *   - Chế độ một người: client gọi trực tiếp trên state trong máy.
  *   - Chế độ nhiều người: server gọi trên state trong database (client chỉ gửi
  *     yêu cầu). Vì vậy mọi kiểm tra ở đây phải coi dữ liệu vào là KHÔNG TIN ĐƯỢC.
@@ -2576,7 +3544,13 @@ G.HANHDONG = {
   xay: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     if (!G.B(chuoi(d.id, 30))) return 'Không có công trình này.';
-    return G.xepXay(st, p, d.id);
+    var n;
+    if (d.n !== undefined && d.n !== null) {
+      n = Number(d.n);
+      if (!Number.isSafeInteger(n) || n < 1 || n > 10000000)
+        return 'Số lượng xây phải là số nguyên từ 1 tới 10.000.000.';
+    }
+    return G.xepXay(st, p, d.id, n);
   },
   huyxay: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
@@ -2594,6 +3568,30 @@ G.HANHDONG = {
   huync: function (st) {
     if (!st.ncQueue) return 'Không có đề tài nào đang chạy.';
     G.huyNC(st); return null;
+  },
+
+  /* --- dân sự -------------------------------------------------------- */
+  doithue: function (st, d) {
+    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
+    var taxBp;
+    if (d.thue !== undefined) {
+      if (d.thue === null || (typeof d.thue === 'string' && !d.thue.trim()))
+        return 'Thuế phải nằm trong khoảng 0% tới 100%.';
+      var thue = Number(d.thue);
+      if (!isFinite(thue) || thue < 0 || thue > 100) return 'Thuế phải nằm trong khoảng 0% tới 100%.';
+      taxBp = Math.round(thue * 100);
+    } else {
+      var rawBp = d.taxBp !== undefined ? d.taxBp : d.bp;
+      if (rawBp === null || rawBp === undefined || (typeof rawBp === 'string' && !rawBp.trim()))
+        return 'Thuế phải là số nguyên từ 0 tới 10.000 bp.';
+      taxBp = Number(rawBp);
+      if (!Number.isSafeInteger(taxBp) || taxBp < G.NHIP_V1.minTaxBp || taxBp > G.NHIP_V1.maxTaxBp)
+        return 'Thuế phải là số nguyên từ 0 tới 10.000 bp.';
+    }
+    if (!p.danSu) p.danSu = G.danSuMacDinh();
+    p.danSu.taxBp = taxBp;
+    G.ghi(st, 'Đổi thuế tại ' + p.ten + ' ' + G.tdStr(p.c) + ' thành ' + (taxBp / 100).toFixed(2) + '%.');
+    return null;
   },
 
   /* --- đóng tàu / phòng thủ / tên lửa --- */
@@ -2668,7 +3666,8 @@ G.HANHDONG = {
 
   /* --- liên minh --- */
   lmvao: function (st, d) {
-    var ten = chuoi(d.ten, 40);
+    /* [THẺ 6 KÝ TỰ] + dấu cách + tên 32 ký tự có thể dài 41 ký tự. */
+    var ten = chuoi(d.ten, 48);
     if (!ten) return 'Thiếu tên liên minh.';
     if (st.lm) return 'Đang ở trong một liên minh khác.';
     if (!G.HOOK && G.LIEN_MINH.indexOf(ten) < 0) return 'Không có liên minh này.';
@@ -2777,6 +3776,28 @@ U.htTheoKey = function (key) {
   for (var i = 0; i < st.planets.length; i++) if (G.tdKey(st.planets[i].c) === key) return st.planets[i];
   return null;
 };
+U.bt = function (st) { return st.baoTri || {
+  nextAt: st.nextMaint, cycle: st.soChuKy || 0,
+  missStreak: st.noBaoTri > 0 ? 1 : 0, arrearsGalana: st.noBaoTri || 0
+}; };
+U.ds = function (p) { return p.danSu || {
+  population: 250000, supportBp: 10000, taxBp: 400,
+  foodDemandCycle: 0, foodShortfallCycle: 0
+}; };
+U.bp = function (n) {
+  n = Math.round(Number(n) || 0) / 100;
+  return (Math.round(n * 100) / 100).toLocaleString('vi-VN') + '%';
+};
+U.ncConLai = function (q) {
+  var out = {}, tong = q.totalCost || {}, da = q.paidCost || {};
+  for (var k in tong) if ((tong[k] || 0) > (da[k] || 0)) out[k] = (tong[k] || 0) - (da[k] || 0);
+  return out;
+};
+U.ncKyTiep = function (q) {
+  var out = {}, con = U.ncConLai(q), n = Math.max(1, q.installmentsLeft || 0);
+  for (var k in con) out[k] = Math.ceil(con[k] / n);
+  return out;
+};
 U.dsTau = function (o) {
   var out = [], k;
   for (k in o) if (o[k]) { var u = G.UNIT(k); out.push(U.esc(u ? u.ten : k) + ' <b>×' + G.so(o[k]) + '</b>'); }
@@ -2799,12 +3820,13 @@ U.thanhRes = function () {
   }
   h += '<div class="o"><span class="n">Galana</span><span class="v sz" style="color:' + G.byId(G.RES, 'galana').mau +
     '" data-live="galana">' + G.soNgan(st.galana) + '</span><span class="r sz" data-live="rate.galana">+' + G.soNgan(s.r.galana) + '/g</span></div>';
-  h += '<div class="o"><span class="n">Công Nghệ</span><span class="v sz" style="color:' + G.byId(G.RES, 'tech').mau +
+  h += '<div class="o"><span class="n">Kỹ Thuật</span><span class="v sz" style="color:' + G.byId(G.RES, 'tech').mau +
     '" data-live="tech">' + G.soNgan(st.techPts) + '</span><span class="r sz" data-live="rate.tech">+' + G.soNgan(s.r.tech) + '/g</span></div>';
   h += '<div class="o"><span class="n">Điện</span><span class="v sz" style="color:' + (s.hs < 1 ? 'var(--do)' : 'var(--luc)') + '">' +
     G.so(s.dienCo) + ' / ' + G.so(s.dienDung) + '</span><span class="r">hiệu suất ' + Math.round(s.hs * 100) + '%</span></div>';
-  h += '<div class="o"><span class="n">Bảo trì sau</span><span class="v sz">' + U.dem(st.nextMaint) +
-    '</span><span class="r">chu kỳ #' + (st.soChuKy + 1) + '</span></div>';
+  var bt = U.bt(st);
+  h += '<div class="o"><span class="n">Bảo trì sau</span><span class="v sz">' + U.dem(bt.nextAt) +
+    '</span><span class="r">chu kỳ #' + (bt.cycle + 1) + '</span></div>';
   return h;
 };
 
@@ -2840,14 +3862,18 @@ U.veMenu = function () {
 };
 
 U.veCanh = function () {
-  var st = U.st(), h = '', i;
-  if (st.noBaoTri > 0) h += '<div class="canh">NỢ PHÍ BẢO TRÌ ' + G.so(st.noBaoTri) +
-    ' GALANA — sản lượng toàn đế quốc giảm 30%, hạm đội bị niêm phong không tấn công được. Bán tài nguyên hoặc giảm quy mô hạm đội.</div>';
-  if (st.ncQueue && st.ncQueue.treo) h += '<div class="canh bt">Nghiên cứu "' + U.esc(G.R(st.ncQueue.id).ten) +
-    '" đang TREO vì thiếu vốn đầu tư (' + G.so(st.ncQueue.vonMoiKy) + ' Galana mỗi chu kỳ).</div>';
-  for (i = 0; i < st.planets.length; i++) if (st.planets[i].doi > 0)
-    h += '<div class="canh bt">' + U.esc(st.planets[i].ten) + ' ' + G.tdStr(st.planets[i].c) +
-      ' HẾT LƯƠNG THỰC — sản lượng còn một nửa. Xây thêm Trang Trại Sinh Quyển hoặc chở lương thực tới.</div>';
+  var st = U.st(), h = '', i, bt = U.bt(st);
+  if (bt.arrearsGalana > 0) h += '<div class="canh">NỢ BẢO TRÌ ' + G.so(bt.arrearsGalana) +
+    ' GALANA — đã lỡ ' + G.so(bt.missStreak) + ' kỳ liên tiếp. Cần đủ toàn bộ khoản đến hạn ở nhịp 6 giờ kế tiếp; ' +
+    'nghiên cứu có thể trễ, dân có thể rời đi và công trình có thể xuống cấp.</div>';
+  if (st.ncQueue && st.ncQueue.status === 'retry') h += '<div class="canh bt">Nghiên cứu "' + U.esc(G.R(st.ncQueue.id).ten) +
+    '" đã lỡ một kỳ cấp vốn; chỉ thử lại ở nhịp bảo trì kế tiếp. Mốc hoàn thành đã cộng thêm 6 giờ.</div>';
+  for (i = 0; i < st.planets.length; i++) {
+    var ds = U.ds(st.planets[i]);
+    if (ds.foodShortfallCycle > 0)
+      h += '<div class="canh bt">' + U.esc(st.planets[i].ten) + ' ' + G.tdStr(st.planets[i].c) +
+        ' đang thiếu ' + G.so(ds.foodShortfallCycle) + ' Thực Phẩm trong chu kỳ — dân số và ủng hộ sẽ chịu ảnh hưởng ở nhịp kế tiếp.</div>';
+  }
   for (i = 0; i < st.toi.length; i++) {
     var w = st.toi[i], p = st.planets[w.pi] || st.planets[0];
     h += '<div class="canh">BÁO ĐỘNG — ' + U.esc(w.ten) + ' ' + U.esc(w.lm || '') + ' từ ' + G.tdStr(w.tu) +
@@ -2862,6 +3888,10 @@ U.veCanh = function () {
       h += '<div class="canh">BÁO ĐỘNG ĐỎ — <b>' + U.esc(q.ten) + '</b> ' + U.esc(q.lm || '') + ' từ [' + U.esc(q.tu) +
         '] đang tấn công ' + U.esc(tenHT) + ', tới trong ' + U.dem(q.den_t) +
         '. Dựng thêm phòng thủ, hoặc cho hạm đội bay đi để khỏi bị bắn hạ.</div>';
+    else if (q.nv === 'hold')
+      h += '<div class="canh ok">ĐỒNG MINH — <b>' + U.esc(q.ten) + '</b> ' + U.esc(q.lm || '') +
+        ' đang điều hạm đội Giữ Chỗ từ [' + U.esc(q.tu) + '] tới ' + U.esc(tenHT) +
+        ', tới trong ' + U.dem(q.den_t) + ' để đóng quân quỹ đạo.</div>';
     else
       h += '<div class="canh ok">' + U.esc(q.ten) + ' ' + U.esc(q.lm || '') + ' đang chở hàng tới ' +
         U.esc(tenHT) + ', tới trong ' + U.dem(q.den_t) + '.</div>';
@@ -2884,6 +3914,8 @@ U.veChonHT = function () {
  * ==================================================================== */
 U.m_tongquan = function () {
   var st = U.st(), p = U.ht(), s = G.sanLuong(st, p), d = G.diem(st);
+  var bt = U.bt(st), ds = U.ds(p);
+  var sucChua = G.sucChuaDan ? G.sucChuaDan(p) : 250000 + (p.b.city || 0) * 250000;
   var h = '';
 
   h += '<div class="panel"><h3>' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + (p.thuDo ? ' — thủ phủ' : '') + '</h3><div class="noi luoi">';
@@ -2899,7 +3931,14 @@ U.m_tongquan = function () {
   h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
     ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span></div>';
   h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
-  h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(st.nextMaint) + ' <span class="mo">(mỗi 6 giờ)</span></div>';
+  h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(bt.nextAt) + ' <span class="mo">(#' + (bt.cycle + 1) + ', mỗi 6 giờ)</span></div>';
+  h += '<div><b>Dân số</b><br><span class="sz">' + G.so(ds.population) + '</span> / ' + G.so(sucChua) + '</div>';
+  h += '<div><b>Ủng hộ</b><br><span class="sz">' + U.bp(ds.supportBp) + '</span></div>';
+  h += '<div><b>Thuế</b><br><input id="thue-pct" type="number" min="0" max="100" step="1" value="' +
+    (ds.taxBp / 100) + '" style="width:70px">% <button class="nut nho" data-act="doithue">Đổi</button></div>';
+  h += '<div><b>Thực phẩm chu kỳ</b><br>' + (ds.foodDemandCycle > 0 ?
+    ('đã cần ' + G.so(ds.foodDemandCycle) + ', thiếu <span class="' + (ds.foodShortfallCycle > 0 ? 'do' : 'luc') + '">' +
+      G.so(ds.foodShortfallCycle) + '</span>') : '<span class="mo">chưa phát sinh</span>') + '</div>';
   h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
   h += '<div><b>Quân đổ bộ giữ nhà</b><br>' + U.dsTau(p.linh || {}) + '</div>';
   h += '</div></div>';
@@ -2909,10 +3948,10 @@ U.m_tongquan = function () {
   h += '<div class="panel"><h3>Đang xây trên hành tinh</h3><div class="noi">';
   if (!p.qB.length) h += '<span class="mo">Không có công trình nào đang xây.</span>';
   else {
-    h += '<table><tr><th>Công trình</th><th>Cấp</th><th>Xong sau</th><th></th></tr>';
+    h += '<table><tr><th>Công trình</th><th class="r">Số lượng</th><th>Xong sau</th><th></th></tr>';
     for (var i = 0; i < p.qB.length; i++) {
       var q = p.qB[i];
-      h += '<tr><td>' + U.esc(G.B(q.id).ten) + '</td><td class="c">' + q.lv + '</td><td class="sz">' +
+      h += '<tr><td>' + U.esc(G.B(q.id).ten) + '</td><td class="r sz">+' + G.so(q.n || 0) + '</td><td class="sz">' +
         (q.xong ? U.dem(q.xong) : '<span class="mo">chờ</span>') + '</td>' +
         '<td class="r"><button class="nut nho xoa" data-act="huyxay" data-i="' + i + '">Huỷ</button></td></tr>';
     }
@@ -2938,13 +3977,14 @@ U.m_tongquan = function () {
   if (!st.ncQueue) h += '<span class="mo">Không có đề tài nào đang chạy.</span>';
   else {
     var q3 = st.ncQueue;
-    var tienDo = Math.max(0, Math.min(1, 1 - q3.conLai / q3.tong));
+    var tienDo = Math.max(0, Math.min(1, 1 - (q3.installmentsLeft || 0) / Math.max(1, q3.installmentsTotal || 1)));
     h += '<b>' + U.esc(G.R(q3.id).ten) + '</b> → cấp ' + q3.lv + '<div class="thanh"><i style="width:' +
       (tienDo * 100).toFixed(1) + '%"></i></div>';
-    h += q3.treo ? '<span class="do">BỊ TREO — thiếu vốn đầu tư.</span>'
-      : 'Xong sau ' + U.dem(st.now + q3.conLai);
-    h += '<br><span class="mo">Vốn đầu tư còn phải rót: ' + G.so(q3.vonConLai) + ' Galana (' +
-      G.so(q3.vonMoiKy) + '/chu kỳ)</span>';
+    h += q3.status === 'retry' ? '<span class="do">CHỜ THỬ LẠI ở nhịp 6 giờ kế tiếp.</span>'
+      : 'Dự kiến xong sau ' + U.dem(q3.finishAt);
+    h += '<br><span class="mo">Kỳ tới: ' + U.dsRes(U.ncKyTiep(q3)) +
+      ' · còn ' + G.so(q3.installmentsLeft || 0) + '/' + G.so(q3.installmentsTotal || 0) + ' kỳ cấp vốn' +
+      (q3.failures ? ' · đã lỡ ' + G.so(q3.failures) + ' kỳ' : '') + '</span>';
     h += '<br><button class="nut nho xoa" data-act="huync">Huỷ đề tài</button>';
   }
   h += '</div></div>';
@@ -2991,7 +4031,7 @@ U.m_tainguyen = function () {
   h += '<tr><td style="color:' + G.byId(G.RES, 'galana').mau + '">Galana <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.galana) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.galana) +
     '</td><td class="r sz">+' + G.so(s.r.galana * 6) + '</td><td class="mo">—</td></tr>';
-  h += '<tr><td style="color:' + G.byId(G.RES, 'tech').mau + '">Công Nghệ <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
+  h += '<tr><td style="color:' + G.byId(G.RES, 'tech').mau + '">Kỹ Thuật <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.techPts) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.tech) +
     '</td><td class="r sz">+' + G.so(s.r.tech * 6) + '</td><td class="mo">—</td></tr>';
   h += '</table></div></div>';
@@ -2999,8 +4039,8 @@ U.m_tainguyen = function () {
   var Lr = s.loai || G.loaiHT(st, p);
   h += '<div class="panel"><h3>Hành tinh loại ' + U.esc(Lr.ten) + '</h3><div class="noi">' +
     '<p class="mo">' + U.esc(Lr.mota) + '</p>' +
-    '<div class="bang-cuon"><table><tr><th>Ô đất</th><th class="r">Kim Loại</th><th class="r">Tinh Thể</th>' +
-    '<th class="r">Deuterium</th><th class="r">Lương Thực</th><th class="r">Điện mặt trời</th><th class="r">Phòng thủ mặt đất</th></tr><tr>' +
+    '<div class="bang-cuon"><table><tr><th>Ô đất</th><th class="r">Kim Loại</th><th class="r">Thạch Anh</th>' +
+    '<th class="r">Nhiên Liệu</th><th class="r">Thực Phẩm</th><th class="r">Điện mặt trời</th><th class="r">Phòng thủ mặt đất</th></tr><tr>' +
     ['oDat', 'kl', 'tt', 'dt', 'lt', 'dien', 'thuDat'].map(function (k) {
       var v = Lr[k];
       return '<td class="r sz ' + (v > 1 ? 'luc' : (v < 1 ? 'do' : 'mo')) + '">×' + v + '</td>';
@@ -3010,26 +4050,31 @@ U.m_tainguyen = function () {
   h += '<table><tr><td>Sản xuất</td><td class="r sz luc">' + G.so(s.dienCo) + '</td></tr>' +
     '<tr><td>Tiêu thụ</td><td class="r sz do">' + G.so(s.dienDung) + '</td></tr>' +
     '<tr><td>Hiệu suất mỏ</td><td class="r sz">' + Math.round(s.hs * 100) + '%</td></tr>' +
-    '<tr><td>Lò nhiệt hạch đốt</td><td class="r sz">' + G.so(s.dotDT) + ' DT/giờ</td></tr></table>';
+    '<tr><td>Lò nhiệt hạch đốt</td><td class="r sz">' + G.so(s.dotDT) + ' NL/giờ</td></tr></table>';
   if (s.hs < 1) h += '<div class="canh bt" style="margin:8px 0 0">Thiếu điện: mỏ chỉ chạy ' + Math.round(s.hs * 100) +
     '%. Xây thêm Nhà Máy Điện Mặt Trời, Lò Phản Ứng Nhiệt Hạch hoặc Vệ Tinh Phòng Thủ.</div>';
   h += '</div></div>';
 
   var soThu = 0; for (var kk in p.def) soThu += p.def[kk];
-  h += '<div class="panel"><h3>Lương thực &amp; dân cư</h3><div class="noi">';
-  h += '<table><tr><td>Thủy thủ đoàn đang đậu</td><td class="r sz">' + G.so(G.thuyThu(p.ships)) + ' người</td></tr>' +
-    '<tr><td>Tổng cấp công trình</td><td class="r sz">' + G.tongCapCT(p) + '</td></tr>' +
+  var ds = U.ds(p), sucChua = G.sucChuaDan ? G.sucChuaDan(p) : 250000;
+  h += '<div class="panel"><h3>Thực phẩm &amp; dân cư</h3><div class="noi">';
+  h += '<table><tr><td>Dân số / sức chứa</td><td class="r sz">' + G.so(ds.population) + ' / ' + G.so(sucChua) + '</td></tr>' +
+    '<tr><td>Ủng hộ / thuế</td><td class="r sz">' + U.bp(ds.supportBp) + ' / ' + U.bp(ds.taxBp) + '</td></tr>' +
+    '<tr><td>Thủy thủ đoàn đang đậu</td><td class="r sz">' + G.so(G.thuyThu(p.ships)) + ' người</td></tr>' +
+    '<tr><td>Tổng số công trình</td><td class="r sz">' + G.so(G.tongSoCT(p)) + '</td></tr>' +
     '<tr><td>Công sự phải nuôi</td><td class="r sz">' + G.so(soThu) + '</td></tr>' +
-    '<tr><td>Tiêu thụ lương thực</td><td class="r sz do">' + G.so(s.anUong) + '/giờ</td></tr>' +
+    '<tr><td>Tiêu thụ Thực Phẩm</td><td class="r sz do">' + G.so(s.anUong) + '/giờ</td></tr>' +
+    '<tr><td>Đã cần / thiếu trong chu kỳ</td><td class="r sz">' + G.so(ds.foodDemandCycle) + ' / <span class="' +
+      (ds.foodShortfallCycle > 0 ? 'do' : 'luc') + '">' + G.so(ds.foodShortfallCycle) + '</span></td></tr>' +
     '<tr><td>Thuế thu về</td><td class="r sz" style="color:var(--tim)">' + G.so(s.r.galana) + ' Galana/giờ</td></tr></table>';
-  if (s.doi) h += '<div class="canh" style="margin:8px 0 0">Hành tinh đang bị bỏ đói — sản lượng còn một nửa và hạm đội không xuất kích được.</div>';
+  if (ds.foodShortfallCycle > 0) h += '<div class="canh" style="margin:8px 0 0">Thực Phẩm đang thiếu. Ở checkpoint kế tiếp, phần dân trên sàn 250.000 có thể rời đi và ủng hộ sẽ giảm.</div>';
   h += '</div></div>';
   h += '</div>';
 
   /* Chợ Thiên Hà: đổi tài nguyên ra Galana và ngược lại */
   h += '<div class="panel"><h3>Chợ Thiên Hà — quy đổi Galana</h3><div class="noi">';
   h += '<p class="mo">Bán tài nguyên lấy Galana để trả phí bảo trì, hoặc mua tài nguyên bằng Galana. ' +
-    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Tinh Thể / ' + G.C.TY_GIA.deut + ' Deuterium / ' + G.C.TY_GIA.food + ' Lương Thực. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
+    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' + G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
   h += '<div class="hd-luoi">';
   var tg = G.C.TY_GIA;
   for (var t in tg) {
@@ -3048,23 +4093,23 @@ U.m_tainguyen = function () {
  * MÀN: CÔNG TRÌNH / NGHIÊN CỨU / XƯỞNG / PHÒNG THỦ
  * ==================================================================== */
 U.theCT = function (st, p, b) {
-  var lv = p.b[b.id] || 0, dangXay = G.capDangXay(p, b.id);
-  var lvTiep = lv + dangXay + 1;
-  var cost = G.giaXay(b, lvTiep);
+  var co = p.b[b.id] || 0, dangXay = G.soDangXay(p, b.id);
+  var n = G.loMacDinhXay(p, b.id);
+  var cost = G.giaCongTrinh(b, n);
   var thieuDK = G.thieuDK(st, p, b);
   var du = G.duTien(st, p, cost);
   var tg = G.tgXay(st, p, cost);
   var s = G.sanLuong(st, p);
 
   var h = '<div class="the' + (thieuDK.length ? ' tat' : '') + '">';
-  h += '<span class="cap">cấp ' + lv + (dangXay ? ' (+' + dangXay + ')' : '') + '</span>';
+  h += '<span class="cap">có ' + G.so(co) + (dangXay ? ' (+' + G.so(dangXay) + ')' : '') + '</span>';
   h += '<h4>' + U.esc(b.ten) + '</h4>';
   h += '<div class="mt">' + U.esc(b.mota) + '</div>';
 
-  /* hiệu quả cấp tiếp theo */
+  /* hiệu quả của cả lô đang nhập mặc định */
   var ctx = { temp: p.temp, tech: st.tech };
   if (b.prod) {
-    var a = b.prod(lv, ctx), c = b.prod(lv + 1, ctx), lines = [];
+    var a = b.prod(co, ctx), c = b.prod(co + n, ctx), lines = [];
     for (var k in c) {
       var mo = (a[k] || 0), mo2 = c[k];
       var sp = (k === 'energy') ? 1 : G.C.TOC_DO_SERVER;
@@ -3072,25 +4117,28 @@ U.theCT = function (st, p, b) {
     }
     h += '<div style="font-size:11.5px;margin-bottom:6px">' + lines.join('<br>') + '</div>';
   }
-  if (b.cap) h += '<div style="font-size:11.5px;margin-bottom:6px">Dung tích: ' + G.so(b.cap(lv)) + ' → <b>' + G.so(b.cap(lv + 1)) + '</b></div>';
+  if (b.cap) h += '<div style="font-size:11.5px;margin-bottom:6px">Dung tích: ' + G.so(b.cap(co)) + ' → <b>' + G.so(b.cap(co + n)) + '</b></div>';
   if (b.id === 'robot' || b.id === 'nanite' || b.id === 'shipyard' || b.id === 'lab')
-    h += '<div style="font-size:11.5px;margin-bottom:6px" class="mo">Cấp cao hơn = sản xuất nhanh hơn.</div>';
-  if (b.id === 'fleetHQ') h += '<div style="font-size:11.5px;margin-bottom:6px">Khe hạm đội: ' + G.khe(st) + ' → <b>' + (G.khe(st) + 1) + '</b></div>';
+    h += '<div style="font-size:11.5px;margin-bottom:6px" class="mo">Nhiều cơ sở hơn = công suất lớn hơn.</div>';
+  if (b.id === 'fleetHQ') h += '<div style="font-size:11.5px;margin-bottom:6px">Khe hạm đội: ' + G.khe(st) + ' → <b>' + (G.khe(st) + n) + '</b></div>';
   if (b.id === 'maintDepot') h += '<div style="font-size:11.5px;margin-bottom:6px">Giảm phí bảo trì: ' +
-    Math.min(60, 6 * G.tongB(st, 'maintDepot')) + '% → <b>' + Math.min(60, 6 * (G.tongB(st, 'maintDepot') + 1)) + '%</b></div>';
+    Math.min(60, 6 * G.tongB(st, 'maintDepot')) + '% → <b>' + Math.min(60, 6 * (G.tongB(st, 'maintDepot') + n)) + '%</b></div>';
+  if (b.id === 'terraform') h += '<div style="font-size:11.5px;margin-bottom:6px">Khu đất tối đa: ' +
+    G.oToiDa(p) + ' → <b>' + (G.oToiDa(p) + 6 * n) + '</b></div>';
 
   if (thieuDK.length) h += '<div class="dk">Cần: ' + U.esc(thieuDK.join(', ')) + '</div>';
-  h += '<div class="gia">' + U.gia(cost, p, st) + '</div>';
-  h += '<div class="ct"><button class="nut nho ' + (du && !thieuDK.length ? 'oke' : '') + '" data-act="xay" data-id="' + b.id +
-    '"' + (thieuDK.length ? ' disabled' : '') + '>Xây cấp ' + lvTiep + '</button>' +
-    '<span class="mo sz">' + G.tg(tg) + '</span></div>';
+  h += '<div class="gia" id="ct-gia-' + b.id + '">' + U.gia(cost, p, st) + '</div>';
+  h += '<div class="ct"><label class="mo sz">Lô <input id="ct-sl-' + b.id + '" type="number" min="1" max="10000000" value="' +
+    n + '" style="width:92px"></label><button class="nut nho ' + (du && !thieuDK.length ? 'oke' : '') +
+    '" data-act="xay" data-id="' + b.id + '"' + (thieuDK.length ? ' disabled' : '') + '>Xây ×' + G.so(n) + '</button>' +
+    '<span class="mo sz" id="ct-tg-' + b.id + '">' + G.tg(tg) + '</span></div>';
   h += '</div>';
   return h;
 };
 
 U.m_congtrinh = function () {
   var st = U.st(), p = U.ht();
-  var nhom = [['kt', 'Khai thác'], ['nl', 'Năng lượng'], ['kho', 'Kho chứa'], ['cn', 'Công nghiệp &amp; hạ tầng']];
+  var nhom = [['kt', 'Khai thác'], ['ds', 'Dân cư'], ['nl', 'Năng lượng'], ['kho', 'Kho chứa'], ['cn', 'Công nghiệp &amp; hạ tầng']];
   var h = '<div class="panel"><h3>Ô đất: ' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + ' — ' + U.esc(p.ten) + ' ' + G.tdStr(p.c) +
     '</h3><div class="noi"><span class="mo">Mỗi loại công trình chiếm một ô đất. Hàng đợi tối đa 5 mục.</span></div></div>';
   for (var n = 0; n < nhom.length; n++) {
@@ -3103,14 +4151,15 @@ U.m_congtrinh = function () {
 
 U.m_nghiencuu = function () {
   var st = U.st(), p = U.ht();
-  var h = '<div class="panel"><h3>Phòng nghiên cứu cấp ' + (p.b.lab || 0) + '</h3><div class="noi">';
-  h += '<p class="mo">Cơ chế nghiên cứu của Thiên Hà Đại Chiến: ngoài chi phí trả ngay, mỗi đề tài còn có ' +
-    '<b>vốn đầu tư</b> bị trừ dần mỗi chu kỳ bảo trì 6 giờ. Hết Galana giữa kỳ là đề tài bị treo.</p>';
+  var h = '<div class="panel"><h3>Phòng nghiên cứu: ' + G.so(p.b.lab || 0) + ' cơ sở</h3><div class="noi">';
+  h += '<p class="mo">Chi phí đề tài không bị trừ ngay: hệ thống chia toàn bộ tài nguyên thành các khoản cấp vốn ở nhịp ' +
+    '<b>6 giờ</b>. Mỗi đề tài kéo dài ít nhất 12 giờ. Thiếu chỉ một loại tài nguyên thì kỳ đó không trừ gì, đề tài trễ thêm 6 giờ.</p>';
   if (st.ncQueue) {
     var q = st.ncQueue;
-    h += '<div class="canh ' + (q.treo ? '' : 'ok') + '"><b>' + U.esc(G.R(q.id).ten) + ' → cấp ' + q.lv + '</b> — ' +
-      (q.treo ? 'BỊ TREO vì thiếu vốn' : 'xong sau ' + U.dem(st.now + q.conLai)) +
-      '. Vốn còn phải rót: ' + G.so(q.vonConLai) + ' Galana (' + G.so(q.vonMoiKy) + '/chu kỳ). ' +
+    h += '<div class="canh ' + (q.status === 'retry' ? '' : 'ok') + '"><b>' + U.esc(G.R(q.id).ten) + ' → cấp ' + q.lv + '</b> — ' +
+      (q.status === 'retry' ? 'CHỜ THỬ LẠI ở nhịp kế tiếp' : 'dự kiến xong sau ' + U.dem(q.finishAt)) + '.<br>' +
+      'Khoản kỳ tới: ' + U.dsRes(U.ncKyTiep(q)) + ' · còn ' + G.so(q.installmentsLeft || 0) + '/' +
+      G.so(q.installmentsTotal || 0) + ' kỳ · tổng còn lại: ' + U.dsRes(U.ncConLai(q)) + '. ' +
       '<button class="nut nho xoa" data-act="huync">Huỷ</button></div>';
   }
   h += '</div></div>';
@@ -3118,15 +4167,16 @@ U.m_nghiencuu = function () {
   h += '<div class="panel"><h3>Đề tài</h3><div class="noi luoi">';
   for (var i = 0; i < G.RESEARCH.length; i++) {
     var d = G.RESEARCH[i], lv = st.tech[d.id] || 0, lvT = lv + 1;
-    var cost = G.giaXay(d, lvT), thieuDK = G.thieuDK(st, p, d), du = G.duTien(st, p, cost);
+    var cost = G.giaXay(d, lvT), thieuDK = G.thieuDK(st, p, d);
     var tg = G.tgNC(st, p, cost);
-    var von = Math.round(((cost.metal || 0) + (cost.crystal || 0) + (cost.deut || 0)) * 0.15 + (cost.tech || 0) * 0.05);
+    var soKy = Math.max(2, Math.ceil(tg / G.C.CHU_KY_BAO_TRI));
+    var kyDau = U.ncKyTiep({ totalCost: cost, paidCost: {}, installmentsLeft: soKy });
     h += '<div class="the' + (thieuDK.length ? ' tat' : '') + '"><span class="cap">cấp ' + lv + '</span>' +
       '<h4>' + U.esc(d.ten) + '</h4><div class="mt">' + U.esc(d.mota) + '</div>';
     if (thieuDK.length) h += '<div class="dk">Cần: ' + U.esc(thieuDK.join(', ')) + '</div>';
-    h += '<div class="gia">' + U.gia(cost, p, st) + '</div>';
-    h += '<div style="font-size:11.5px;margin-bottom:6px" class="tim">Vốn đầu tư: ' + G.so(von) + ' Galana (trả dần theo chu kỳ)</div>';
-    h += '<div class="ct"><button class="nut nho ' + (du && !thieuDK.length && !st.ncQueue ? 'oke' : '') +
+    h += '<div class="gia">Tổng: ' + U.dsRes(cost) + '</div>';
+    h += '<div style="font-size:11.5px;margin-bottom:6px" class="tim">' + soKy + ' kỳ cấp vốn · kỳ đầu: ' + U.dsRes(kyDau) + '</div>';
+    h += '<div class="ct"><button class="nut nho ' + (!thieuDK.length && !st.ncQueue ? 'oke' : '') +
       '" data-act="nc" data-id="' + d.id + '"' + (thieuDK.length || st.ncQueue ? ' disabled' : '') + '>Nghiên cứu cấp ' + lvT + '</button>' +
       '<span class="mo sz">' + G.tg(tg) + '</span></div></div>';
   }
@@ -3172,7 +4222,7 @@ U.theDonVi = function (st, p, u, loai) {
 
 U.m_xuong = function () {
   var st = U.st(), p = U.ht();
-  var h = '<div class="panel"><h3>Xưởng Đóng Tàu cấp ' + (p.b.shipyard || 0) + ' — ' + U.esc(p.ten) + '</h3><div class="noi">';
+  var h = '<div class="panel"><h3>Xưởng Đóng Tàu: ' + G.so(p.b.shipyard || 0) + ' nhà máy — ' + U.esc(p.ten) + '</h3><div class="noi">';
   h += '<b>Hạm đội đang đậu:</b> ' + U.dsTau(p.ships);
   h += '<br><span class="mo">Thủy thủ đoàn: ' + G.so(G.thuyThu(p.ships)) + ' người · khoang hàng tổng ' +
     G.so(G.khoangHang(p.ships)) + '</span></div></div>';
@@ -3212,7 +4262,7 @@ U.m_phongthu = function () {
     for (var i = 0; i < G.DEFENSES.length; i++) if (G.DEFENSES[i].lop === nhom[n][0]) h += U.theDonVi(st, p, G.DEFENSES[i], 'def');
     h += '</div></div>';
   }
-  h += '<div class="panel"><h3>Tên lửa (hầm cấp ' + (p.b.missileSilo || 0) + ', chứa ' + ((p.b.missileSilo || 0) * 10) +
+  h += '<div class="panel"><h3>Tên lửa (' + G.so(p.b.missileSilo || 0) + ' hầm, chứa ' + ((p.b.missileSilo || 0) * 10) +
     ' đơn vị)</h3><div class="noi luoi">';
   for (var m = 0; m < G.MISSILES.length; m++) h += U.theDonVi(st, p, G.MISSILES[m], 'mis');
   h += '</div></div>';
@@ -3238,7 +4288,8 @@ U.m_phongthu = function () {
       ' Số quả <input id="tl-n" type="number" min="1" max="' + (p.mis.icbm || 1) + '" value="' + (p.mis.icbm || 1) + '" style="width:70px">' +
       ' <button class="nut xoa" data-act="ban-ten-lua">PHÓNG</button></div>';
   } else {
-    h += '<p class="do">Chưa có quả nào — đóng Tên Lửa Liên Hành Tinh ở trên (cần Hầm Tên Lửa cấp 4).</p>';
+    h += '<p class="do">Chưa có quả nào — đóng Tên Lửa Liên Hành Tinh ở trên (cần ' +
+      G.so(G.slYeuCau('missileSilo', 4)) + ' Hầm Tên Lửa).</p>';
   }
   if (st.tenLua && st.tenLua.length) {
     h += '<div class="bang-cuon" style="margin-top:10px"><table><tr><th>Loạt</th><th>Từ</th><th>Tới</th><th class="r">Số quả</th><th>Nổ sau</th></tr>';
@@ -3290,15 +4341,40 @@ U.ttBay = function () {
   var nl = G.nhienLieu(st, f.ships, kc, f.pct);
   var suc = G.khoangHang(f.ships);
   var hang = 0; for (var k in f.cargo) hang += f.cargo[k];
+  var ttGiu = '';
+  if (f.mission === 'hold' && G.QUY_DAO_V1 && G.nhienLieuGiu) {
+    var giuGiay = Math.max(1, Math.min(24, Math.floor(+f.giu || 1))) * 3600;
+    var doan = Math.max(1, G.QUY_DAO_V1.segmentSeconds);
+    var dau = G.nhienLieuGiu(st, f.ships, Math.min(giuGiay, doan));
+    var tong;
+    if (G.nhienLieuGiuTong) tong = G.nhienLieuGiuTong(st, f.ships, giuGiay);
+    else {
+      tong = 0;
+      for (var con = giuGiay; con > 0; con -= doan)
+        tong += G.nhienLieuGiu(st, f.ships, Math.min(con, doan));
+    }
+    var mang = Math.max(0, Math.floor((f.cargo && f.cargo.deut) || 0));
+    var lop = mang < dau ? 'do' : (mang < tong ? 'vang' : 'luc');
+    ttGiu = '<tr><td>NL kỳ quỹ đạo đầu</td><td class="r sz ' + lop + '">' + G.so(dau) + '</td>' +
+      '<td>NL giữ đủ ' + Math.round(giuGiay / 3600) + ' giờ</td><td class="r sz ' + lop + '">' +
+      G.so(tong) + ' <span class="mo">(đang chở ' + G.so(mang) + ')</span></td></tr>' +
+      '<tr><td colspan="4" class="' + lop + '">Nhiên liệu giữ quỹ đạo phải nằm trong khoang hàng. ' +
+      (mang < dau
+        ? 'Chưa đủ kỳ đầu nên máy chủ sẽ không cho xuất kích.'
+        : (mang < tong
+          ? 'Đủ vào quỹ đạo, nhưng nếu không đủ một kỳ trả trước kế tiếp thì toàn bộ tàu còn lại sẽ bị phá huỷ thành phế liệu.'
+          : 'Đủ theo kế hoạch hiện tại; gọi về sớm không hoàn lại phần đã trả.')) + '</td></tr>';
+  }
   return '<table style="font-size:12px"><tr>' +
     '<td>Khoảng cách</td><td class="r sz">' + G.so(kc) + '</td>' +
     '<td>Tốc độ hạm đội</td><td class="r sz">' + G.so(G.tocDoHam(st, f.ships)) + '</td></tr>' +
     '<tr><td>Thời gian bay</td><td class="r sz cam">' + G.tg(tg) + '</td>' +
     '<td>Cả đi lẫn về</td><td class="r sz">' + G.tg(tg * 2) + '</td></tr>' +
-    '<tr><td>Nhiên liệu</td><td class="r sz ' + ((p.res.deut || 0) < nl ? 'do' : 'luc') + '">' + G.so(nl) + ' DT</td>' +
+    '<tr><td>Nhiên liệu</td><td class="r sz ' + ((p.res.deut || 0) < nl ? 'do' : 'luc') + '">' + G.so(nl) + ' NL</td>' +
     '<td>Khoang hàng</td><td class="r sz ' + (hang > suc ? 'do' : '') + '">' + G.so(hang) + ' / ' + G.so(suc) + '</td></tr>' +
     '<tr><td>Thủy thủ đoàn</td><td class="r sz">' + G.so(G.thuyThu(f.ships)) + '</td>' +
     '<td>Khe hạm đội</td><td class="r sz">' + st.fleets.length + ' / ' + G.khe(st) + '</td></tr>' +
+    ttGiu +
     (G.trong(f.linh || {}) ? '' :
       '<tr><td>Quân đổ bộ</td><td class="r sz">' + G.so(G.choLinhCan(f.linh)) + ' chỗ</td>' +
       '<td>Hạm đội chở được</td><td class="r sz ' + (G.choLinhCan(f.linh) > G.sucChoLinh(f.ships) ? 'do' : 'luc') + '">' +
@@ -3312,28 +4388,52 @@ U.m_hamdoi = function () {
   var f = U.form, i, h = '';
 
   h += '<div class="panel"><h3>Hạm đội đang hoạt động (' + st.fleets.length + '/' + G.khe(st) + ')</h3><div class="noi">';
-  if (!st.fleets.length) h += '<span class="mo">Không có hạm đội nào đang bay.</span>';
+  if (!st.fleets.length) h += '<span class="mo">Không có hạm đội nào đang hoạt động.</span>';
   else {
     h += '<div class="bang-cuon"><table><tr><th>#</th><th>Nhiệm vụ</th><th>Hạm đội</th><th>Từ → Tới</th><th>Còn</th><th>Hàng</th><th></th></tr>';
     for (i = 0; i < st.fleets.length; i++) {
       var fl = st.fleets[i];
+      var dangGiu = fl.pha === 'giu';
+      var conLai = fl.pha === 've' ? U.dem(fl.ve_t) : (dangGiu
+        ? 'Rời quỹ đạo ' + U.dem(fl.giuDen_t) +
+          (fl.tiepNL_t && fl.tiepNL_t < fl.giuDen_t ? '<br><span class="mo">Tiếp NL ' + U.dem(fl.tiepNL_t) + '</span>' : '')
+        : U.dem(fl.den_t));
       h += '<tr><td class="sz">' + fl.id + '</td><td>' + U.esc(G.byId(G.MISSIONS, fl.mission).ten) +
-        (fl.pha === 've' ? ' <span class="mo">(đang về)</span>' : (fl.dangGiu ? ' <span class="mo">(đang giữ chỗ)</span>' : '')) +
+        (fl.pha === 've' ? ' <span class="mo">(đang về)</span>' :
+          (dangGiu ? ' <span class="luc">(đang đóng quân quỹ đạo)</span>' : ' <span class="mo">(đang bay tới)</span>')) +
         (fl.doiHuong ? ' <span class="vang">↷' + fl.doiHuong + '</span>' : '') + '</td>' +
         '<td style="font-size:11.5px">' + U.dsTau(fl.ships) + '</td>' +
         '<td class="sz">' + G.tdStr(fl.tu) + ' → ' + G.tdStr(fl.den) + '</td>' +
-        '<td class="sz">' + U.dem(fl.pha === 've' ? fl.ve_t : fl.den_t) + '</td>' +
+        '<td class="sz">' + conLai + '</td>' +
         '<td style="font-size:11.5px">' + U.dsRes(fl.cargo) + '</td>' +
         '<td class="r" style="white-space:nowrap">' +
-        (fl.pha === 'di' ? '<button class="nut nho" data-act="doihuong" data-fid="' + fl.id + '">Đổi mục tiêu</button> ' : '') +
-        (fl.pha === 'di' ? '<button class="nut nho xoa" data-act="goive" data-fid="' + fl.id + '">Gọi về</button>' : '') +
+        (dangGiu ? '' : '<button class="nut nho" data-act="doihuong" data-fid="' + fl.id + '">Đổi mục tiêu</button> ') +
+        (fl.pha === 'di' || dangGiu ? '<button class="nut nho xoa" data-act="goive" data-fid="' + fl.id + '">Gọi về</button>' : '') +
         '</td></tr>';
     }
     h += '</table></div>';
-    h += '<p class="mo" style="margin:8px 0 0">Đổi mục tiêu giữa đường là cơ chế riêng của Thiên Hà Đại Chiến: ' +
-      'mất ' + G.C.DOI_MUC_TIEU_GALANA + ' Galana cộng phí nhiên liệu phụ trội, thời gian bay tính lại từ vị trí hiện tại.</p>';
+  h += '<p class="mo" style="margin:8px 0 0">Đổi mục tiêu giữa đường là cơ chế riêng của Thiên Hà Đại Chiến: ' +
+      'dùng được cả lúc đi lẫn lúc về, mất ' + G.C.DOI_MUC_TIEU_GALANA +
+      ' Galana cộng phí nhiên liệu phụ trội, thời gian bay tính lại từ vị trí hiện tại.</p>';
   }
   h += '</div></div>';
+
+  var pvGiu = Array.isArray(st.pvpGiu) ? st.pvpGiu : [];
+  if (pvGiu.length) {
+    h += '<div class="panel"><h3>Hạm đội đồng minh đóng quân quỹ đạo</h3><div class="noi bang-cuon"><table>' +
+      '<tr><th>Chỉ huy</th><th>Hành tinh</th><th>Hạm đội</th><th>Rời quỹ đạo</th><th>Tiếp nhiên liệu</th></tr>';
+    for (i = 0; i < pvGiu.length; i++) {
+      var qg = pvGiu[i], keyGiu = qg.den || qg.planetKey || '', pGiu = U.htTheoKey(keyGiu);
+      h += '<tr><td><b class="luc">' + U.esc(qg.ten || qg.tenA || 'Đồng minh') + '</b> ' +
+        '<span class="tag-lm">' + U.esc(qg.lm || qg.lmA || '') + '</span></td>' +
+        '<td>' + U.esc(pGiu ? pGiu.ten : '') + ' <span class="sz">[' + U.esc(keyGiu) + ']</span></td>' +
+        '<td style="font-size:11.5px">' + U.dsTau(qg.ships || {}) + '</td>' +
+        '<td class="sz">' + U.dem(qg.giuDen_t) + '</td>' +
+        '<td class="sz">' + (qg.tiepNL_t && qg.tiepNL_t < qg.giuDen_t ? U.dem(qg.tiepNL_t) : 'đã trả đủ') + '</td></tr>';
+    }
+    h += '</table><p class="mo">Các đội này vẫn thuộc quyền chỉ huy của đồng minh nhưng cùng tham chiến ở lớp quỹ đạo. ' +
+      'Mỗi đội dùng công nghệ của chính chủ sở hữu; thiệt hại được ghi lại đúng vào đội đó.</p></div></div>';
+  }
 
   var pvToi = st.pvpToi || [];
   if (st.toi.length || pvToi.length) {
@@ -3347,13 +4447,15 @@ U.m_hamdoi = function () {
     }
     for (i = 0; i < pvToi.length; i++) {
       var q2 = pvToi[i], p2 = U.htTheoKey(q2.den);
-      h += '<tr><td><b class="cam">' + U.esc(q2.ten) + '</b> <span class="tag-lm">' + U.esc(q2.lm || '') + '</span></td>' +
-        '<td class="sz">[' + U.esc(q2.tu) + ']</td><td class="' + (q2.nv === 'attack' ? 'do' : 'luc') + '">' +
-        (q2.nv === 'attack' ? 'Tấn Công' : 'Vận Chuyển') + '</td><td>' +
-        U.esc(p2 ? p2.ten : '') + ' [' + U.esc(q2.den) + ']</td><td class="sz do">' + U.dem(q2.den_t) + '</td></tr>';
+      var tenNV = q2.nv === 'attack' ? 'Tấn Công' : (q2.nv === 'hold' ? 'Giữ Chỗ' : 'Vận Chuyển');
+      var lopNV = q2.nv === 'attack' ? 'do' : 'luc';
+      h += '<tr><td><b class="' + (q2.nv === 'attack' ? 'cam' : 'luc') + '">' + U.esc(q2.ten) + '</b> ' +
+        '<span class="tag-lm">' + U.esc(q2.lm || '') + '</span></td>' +
+        '<td class="sz">[' + U.esc(q2.tu) + ']</td><td class="' + lopNV + '">' + tenNV + '</td><td>' +
+        U.esc(p2 ? p2.ten : '') + ' [' + U.esc(q2.den) + ']</td><td class="sz ' + lopNV + '">' + U.dem(q2.den_t) + '</td></tr>';
     }
-    h += '</table><p class="mo">Hạm đội đang bay thì không bao giờ bị bắn hạ — nếu không đỡ được, hãy cho hạm đội của mình ' +
-      'bay đi trước khi địch tới (nhiệm vụ Giữ Chỗ hoặc Vận Chuyển sang hành tinh khác). ' +
+    h += '</table><p class="mo">Trong mô phỏng hiện tại, hạm đội đang bay không bị chặn giữa đường — nếu không đỡ được, hãy cho hạm đội của mình ' +
+      'bay đi trước khi địch tới. Đoàn Giữ Chỗ của đồng minh sẽ đóng quân và chi viện lớp quỹ đạo sau khi tới nơi. ' +
       'Muốn biết địch mang những gì thì phải gửi tàu do thám. Nhiệm vụ do thám của đối phương thì không hiện ở đây.</p>' +
       '</div></div>';
   }
@@ -3375,7 +4477,9 @@ U.m_hamdoi = function () {
   h += '<div style="margin-bottom:8px"><b>Tốc độ: <span id="f-pct-v">' + f.pct + '%</span></b><br>' +
     '<input id="f-pct" type="range" min="10" max="100" step="10" value="' + f.pct + '" style="width:100%"></div>';
   if (f.mission === 'hold')
-    h += '<div style="margin-bottom:8px"><b>Giữ chỗ (giờ)</b><br><input id="f-giu" type="number" min="1" max="24" value="' + f.giu + '"></div>';
+    h += '<div style="margin-bottom:8px"><b>Đóng quân quỹ đạo (giờ)</b><br><input id="f-giu" type="number" min="1" max="24" value="' + f.giu + '">' +
+      '<div class="mo" style="font-size:11.5px;margin-top:3px">Chỉ dùng tại hành tinh của mình hoặc đồng minh. ' +
+      'Nhiên liệu trả trước theo từng đoạn 6 giờ từ khoang hàng; thiếu một kỳ sau khi đã đậu thì hạm đội bị phá huỷ.</div></div>';
   h += '<div id="hd-tt">' + U.ttBay() + '</div>';
   h += '<button class="nut lon" data-act="gui" style="margin-top:10px">PHÁT LỆNH XUẤT KÍCH</button>';
   h += '</div><div>';
@@ -3472,12 +4576,22 @@ U.m_thienha = function () {
         U.esc(n.ten) + (n.bo ? ' <span class="vang">(bỏ hoang)</span>' : '') +
         '</td><td class="tag-lm">' + U.esc(n.lm) + '</td><td class="r sz">' + G.so(n.diem) + '</td>';
     }
-    h += '<td class="pl">' + (o.debris ? G.soNgan(o.debris.metal) + ' KL / ' + G.soNgan(o.debris.crystal) + ' TT' : '') + '</td>';
+    h += '<td class="pl">' + (o.debris ? G.soNgan(o.debris.metal) + ' KL / ' + G.soNgan(o.debris.crystal) + ' TA' : '') + '</td>';
     h += '<td style="white-space:nowrap">';
     var td = c.g + ',' + c.h + ',' + c.p;
     if (o.loai === 'npc' || o.loai === 'nguoi') {
-      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="spy">Do thám</button> ' +
-        '<button class="nut nho xoa" data-act="nv" data-td="' + td + '" data-m="attack">Tấn công</button> ';
+      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="spy">Do thám</button> ';
+      if (o.loai === 'npc' || !APP.mp || (o.chien && o.chien.duoc))
+        h += '<button class="nut nho xoa" data-act="nv" data-td="' + td + '" data-m="attack">Tấn công</button> ';
+      else if (o.chien && o.chien.trang === 'dongminh')
+        h += '<span class="luc sz">Đồng minh</span> ';
+      else if (o.chien && o.chien.trang === 'cho')
+        h += '<span class="vang sz">Được đánh sau ' + U.dem(o.chien.hieuLuc) + '</span> ';
+      else if (!o.chien || o.chien.coQuyenTuyen !== false)
+        h += '<button class="nut nho xoa" data-act="tuyen-chien" data-tk="' + o.tk + '" data-ten="' +
+          U.esc(o.ten) + '">Tuyên chiến</button> ';
+      else
+        h += '<span class="mo sz">Chủ liên minh mới được tuyên chiến</span> ';
       if (st.spy && st.spy[o.key]) h += '<button class="nut nho" data-act="xem-tt" data-key="' + o.key + '">Tin tình báo</button> ';
     } else if (o.loai === 'sau') {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="thamhiem">Thám hiểm</button> ';
@@ -3487,16 +4601,21 @@ U.m_thienha = function () {
       h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="transport">Vận chuyển</button> ';
     }
     if (o.loai === 'nguoi') {
-      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="transport">Tiếp tế</button> ';
+      if (!APP.mp || (o.chien && o.chien.trang === 'dongminh')) {
+        h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="transport">Tiếp tế</button> ';
+        h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="hold">Đóng quân</button> ';
+      }
       if (APP.mp) h += '<button class="nut nho" data-act="gui-thu" data-ten="' + U.esc(o.ten) + '">Gửi thư</button> ';
     }
+    if (o.loai === 'toi' && !G.bang(c, p.c))
+      h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="hold">Đóng quân</button> ';
     if (o.debris) h += '<button class="nut nho" data-act="nv" data-td="' + td + '" data-m="recycle">Thu hồi</button>';
     h += '</td></tr>';
   }
   h += '</table></div>';
   h += '<p class="mo">Vũ trụ có ' + G.C.SO_THIEN_HA + ' thiên hà × ' + G.C.SO_HE + ' hệ × ' + G.C.SO_HANH_TINH +
     ' hành tinh, sinh tất định từ hạt giống <b>' + U.esc(st.seed) + '</b>. ' +
-    (APP.mp ? 'Ô màu <span class="cam">cam</span> là hành tinh của người chơi khác — đánh nhau với họ là thật, và họ đánh lại được. '
+    (APP.mp ? 'Ô màu <span class="cam">cam</span> là hành tinh của người chơi khác. Phải tuyên chiến và chờ Hội Đồng Bảo An 24 giờ trước khi đánh; chỉ đồng minh mới tiếp tế được cho nhau. '
             : 'Hành tinh <span class="vang">bỏ hoang</span> ít phòng thủ nhưng nhiều tài nguyên.') + '</p>';
   h += '</div></div>';
   return h;
@@ -3511,25 +4630,30 @@ U.m_lienminh = function () {
   if (st.lm) {
     h += '<h2>' + U.esc(st.lm.ten) + '</h2>';
     h += '<p>Gia nhập ngày ' + G.gio(st.lm.t * 1000) + '. Quyền lợi: <b>+5% sản lượng</b> toàn đế quốc, ' +
-      'chia sẻ tin tình báo, và được đứng tên liên minh trên bảng xếp hạng.</p>';
+      'được đứng tên liên minh trên bảng xếp hạng' + (APP.mp ? ' và dùng kênh chat riêng' : '') + '.</p>';
     if (U.nguon.thanhVien) {
       var tv = U.nguon.thanhVien(st.lm.ten);
       if (tv && tv.length) {
-        h += '<div class="bang-cuon"><table><tr><th>Thành viên</th><th class="r">Điểm</th><th class="r">Hành tinh</th></tr>';
+        h += '<div class="bang-cuon"><table><tr><th>Thành viên</th><th class="r">Điểm</th><th class="r">Hành tinh</th>' +
+          (APP.mp ? '<th></th>' : '') + '</tr>';
         for (var t = 0; t < tv.length; t++)
-          h += '<tr' + (tv[t].ta ? ' class="toi"' : '') + '><td>' + U.esc(tv[t].ten) + (tv[t].ta ? ' <b class="luc">(ta)</b>' : '') +
-            '</td><td class="r sz">' + G.so(tv[t].diem) + '</td><td class="r sz">' + tv[t].ht + '</td></tr>';
+          h += '<tr' + (tv[t].ta ? ' class="toi"' : '') + '><td>' + U.esc(tv[t].ten) +
+            (tv[t].chu ? ' <b class="vang">[Chủ]</b>' : '') + (tv[t].ta ? ' <b class="luc">(ta)</b>' : '') +
+            '</td><td class="r sz">' + G.so(tv[t].diem) + '</td><td class="r sz">' + tv[t].ht + '</td>' +
+            (APP.mp ? '<td class="r">' + (tv[t].ta ? '' : '<button class="nut nho" data-act="chuyen-galana" data-tk="' +
+              tv[t].tk + '" data-ten="' + U.esc(tv[t].ten) + '">Chuyển Galana</button>') + '</td>' : '') + '</tr>';
         h += '</table></div>';
       }
     }
     h += '<button class="nut xoa" data-act="lm-ra" style="margin-top:8px">Rời liên minh</button>';
   } else {
-    h += '<p class="mo">Bản gốc có hệ thống liên minh với bộ máy điều hành. Bản phục dựng giữ lại phần cốt: ' +
-      'gia nhập một liên minh để nhận <b>+5% sản lượng</b> và danh nghĩa trên bảng xếp hạng.</p>';
+    h += '<p class="mo">Gia nhập liên minh để nhận <b>+5% sản lượng</b> và danh nghĩa trên bảng xếp hạng. ' +
+      (APP.mp ? 'Bản nhiều người còn có kênh chat riêng; chủ liên minh phải duyệt đơn trước khi thành viên được vào.' : '') + '</p>';
     var ds = U.nguon.dsLM();
     h += '<div class="bang-cuon"><table><tr><th>Liên minh</th><th class="r">Thành viên</th><th class="r">Tổng điểm</th><th></th></tr>';
     for (var i = 0; i < ds.length; i++) {
       var e = ds[i];
+      var daXin = U.nguon.daXin && U.nguon.daXin(e.ten);
       var sl = e.sl, dm = e.diem;
       if (sl === undefined) {
         sl = 0; dm = 0;
@@ -3537,7 +4661,8 @@ U.m_lienminh = function () {
         for (var j = 0; j < xh.length; j++) if (xh[j].lm === e.ten) { sl++; dm += xh[j].diem; }
       }
       h += '<tr><td class="tag-lm">' + U.esc(e.ten) + '</td><td class="r sz">' + G.so(sl) + '</td><td class="r sz">' + G.so(dm) +
-        '</td><td class="r"><button class="nut nho oke" data-act="lm-vao" data-ten="' + U.esc(e.ten) + '">Xin vào</button></td></tr>';
+        '</td><td class="r"><button class="nut nho oke" data-act="lm-vao" data-ten="' + U.esc(e.ten) + '"' +
+        (daXin ? ' disabled' : '') + '>' + (daXin ? 'Đã gửi đơn' : 'Xin vào') + '</button></td></tr>';
     }
     h += '</table></div>';
   }
@@ -3625,15 +4750,16 @@ U.veBaoCao = function (d) {
       '<br><b>Còn lại</b><br>' + U.dsTau(kb.conBoA) + '</div>' +
       '<div><b>Bên giữ đất mất</b><br>' + U.dsTau(kb.matD) +
       '<br><b>Còn lại</b><br>' + U.dsTau(kb.conBoD) + ' ' + U.dsTau(kb.conDefD) + '</div></div>';
-    if (db.phaCT && db.phaCT.soCap)
+    var soCTPha = db.phaCT && (db.phaCT.soLuong !== undefined ? db.phaCT.soLuong : db.phaCT.soCap);
+    if (db.phaCT && soCTPha)
       h += '<p><b class="do">Công trình bị san phẳng:</b> ' + U.esc(G.moTaPhaCT(db.phaCT.pha)) +
-        ' <span class="mo">(tổng ' + db.phaCT.soCap + ' cấp' +
+        ' <span class="mo">(tổng ' + G.so(soCTPha) + (db.phaCT.soLuong !== undefined ? ' công trình' : ' cấp') +
         (db.phaCT.chamTran ? ', đã chạm trần ' + Math.round(G.C.PHA_CT_TOI_DA * 100) + '% mỗi trận' : '') + ')</span></p>';
     else if (db.thang)
-      h += '<p class="mo">Làm chủ mặt đất nhưng không đủ sức phá cấp công trình nào — cần nhiều Robot/Tank hơn.</p>';
+      h += '<p class="mo">Làm chủ mặt đất nhưng không đủ sức phá công trình nào — cần nhiều Robot/Tank hơn.</p>';
   }
   h += '<p><b>Cướp được:</b> ' + U.dsRes(d.cuop) + '<br>' +
-    '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Tinh Thể ' +
+    '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Thạch Anh ' +
     '<span class="mo">(dùng Tàu Thu Hồi để vét)</span></p>';
   h += '</div>';
   return h;
@@ -3647,6 +4773,9 @@ U.veDoTham = function (bc) {
     '<br><span class="mo">Độ chi tiết báo cáo: mức ' + bc.mucDo + '/5' +
     (bc.mat ? ' · mất ' + bc.mat + ' tàu do thám vì bị phản tình báo' : '') + '</span></p>';
   h += '<b>Tài nguyên</b><br>' + U.dsRes(bc.res) + '<br><br>';
+  if (bc.danSu) h += '<b>Dân sự</b><br>Dân số <span class="sz">' + G.so(bc.danSu.population) +
+    '</span> · Ủng hộ ' + U.bp(bc.danSu.supportBp) + ' · Thuế ' + U.bp(bc.danSu.taxBp) + '<br><br>';
+  else if (bc.pvp) h += '<b>Dân sự</b><br><span class="mo">không đủ cấp Công Nghệ Tình Báo để thấy</span><br><br>';
   h += '<b>Hạm đội</b><br>' + (bc.ships ? U.dsTau(bc.ships) : '<span class="mo">không đủ cấp Công Nghệ Tình Báo để thấy</span>') + '<br><br>';
   h += '<b>Phòng thủ</b><br>' + (bc.def ? U.dsTau(bc.def) : '<span class="mo">không đủ cấp Công Nghệ Tình Báo để thấy</span>') + '<br><br>';
   h += '<b>Công nghệ</b><br>';
@@ -3654,6 +4783,15 @@ U.veDoTham = function (bc) {
     var out = [];
     for (var k in bc.tech) { var r = G.R(k); out.push((r ? r.ten : k) + ' cấp ' + bc.tech[k]); }
     h += out.join(', ');
+  } else h += '<span class="mo">không đủ cấp Công Nghệ Tình Báo để thấy</span>';
+  h += '<br><br><b>Công trình</b><br>';
+  if (bc.ct) {
+    var ct = [];
+    for (var kc in bc.ct) {
+      var bd = G.B(kc);
+      ct.push((bd ? bd.ten : kc) + (bc.ctMode === 'quantity' ? ' ×' : ' đơn vị cấp từ báo cáo cũ ') + G.so(bc.ct[kc]));
+    }
+    h += ct.length ? ct.join(', ') : '<span class="mo">không có</span>';
   } else h += '<span class="mo">không đủ cấp Công Nghệ Tình Báo để thấy</span>';
   h += '<p class="mo">Báo cáo lúc ' + G.gio(bc.t * 1000) + '. Càng gửi nhiều tàu do thám và cấp Công Nghệ Tình Báo càng cao thì càng thấy nhiều.</p>';
   h += '</div>';
@@ -3709,14 +4847,15 @@ U.m_tinnhan = function () {
  * MÀN: NHẬT KÝ & LƯU
  * ==================================================================== */
 U.m_nhatky = function () {
-  var st = U.st(), d = G.diem(st);
+  var st = U.st(), d = G.diem(st), bt = U.bt(st);
   var h = '<div class="luoi2">';
   h += '<div class="panel"><h3>Thống kê chiến dịch</h3><div class="noi"><table>' +
     '<tr><td>Chỉ huy</td><td class="r">' + U.esc(st.ten) + '</td></tr>' +
     '<tr><td>Hạt giống vũ trụ</td><td class="r sz">' + U.esc(st.seed) + '</td></tr>' +
     '<tr><td>Bắt đầu</td><td class="r">' + G.gio(st.t0 * 1000) + '</td></tr>' +
     '<tr><td>Thời gian chơi</td><td class="r sz">' + G.tg(st.now - st.t0) + '</td></tr>' +
-    '<tr><td>Chu kỳ bảo trì đã qua</td><td class="r sz">' + st.soChuKy + '</td></tr>' +
+    '<tr><td>Chu kỳ bảo trì đã qua</td><td class="r sz">' + bt.cycle + '</td></tr>' +
+    '<tr><td>Kỳ bảo trì lỡ liên tiếp</td><td class="r sz">' + bt.missStreak + '</td></tr>' +
     '<tr><td>Tổng điểm</td><td class="r sz">' + G.so(d.tong) + '</td></tr>' +
     '<tr><td>Trận thắng / thua</td><td class="r sz">' + st.stats.thang + ' / ' + st.stats.thua + '</td></tr>' +
     '<tr><td>Tài nguyên cướp được</td><td class="r sz">' + G.so(st.stats.cuop) + '</td></tr>' +
@@ -3752,15 +4891,15 @@ U.m_huongdan = function () {
   var h = '';
 
   h += '<div class="panel"><h3>Bắt đầu từ đâu</h3><div class="noi">';
-  h += '<p class="mo">Không có nhiệm vụ dẫn dắt, không có level nhân vật. Sức mạnh của ta = số công trình, ' +
-    'số đề tài nghiên cứu và số tàu — đúng như thiết kế của bản gốc.</p>';
+  h += '<p class="mo">Người chỉ huy không có level riêng. Sức mạnh hiện tại = số lượng công trình, cấp nghiên cứu và số tàu. ' +
+    'Đúng với tư liệu gốc, công trình được xây theo lô và có thể lên tới hàng nghìn; các hệ số cân bằng cụ thể là phần tái dựng.</p>';
   h += '<table><tr><th style="width:34px">#</th><th>Việc</th><th>Vì sao</th></tr>' +
-    '<tr><td class="c">1</td><td><b>Mỏ Kim Loại</b> và <b>Mỏ Tinh Thể</b> lên cấp 5–8</td>' +
+    '<tr><td class="c">1</td><td>Dựng những lô đầu tiên của <b>Mỏ Kim Loại</b> và <b>Mỏ Thạch Anh</b></td>' +
     '<td class="mo">Mọi thứ khác đều cần hai thứ này.</td></tr>' +
-    '<tr><td class="c">2</td><td><b>Nhà Máy Điện Mặt Trời</b> chạy theo cho đủ điện</td>' +
+    '<tr><td class="c">2</td><td>Xây đủ <b>Nhà Máy Điện Mặt Trời</b> theo số mỏ</td>' +
     '<td class="mo">Thiếu điện thì mỏ chỉ chạy cầm chừng — xem ô "Điện" trên thanh trên, phải đạt 100%.</td></tr>' +
     '<tr><td class="c">3</td><td><b>Trang Trại Sinh Quyển</b> lên sớm</td>' +
-    '<td class="mo">Hết Lương Thực là hành tinh bị đói: sản lượng còn một nửa và hạm đội không xuất kích được.</td></tr>' +
+    '<td class="mo">Hết Thực Phẩm là hành tinh bị đói: sản lượng còn một nửa và hạm đội không xuất kích được.</td></tr>' +
     '<tr><td class="c">4</td><td><b>Nhà Máy Robot</b> → <b>Xưởng Đóng Tàu</b> → <b>Phòng Nghiên Cứu</b></td>' +
     '<td class="mo">Robot làm mọi thứ xây nhanh hơn; xưởng mở ra hạm đội; phòng nghiên cứu mở ra công nghệ.</td></tr>' +
     '<tr><td class="c">5</td><td>Nghiên cứu <b>Động Cơ Đốt</b>, đóng vài <b>Tàu Do Thám</b></td>' +
@@ -3774,7 +4913,7 @@ U.m_huongdan = function () {
   h += '<p class="mo">Đây là mô tả có thật của bản gốc: "sau nhiều năm nghiên cứu, các nhà khoa học đã xác định ' +
     'được 5 loại hành tinh". Vị trí trong hệ quyết định loại: gần Mặt Trời là Sa Mạc, xa là Băng Hà.</p>';
   h += '<div class="bang-cuon"><table><tr><th>Loại</th><th>Đặc điểm</th><th class="r">Ô đất</th>' +
-    '<th class="r">KL</th><th class="r">TT</th><th class="r">DT</th><th class="r">LT</th>' +
+    '<th class="r">KL</th><th class="r">TA</th><th class="r">NL</th><th class="r">TP</th>' +
     '<th class="r">Điện</th><th class="r">Thủ đất</th></tr>';
   for (var li = 0; li < G.LOAI_HT.length; li++) {
     var L2 = G.LOAI_HT[li];
@@ -3786,18 +4925,21 @@ U.m_huongdan = function () {
       }).join('') + '</tr>';
   }
   h += '</table></div><p class="mo">Hành tinh mẹ luôn là Ôn Hoà. Đi thực dân thì chọn loại hợp với thứ mình thiếu: ' +
-    'Sa Mạc để lấy Kim Loại, Nước – Đầm Lầy và Băng Hà để lấy nhiên liệu và thủ, Rừng Già để nuôi quân.</p>';
+    'Sa Mạc để lấy Kim Loại, Nước – Đầm Lầy để lấy Nhiên Liệu, Băng Hà để lấy Thạch Anh và thủ mặt đất, Rừng Già để nuôi quân.</p>';
   h += '</div></div>';
 
   h += '<div class="luoi2">';
-  h += '<div class="panel"><h3>Bốn cơ chế riêng của Thiên Hà Đại Chiến</h3><div class="noi">' +
+  h += '<div class="panel"><h3>Các cơ chế riêng của Thiên Hà Đại Chiến</h3><div class="noi">' +
     '<p><b class="cam">1. Chu kỳ bảo trì 6 giờ.</b> Cứ 6 giờ thực, đế quốc bị trừ phí bảo trì bằng <b>Galana</b>, ' +
-    'tính theo quy mô hạm đội + phòng thủ + công trình. Không trả nổi thì mang nợ: sản lượng toàn đế quốc ' +
-    'giảm 30% và hạm đội bị niêm phong, không tấn công được. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
+    'tính theo quy mô hạm đội + phòng thủ + công trình. Phải đủ nguyên khoản; lỡ nhiều kỳ liên tiếp sẽ lần lượt ' +
+    'làm nghiên cứu trễ, dân rời đi rồi công trình xuống cấp. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
     'Bí tiền thì ra <b>Chợ Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại. ' +
     '<i>Trung Tâm Bảo Trì</i> giảm tới 60% khoản phí này.</p>' +
-    '<p><b class="cam">2. Nghiên cứu trả góp.</b> Ngoài chi phí trả ngay, mỗi đề tài còn có <b>vốn đầu tư</b> bị ' +
-    'trừ dần qua từng chu kỳ bảo trì. Giữa chừng hết Galana thì đề tài <b>bị treo</b> cho tới khi có tiền.</p>' +
+    '<p><b class="cam">2. Nghiên cứu trả dần.</b> Không trừ chi phí lúc xếp đề tài. Toàn bộ Kim Loại, Thạch Anh, ' +
+    'Nhiên Liệu, Kỹ Thuật… được chia thành các khoản ở nhịp 6 giờ. Thiếu một loại thì kỳ đó không trừ gì và ' +
+    'mốc hoàn thành trễ đúng 6 giờ.</p>' +
+    '<p><b class="cam">3. Dân số, ủng hộ và thuế.</b> Thành Phố mở sức chứa. Thiếu Thực Phẩm làm giảm ủng hộ và ' +
+    'khiến phần dân trên sàn 250.000 rời đi ở checkpoint; thuế cao kiếm Galana nhanh hơn nhưng gây áp lực ủng hộ.</p>' +
     '<p><b class="cam">3. Phòng thủ hai lớp.</b> Lớp <b>quỹ đạo</b> (vệ tinh, trạm phòng không, khiên) đánh ngay từ ' +
     'vòng 1. Hạm đội địch chỉ hạ xuống tầng khí quyển và đụng lớp <b>mặt đất</b> (tên lửa, laser, gauss, plasma) ' +
     'từ vòng ' + G.VONG_XUONG_DAT + '. Muốn thủ chắc thì phải có cả hai lớp.</p>' +
@@ -3810,6 +4952,9 @@ U.m_huongdan = function () {
     'được nhiều nhất). Quỹ đạo vỡ rồi quân mới đổ xuống, đánh nhau với quân giữ nhà và phòng thủ mặt đất của ' +
     'đối phương; thắng thì <b>san phẳng công trình</b> của họ và vét thêm kho. Quân đổ bộ đứng ở nhà thì chính ' +
     'là lực lượng chống đổ bộ — đừng để hành tinh trống trơn.</p>' +
+    '<p><b class="cam">Giữ Chỗ — đóng quân quỹ đạo.</b> Có thể đưa hạm đội tới một thuộc địa khác của mình hoặc ' +
+    'hành tinh đồng minh để cùng phòng thủ lớp quỹ đạo. Nhiên liệu phải chở theo và được trả trước từng đoạn 6 giờ; ' +
+    'thiếu một kỳ sau khi đã đậu thì số tàu còn lại biến thành phế liệu tại đó. Gọi về sớm không hoàn lại nhiên liệu đã trả.</p>' +
     '<p><b class="cam">Thám hiểm.</b> Ô số 16 của mỗi hệ là <b>vùng không gian sâu</b>. Gửi hạm đội ra đó ' +
     'để tìm tài nguyên trôi nổi, tàu bỏ hoang còn dùng được hay một trạm giao dịch cũ — nhưng cũng có thể ' +
     'đụng sinh vật ngoài hành tinh, lạc đường, hoặc bay vào vành đai thiên thạch. Số đoàn đi cùng lúc ' +
@@ -3839,13 +4984,13 @@ U.m_huongdan = function () {
   h += '<div class="luoi2">';
   h += '<div class="panel"><h3>Hạm đội &amp; toạ độ</h3><div class="noi">' +
     '<p>Toạ độ có dạng <b class="sz">[thiên hà : hệ : hành tinh]</b> — vũ trụ có ' + G.C.SO_THIEN_HA + ' × ' +
-    G.C.SO_HE + ' × ' + G.C.SO_HANH_TINH + ' ô. Càng xa bay càng lâu và càng tốn deuterium; ' +
+    G.C.SO_HE + ' × ' + G.C.SO_HANH_TINH + ' ô. Càng xa bay càng lâu và càng tốn Nhiên Liệu; ' +
     'hạ tốc độ xuống 10–50% thì tốn ít nhiên liệu hơn nhiều.</p>' +
     '<p>Số chuyến bay cùng lúc = <b>' + G.khe(st) + ' khe</b> (tăng bằng <i>Công Nghệ Máy Tính</i> và ' +
-    '<i>Đài Chỉ Huy Hạm Đội</i>). Bảy nhiệm vụ: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, ' +
-    'Thu Hồi, Giữ Chỗ.</p>' +
-    '<p><b>Hạm đội đang bay thì không bao giờ bị bắn hạ.</b> Thấy báo động mà không đỡ nổi thì cho hạm đội ' +
-    'bay đi — về sau quay lại vẫn còn nguyên.</p>' +
+    '<i>Đài Chỉ Huy Hạm Đội</i>). Tám nhiệm vụ: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, ' +
+    'Thu Hồi, Giữ Chỗ và Thám Hiểm ở ô 16.</p>' +
+    '<p><b>Hạm đội đang bay không bị bắn hạ giữa đường.</b> Khi đoàn Giữ Chỗ tới nơi, nó trở thành lực lượng ' +
+    'đóng quân có thể chịu thiệt hại thật khi bảo vệ quỹ đạo. Chủ hạm đội có thể gọi về trước hạn.</p>' +
     '</div></div>';
 
   h += '<div class="panel"><h3>' + (APP.mp ? 'Chơi với người thật' : 'Mở rộng đế quốc') + '</h3><div class="noi">';
@@ -3864,7 +5009,7 @@ U.m_huongdan = function () {
   } else {
     h += '<p>Nghiên cứu <b>Công Nghệ Liên Hành Tinh</b>: cứ 2 cấp cho phép giữ thêm một hành tinh. ' +
       'Đóng <b>Tàu Thực Dân</b>, mở màn Thiên Hà, tìm ô <span class="mo">— trống —</span> rồi bấm "Thực dân". ' +
-      'Hành tinh ở vị trí 4–12 thường nhiều ô đất và mát hơn; hành tinh xa mặt trời cho nhiều deuterium hơn.</p>' +
+      'Hành tinh ở vị trí 4–12 thường nhiều ô đất và mát hơn; hành tinh xa mặt trời cho nhiều Nhiên Liệu hơn.</p>' +
       '<p>Hành tinh <span class="vang">bỏ hoang</span> của NPC ít phòng thủ nhưng nhiều tài nguyên — đó là chỗ ' +
       'kiếm vốn tốt nhất lúc đầu.</p>' +
       '<p class="mo">Thời gian vẫn chạy khi ta đóng game: mở lại là toàn bộ sản xuất, chuyến bay và các chu kỳ ' +
@@ -3873,9 +5018,9 @@ U.m_huongdan = function () {
   h += '</div></div></div>';
 
   h += '<div class="panel"><h3>Về bản phục dựng này</h3><div class="noi mo">' +
-    '<p>Nguyên tác <b>Thiên Hà Đại Chiến</b> là webgame chiến thuật vũ trụ thuần text của <b>Trần Châu Quốc Bình</b> ' +
-    'cùng nhóm 3 người, phát triển từ khoảng 2004, đoạt giải VietGames 2006 (VINASA), vận hành tại ' +
-    'thienhadaichien.com tới đầu thập niên 2010.</p>' +
+    '<p>Nguyên tác <b>Thiên Hà Đại Chiến</b> là webgame chiến thuật vũ trụ của <b>Trần Châu Quốc Bình</b> ' +
+    'cùng nhóm 3 người, phát triển từ khoảng 2004, đoạt giải VietGames 2006 (VINASA), và còn được ghi nhận ' +
+    'hoạt động tại thienhadaichien.com tới tháng 11/2010. Website nay không còn hoạt động; chưa xác minh được ngày đóng cửa.</p>' +
     '<p>Server gốc đã mất, nên bản này dựng lại từ tư liệu báo game và diễn đàn còn sót: các cơ chế đặc trưng ' +
     '(chu kỳ bảo trì 6 giờ, nghiên cứu trả góp, phòng thủ hai lớp, đổi mục tiêu giữa đường, 6 loại tài nguyên) ' +
     'là thật; mọi con số cân bằng là suy luận theo khung OGame.</p>' +
@@ -3889,14 +5034,22 @@ U.m_huongdan = function () {
  * VẼ & CẬP NHẬT
  * ==================================================================== */
 U.sig = function () {
-  var st = U.st(), s = [st.planets.length, st.msgs.length, st.fleets.length, st.toi.length, st.soChuKy,
-    st.noBaoTri > 0 ? 1 : 0, U.man, U.pi, st.nk.length];
+  var st = U.st(), bt = U.bt(st), s = [st.planets.length, st.msgs.length, st.fleets.length, st.toi.length, bt.cycle,
+    bt.missStreak, U.man, U.pi, st.nk.length, st.lm ? st.lm.ten : '-',
+    (st.pvpToi || []).map(function (x) { return x.id + ':' + x.nv + ':' + x.den_t; }).join(','),
+    (st.pvpGiu || []).map(function (x) { return x.id + ':' + x.giuDen_t + ':' + x.tiepNL_t; }).join(',')];
   for (var i = 0; i < st.planets.length; i++) {
-    var p = st.planets[i];
-    s.push(p.qB.length, p.qS.length, p.qS.length ? p.qS[0].n : 0, p.doi > 0 ? 1 : 0);
+    var p = st.planets[i], ds = U.ds(p);
+    s.push(p.qB.length, p.qS.length, p.qS.length ? p.qS[0].n : 0,
+      Math.floor(ds.population), ds.supportBp, ds.taxBp, ds.foodShortfallCycle > 0 ? 1 : 0);
   }
-  s.push(st.ncQueue ? st.ncQueue.id + (st.ncQueue.treo ? 'T' : '') : '-');
-  for (var j = 0; j < st.fleets.length; j++) s.push(st.fleets[j].id + st.fleets[j].pha);
+  s.push(st.ncQueue ? st.ncQueue.id + ':' + st.ncQueue.status + ':' + st.ncQueue.installmentsLeft + ':' + st.ncQueue.finishAt : '-');
+  for (var j = 0; j < st.fleets.length; j++) {
+    var f = st.fleets[j];
+    s.push([f.id, f.mission, f.pha, f.den_t || 0, f.ve_t || 0,
+      f.giuDen_t || 0, f.tiepNL_t || 0, JSON.stringify(f.ships || {}),
+      JSON.stringify(f.cargo || {})].join(':'));
+  }
   return s.join('|');
 };
 
@@ -3908,7 +5061,7 @@ U.ve = function () {
   var f = U['m_' + U.man] || U.m_tongquan;
   document.getElementById('noidung').innerHTML = f();
   document.getElementById('chan-tt').innerHTML =
-    'Thiên Hà Đại Chiến — bản phục dựng ' + G.VERSION + ' · nguyên tác: Trần Châu Quốc Bình &amp; nhóm 3 người (2004–2013) · ' +
+    'Thiên Hà Đại Chiến — bản phục dựng ' + G.VERSION + ' · nguyên tác: Trần Châu Quốc Bình &amp; nhóm 3 người (phát triển từ 2004) · ' +
     'máy chủ tốc độ x' + G.C.TOC_DO_SERVER + ' · chu kỳ bảo trì 6 giờ';
   U.sigCu = U.sig();
 };
@@ -4069,7 +5222,7 @@ U.m_mophong = function () {
       '<tr><th colspan="2">Đối phương</th></tr>' +
       '<tr><td>Mất</td><td class="r">' + U.dsTau(k.matD) + '</td></tr>' +
       '<tr><td>Quy ra tài nguyên</td><td class="r sz">' + G.so(k.giaD) + '</td></tr>' +
-      '<tr><td>Bãi phế liệu tạo ra</td><td class="r sz vang">' + G.so(k.pl.metal) + ' KL · ' + G.so(k.pl.crystal) + ' TT</td></tr>' +
+      '<tr><td>Bãi phế liệu tạo ra</td><td class="r sz vang">' + G.so(k.pl.metal) + ' KL · ' + G.so(k.pl.crystal) + ' TA</td></tr>' +
       '</table></div></div>';
     if (k.cuop) {
       h += '<p><b>Nếu thắng thì cướp được:</b> ' + U.dsRes(k.cuop) +
@@ -4159,7 +5312,10 @@ var ACT = {
   luu: function () { if (APP.luu) APP.luu(false); },
 
   /* ---------- công trình / nghiên cứu / xưởng ---------- */
-  xay: function (el) { lam('xay', { pi: U.pi, id: el.getAttribute('data-id') }); },
+  xay: function (el) {
+    var id = el.getAttribute('data-id');
+    lam('xay', { pi: U.pi, id: id, n: soO('ct-sl-' + id) });
+  },
   huyxay: function (el) { lam('huyxay', { pi: U.pi, i: +el.getAttribute('data-i') }); },
   nc: function (el) { lam('nc', { pi: U.pi, id: el.getAttribute('data-id') }); },
   huync: function () { lam('huync', {}, 'Đã huỷ đề tài, hoàn lại chi phí.'); },
@@ -4168,6 +5324,10 @@ var ACT = {
     lam('dong', { pi: U.pi, id: id, n: soO('sl-' + id) || 1 });
   },
   huydong: function (el) { lam('huydong', { pi: U.pi, i: +el.getAttribute('data-i') }); },
+  doithue: function () {
+    var e = document.getElementById('thue-pct');
+    lam('doithue', { pi: U.pi, thue: e ? Number(e.value) : NaN }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
+  },
 
   /* ---------- chợ ---------- */
   ban: function (el) {
@@ -4236,6 +5396,19 @@ var ACT = {
     var nl = G.nhienLieu(st, f.ships, G.khoangCach(p.c, f.den), f.pct);
     f.cargo = {};
     var con = suc, ds = ['metal', 'crystal', 'deut', 'food'];
+    /* Với Giữ Chỗ, ưu tiên nạp đủ nhiên liệu quỹ đạo đã lên kế hoạch. Đây chỉ
+       là tiện ích điền form; engine/server vẫn tự kiểm tra authoritative. */
+    if (f.mission === 'hold' && G.QUY_DAO_V1 && G.nhienLieuGiu) {
+      var giuGiay = Math.max(1, Math.min(24, Math.floor(+f.giu || 1))) * 3600;
+      var canGiu = 0, doan = Math.max(1, G.QUY_DAO_V1.segmentSeconds);
+      if (G.nhienLieuGiuTong) canGiu = G.nhienLieuGiuTong(st, f.ships, giuGiay);
+      else for (var giuCon = giuGiay; giuCon > 0; giuCon -= doan)
+        canGiu += G.nhienLieuGiu(st, f.ships, Math.min(giuCon, doan));
+      var deutCo = Math.max(0, Math.floor((p.res.deut || 0) - nl));
+      var napGiu = Math.min(con, deutCo, canGiu);
+      if (napGiu > 0) { f.cargo.deut = napGiu; con -= napGiu; }
+      ds = ['metal', 'crystal', 'food'];
+    }
     for (var i = 0; i < ds.length && con > 0; i++) {
       var co = Math.max(0, Math.floor((p.res[ds[i]] || 0) - (ds[i] === 'deut' ? nl : 0)));
       var lay = (i === ds.length - 1) ? Math.min(co, con) : Math.min(co, Math.floor(con / (ds.length - i)));
@@ -4368,6 +5541,18 @@ document.addEventListener('input', function (e) {
   var id = e.target.id || '';
   if (id === 'f-pct') { var v = document.getElementById('f-pct-v'); if (v) v.textContent = e.target.value + '%'; }
   if (/^cho-/.test(id)) U.cho[id.slice(4)] = Math.max(0, Math.floor(+e.target.value || 0));
+  if (/^ct-sl-/.test(id)) {
+    var bid = id.slice(6), b = G.B(bid), n = Math.max(1, Math.min(10000000, Math.floor(+e.target.value || 1)));
+    var gia = document.getElementById('ct-gia-' + bid), tg = document.getElementById('ct-tg-' + bid);
+    var nut = document.querySelector('[data-act="xay"][data-id="' + bid + '"]');
+    var cost = b ? G.giaCongTrinh(b, n) : null;
+    if (b && gia) gia.innerHTML = U.gia(cost, U.ht(), U.st());
+    if (b && tg) tg.textContent = G.tg(G.tgXay(U.st(), U.ht(), cost));
+    if (nut) {
+      nut.textContent = 'Xây ×' + G.so(n);
+      nut.classList.toggle('oke', !!b && G.duTien(U.st(), U.ht(), cost) && !G.thieuDK(U.st(), U.ht(), b).length);
+    }
+  }
   if (/^(f-|ft-|fc-|fl-)/.test(id)) {
     U.capNhatForm();
     var tt = document.getElementById('hd-tt');
@@ -4400,8 +5585,9 @@ APP.batDauNhip = function () {
 'use strict';
 (function () {
   var G = window.G, U = window.U, APP = window.APP;
-  var KEY = 'thdc_save_v3';
+  var KEY = 'thdc_save_v6', KEY_CU = ['thdc_save_v5', 'thdc_save_v4', 'thdc_save_v3'];
   var ST = null;
+  var LOI_NAP = '';
   var COFILE = !window.THDC_ARTIFACT;   // trong Artifact không tải file được
 
   /* ---------------- lưu / nạp ---------------- */
@@ -4412,17 +5598,41 @@ APP.batDauNhip = function () {
       if (!im) U.toast('Đã lưu bàn chơi.', 'ok');
     } catch (e) { U.toast('Không lưu được: ' + e.message, 'loi'); }
   }
+  function chuanHoa(o) {
+    if (!o || !Array.isArray(o.planets) || !o.planets.length)
+      throw new Error('không phải bàn chơi hợp lệ');
+    var v = Math.max(0, Math.floor(Number(o.v) || 0));
+    if (v > G.STATE_VERSION)
+      throw new Error('bàn chơi dùng state v' + v + ', mới hơn engine v' + G.STATE_VERSION);
+    G.nangCapState(o, G.giay());
+    if (o.v !== G.STATE_VERSION || o.moHinhCT !== 'so-luong-v1' ||
+        o.moHinhNhip !== 'bao-tri-dan-su-v1' || o.moHinhQuyDao !== 'giu-quy-dao-v1')
+      throw new Error('marker mô hình state không hợp lệ cho state v' + o.v);
+    o.toi = Array.isArray(o.toi) ? o.toi : [];
+    o.tenLua = Array.isArray(o.tenLua) ? o.tenLua : [];
+    o.fleets = Array.isArray(o.fleets) ? o.fleets : [];
+    o.npc = o.npc || {}; o.debris = o.debris || {}; o.msgs = Array.isArray(o.msgs) ? o.msgs : [];
+    o.nk = Array.isArray(o.nk) ? o.nk : [];
+    o.stats = o.stats || { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 };
+    o.fleetIdSeq = o.fleetIdSeq || 1;
+    return o;
+  }
   function nap() {
+    var nguon = null;
     try {
       var s = localStorage.getItem(KEY);
+      for (var i = 0; !s && i < KEY_CU.length; i++) {
+        s = localStorage.getItem(KEY_CU[i]);
+        if (s) nguon = KEY_CU[i];
+      }
       if (!s) return null;
-      var o = JSON.parse(s);
-      if (!o || !o.planets || !o.planets.length) return null;
-      o.toi = o.toi || []; o.npc = o.npc || {}; o.debris = o.debris || {}; o.msgs = o.msgs || [];
-      o.nk = o.nk || []; o.stats = o.stats || { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 };
-      o.noBaoTri = o.noBaoTri || 0; o.soChuKy = o.soChuKy || 0; o.fleetIdSeq = o.fleetIdSeq || 1;
+      var o = chuanHoa(JSON.parse(s));
+      /* Chỉ ghi key mới sau khi parse + migration + validation đã thành công.
+         Các key v5/v4/v3 được giữ nguyên làm bản raw dự phòng cho tới khi người
+         chơi tự xoá bàn; bản v6 luôn được ưu tiên nên save cũ không sống lại. */
+      if (nguon) localStorage.setItem(KEY, JSON.stringify(o));
       return o;
-    } catch (e) { return null; }
+    } catch (e) { LOI_NAP = e && e.message || String(e); return null; }
   }
 
   /* ---------------- APP: chạy hành động tại chỗ ---------------- */
@@ -4439,7 +5649,7 @@ APP.batDauNhip = function () {
   })();
 
   function batDau(st) {
-    window.ST = ST = st;
+    window.ST = ST = chuanHoa(st);
     document.getElementById('man-khoidong').style.display = 'none';
     document.getElementById('game').style.display = '';
     G.tick(ST, G.giay());
@@ -4475,7 +5685,7 @@ APP.batDauNhip = function () {
     nhap: function () {
       U.hop('Nạp bàn chơi',
         '<p class="mo">Dán nội dung bàn chơi đã xuất vào đây rồi bấm Nạp. Bàn hiện tại sẽ bị ghi đè.</p>' +
-        '<textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":3,...}\'></textarea>' +
+        '<textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":6,...}\'></textarea>' +
         '<div style="margin-top:8px"><button class="nut oke" data-act="nhap-ok">Nạp</button>' +
         (COFILE ? ' <button class="nut" data-act="nhap-file">Chọn file...</button>' : '') + '</div>');
     },
@@ -4483,7 +5693,7 @@ APP.batDauNhip = function () {
       var v = (document.getElementById('nhap-js') || {}).value || '';
       try {
         var o = JSON.parse(v);
-        if (!o || !o.planets || !o.planets.length) throw new Error('không phải bàn chơi hợp lệ');
+        o = chuanHoa(o);
         window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.dongHop(); U.ve();
         U.toast('Đã nạp bàn chơi.', 'ok');
       } catch (e) { U.toast('Nạp thất bại: ' + e.message, 'loi'); }
@@ -4494,7 +5704,13 @@ APP.batDauNhip = function () {
         '<button class="nut xoa" data-act="xoa-that">Xoá và chơi lại</button> ' +
         '<button class="nut" data-act="dong-ht">Thôi</button>');
     },
-    'xoa-that': function () { localStorage.removeItem(KEY); location.reload(); }
+    'xoa-that': function () {
+      /* Ngăn beforeunload ghi lại đúng bàn vừa xoá trong lúc reload. */
+      ST = null; window.ST = null;
+      localStorage.removeItem(KEY);
+      for (var i = 0; i < KEY_CU.length; i++) localStorage.removeItem(KEY_CU[i]);
+      location.reload();
+    }
   });
 
   APP.doiFile = function (e) {
@@ -4503,7 +5719,7 @@ APP.batDauNhip = function () {
       fr.onload = function () {
         try {
           var o = JSON.parse(fr.result);
-          if (!o.planets) throw new Error('file không đúng định dạng');
+          o = chuanHoa(o);
           window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.ve();
           U.toast('Đã nạp bàn chơi từ file.', 'ok');
         } catch (err) { U.toast('Nạp thất bại: ' + err.message, 'loi'); }
@@ -4515,6 +5731,11 @@ APP.batDauNhip = function () {
   /* ---------------- màn khởi động ---------------- */
   document.getElementById('kd-ver').textContent = G.VERSION;
   var cu = nap();
+  if (LOI_NAP) {
+    var kd = document.querySelector('.kd-form');
+    if (kd) kd.insertAdjacentHTML('beforeend', '<div class="canh" style="margin-top:10px">Không nạp được bàn cũ: ' +
+      U.esc(LOI_NAP) + '. Dữ liệu gốc vẫn được giữ nguyên.</div>');
+  }
   if (cu) {
     var b = document.getElementById('kd-tieptuc');
     b.style.display = '';

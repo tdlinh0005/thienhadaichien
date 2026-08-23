@@ -9,12 +9,13 @@
   var token = null;
   try { token = localStorage.getItem(KHOA_TOKEN); } catch (e) { token = null; }
 
-  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, sv: null, ten: null, lienLac: true };
+  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, chat: null, sv: null, ten: null, lienLac: true };
   G.MO_PHONG_NHE = true;
   APP.mp = true;
 
   /* -------------------------------------------------- gọi API ---------- */
   function api(duong, dl, phuongThuc) {
+    var tokenLucGoi = token;
     var opt = {
       method: phuongThuc || (dl ? 'POST' : 'GET'),
       headers: { 'Content-Type': 'application/json' }
@@ -25,6 +26,9 @@
       return r.json().catch(function () { return { loi: 'Máy chủ trả về dữ liệu không đọc được.' }; })
         .then(function (o) {
           netOK(true);
+          /* Bỏ mọi response thuộc phiên cũ; request A có thể về muộn sau khi
+             người dùng đã logout rồi đăng nhập B trong cùng tab. */
+          if (tokenLucGoi !== token) throw new Error('Phiên đã thay đổi.');
           if (r.status === 401 && token) { dangXuatCuc('Phiên đăng nhập đã hết hạn.'); throw new Error('Chưa đăng nhập.'); }
           if (!r.ok && o && o.loi) throw new Error(o.loi);
           if (!r.ok) throw new Error('Máy chủ lỗi ' + r.status + '.');
@@ -85,6 +89,8 @@
       /* Chỉ vẽ lại khi có gì đó thật sự đổi. Vẽ lại vô điều kiện mỗi 8 giây sẽ
          xoá mất những gì người chơi đang gõ dở trong các ô nhập. */
       if (U.sig() !== U.sigCu) U.ve(); else U.live();
+      if (U.man === 'chat') taiChat(false).catch(function () { });
+      if (U.man === 'lienminh') taiLienMinh(false).catch(function () { });
     }, function () { });
   }
 
@@ -97,8 +103,25 @@
     },
     xepHang: function () { return MP.xh || []; },
     dsLM: function () { return (MP.lm && MP.lm.ds) || []; },
-    thanhVien: function () { return (MP.lm && MP.lm.tv) || []; }
+    thanhVien: function () { return (MP.lm && MP.lm.tv) || []; },
+    daXin: function (ten) {
+      var ds = (MP.lm && MP.lm.xin) || [];
+      for (var i = 0; i < ds.length; i++) if (ds[i].lm === ten) return true;
+      return false;
+    }
   };
+
+  function taiLienMinh(veToan) {
+    return api('/api/lm').then(function (r) {
+      var thayDoi = JSON.stringify(MP.lm) !== JSON.stringify(r);
+      MP.lm = r;
+      if (U.man === 'lienminh' && (veToan || thayDoi)) U.ve();
+      return r;
+    }, function (e) {
+      if (veToan) U.toast(e.message, 'loi');
+      throw e;
+    });
+  }
 
   /* -------------------------------------------------- menu & màn riêng - */
   U.MAN = [
@@ -113,6 +136,7 @@
     { id: 'lienminh', ten: 'Liên Minh' },
     { id: 'xephang', ten: 'Bảng Xếp Hạng' },
     { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
+    { id: 'chat', ten: 'Phòng Chat' },
     { id: 'mophong', ten: 'Máy Tính Trận' },
     { id: 'tinnhan', ten: 'Tin Nhắn' },
     { id: 'huongdan', ten: 'Hướng Dẫn' },
@@ -144,6 +168,83 @@
     return h;
   };
 
+  function noiChat(ds, dangTai) {
+    if (dangTai) return '<span class="mo">Đang nối vào kênh...</span>';
+    if (!ds || !ds.length) return '<span class="mo">Chưa có ai lên tiếng.</span>';
+    var h = '';
+    for (var i = 0; i < ds.length; i++) {
+      var m = ds[i], tag = String(m.lm || '').match(/^\[[^\]]+\]/);
+      h += '<div class="chat-dong"><span class="hu sz">' + G.gio(m.khi * 1000) + '</span> ' +
+        '<b>' + U.esc(m.ten) + '</b>' + (tag ? ' <span class="tag-lm">' + U.esc(tag[0]) + '</span>' : '') +
+        '<span class="chat-noi">' + U.esc(m.noi) + '</span></div>';
+    }
+    return h;
+  }
+
+  function capNhatChat() {
+    if (U.man !== 'chat' || !MP.chat) return;
+    var chung = document.getElementById('chat-ds-chung');
+    var lm = document.getElementById('chat-ds-lienminh');
+    if (chung) {
+      var satDay = chung.scrollHeight - chung.scrollTop - chung.clientHeight < 48;
+      chung.innerHTML = noiChat(MP.chat.chung, false);
+      if (satDay) chung.scrollTop = chung.scrollHeight;
+    }
+    if (lm) {
+      var satDayLM = lm.scrollHeight - lm.scrollTop - lm.clientHeight < 48;
+      lm.innerHTML = noiChat(MP.chat.lienminh, false);
+      if (satDayLM) lm.scrollTop = lm.scrollHeight;
+    }
+  }
+
+  function cuonChatXuong() {
+    var ids = ['chat-ds-chung', 'chat-ds-lienminh'];
+    for (var i = 0; i < ids.length; i++) {
+      var e = document.getElementById(ids[i]);
+      if (e) e.scrollTop = e.scrollHeight;
+    }
+  }
+
+  function taiChat(veToan) {
+    return api('/api/chat').then(function (r) {
+      /* Lần GET đầu có thể từng lỗi: khi poll hồi phục phải vẽ lại cả panel,
+         nếu không thành viên vẫn bị kẹt ở lời nhắc "hãy gia nhập liên minh". */
+      var doiLienMinh = !MP.chat || MP.chat.lm !== r.lm;
+      MP.chat = r;
+      if (U.man !== 'chat') return r;
+      if (veToan || doiLienMinh || !document.getElementById('chat-ds-chung')) {
+        U.ve();
+        cuonChatXuong();
+      }
+      else capNhatChat();
+      return r;
+    }, function (e) {
+      if (veToan) U.toast(e.message, 'loi');
+      throw e;
+    });
+  }
+
+  U.m_chat = function () {
+    var c = MP.chat, dangTai = !c;
+    var h = '<div class="luoi2">';
+    h += '<div class="panel"><h3>Kênh chung toàn vũ trụ</h3><div class="noi">' +
+      '<div id="chat-ds-chung" class="chat-ds">' + noiChat(c && c.chung, dangTai) + '</div>' +
+      '<div class="chat-gui"><input id="chat-noi-chung" class="chat-nhap" maxlength="300" autocomplete="off" ' +
+      'placeholder="Nói với toàn vũ trụ..."><button class="nut oke" data-act="chat-gui" data-kenh="chung">Gửi</button></div>' +
+      '<p class="mo chat-ghi">Tối đa 300 ký tự · 3 tin mỗi 10 giây.</p></div></div>';
+
+    h += '<div class="panel"><h3>Kênh liên minh' + (c && c.lm ? ' — ' + U.esc(c.lm) : '') + '</h3><div class="noi">';
+    if (c && c.lm) {
+      h += '<div id="chat-ds-lienminh" class="chat-ds">' + noiChat(c.lienminh, false) + '</div>' +
+        '<div class="chat-gui"><input id="chat-noi-lienminh" class="chat-nhap" maxlength="300" autocomplete="off" ' +
+        'placeholder="Nói riêng với đồng minh..."><button class="nut oke" data-act="chat-gui" data-kenh="lienminh">Gửi</button></div>';
+    } else {
+      h += '<div class="chat-ds"><span class="mo">Gia nhập một liên minh để mở kênh riêng.</span></div>';
+    }
+    h += '<p class="mo chat-ghi">Tin liên minh chỉ được máy chủ trả về cho thành viên hiện tại.</p></div></div></div>';
+    return h;
+  };
+
   U.m_taikhoan = function () {
     var st = U.st(), d = G.diem(st), sv = MP.sv || {};
     var h = '<div class="luoi2">';
@@ -152,7 +253,7 @@
       '<tr><td>Liên minh</td><td class="r">' + U.esc(st.lm ? st.lm.ten : '—') + '</td></tr>' +
       '<tr><td>Điểm</td><td class="r sz">' + G.so(d.tong) + '</td></tr>' +
       '<tr><td>Số hành tinh</td><td class="r sz">' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</td></tr>' +
-      '<tr><td>Chu kỳ bảo trì đã qua</td><td class="r sz">' + st.soChuKy + '</td></tr>' +
+      '<tr><td>Chu kỳ bảo trì đã qua</td><td class="r sz">' + ((st.baoTri && st.baoTri.cycle) || 0) + '</td></tr>' +
       '<tr><td>Trận thắng / thua</td><td class="r sz">' + st.stats.thang + ' / ' + st.stats.thua + '</td></tr>' +
       '<tr><td>Tài nguyên đã cướp</td><td class="r sz">' + G.so(st.stats.cuop) + '</td></tr>' +
       '<tr><td>Tàu địch bắn hạ</td><td class="r sz">' + G.so(st.stats.tauDietDich) + '</td></tr>' +
@@ -198,6 +299,76 @@
         '<p class="mo">Thẻ 2–6 chữ/số, hiện trước tên trên bảng xếp hạng. Người lập là chủ liên minh.</p>' +
         '</div></div>';
     }
+    if (!st.lm && MP.lm && MP.lm.xin && MP.lm.xin.length) {
+      h += '<div class="panel"><h3>Đơn đang chờ duyệt</h3><div class="noi">';
+      for (var x = 0; x < MP.lm.xin.length; x++)
+        h += '<div><span class="tag-lm">' + U.esc(MP.lm.xin[x].lm) + '</span> · gửi ' +
+          G.gio(MP.lm.xin[x].khi * 1000) + '</div>';
+      h += '</div></div>';
+    }
+    if (st.lm && MP.lm && MP.lm.laChu) {
+      var don = MP.lm.don || [], tv = MP.lm.tv || [];
+      h += '<div class="panel"><h3>Bộ Chỉ Huy Liên Minh</h3><div class="noi">' +
+        '<p class="mo">Chủ liên minh duyệt thành viên, loại người vi phạm hoặc chuyển quyền chỉ huy. ' +
+        'Phải chuyển quyền trước khi rời nếu liên minh còn người khác.</p>';
+      h += '<h3 style="margin-top:10px">Đơn xin gia nhập</h3>';
+      if (!don.length) h += '<span class="mo">Không có đơn nào đang chờ.</span>';
+      else {
+        h += '<div class="bang-cuon"><table><tr><th>Chỉ huy</th><th class="r">Điểm</th><th class="r">Hành tinh</th><th></th></tr>';
+        for (var d = 0; d < don.length; d++)
+          h += '<tr><td>' + U.esc(don[d].hienthi) + '</td><td class="r sz">' + G.so(don[d].diem) +
+            '</td><td class="r sz">' + don[d].soHT + '</td><td class="r">' +
+            '<button class="nut nho oke" data-act="lm-duyet" data-tk="' + don[d].tk + '">Duyệt</button> ' +
+            '<button class="nut nho xoa" data-act="lm-tu-choi" data-tk="' + don[d].tk + '">Từ chối</button></td></tr>';
+        h += '</table></div>';
+      }
+      if (tv.length > 1) {
+        h += '<h3 style="margin-top:14px">Điều hành thành viên</h3><div class="bang-cuon"><table>' +
+          '<tr><th>Chỉ huy</th><th class="r">Điểm</th><th></th></tr>';
+        for (var v = 0; v < tv.length; v++) if (!tv[v].ta)
+          h += '<tr><td>' + U.esc(tv[v].ten) + '</td><td class="r sz">' + G.so(tv[v].diem) + '</td><td class="r">' +
+            '<button class="nut nho" data-act="lm-chuyen" data-tk="' + tv[v].tk + '" data-ten="' + U.esc(tv[v].ten) + '">Chuyển quyền</button> ' +
+            '<button class="nut nho xoa" data-act="lm-duoi" data-tk="' + tv[v].tk + '" data-ten="' + U.esc(tv[v].ten) + '">Loại</button></td></tr>';
+        h += '</table></div>';
+      }
+      h += '</div></div>';
+    }
+    var chien = MP.lm && MP.lm.chien;
+    if (chien) {
+      h += '<div class="panel"><h3>Lệnh chiến tranh</h3><div class="noi">' +
+        '<p class="mo">Lệnh nhắm tới một chỉ huy và chỉ có hiệu lực sau 24 giờ. Khi đang ở liên minh, ' +
+        'chỉ chủ liên minh ra lệnh; mọi thành viên hiện tại cùng hưởng quyền giao chiến.</p>';
+      h += '<h3 style="margin-top:10px">Bên ta đã tuyên</h3>';
+      if (!chien.di.length) h += '<span class="mo">Chưa tuyên chiến với ai.</span>';
+      else {
+        h += '<div class="bang-cuon"><table><tr><th>Mục tiêu</th><th>Liên minh</th><th>Lúc tuyên</th><th>Trạng thái</th></tr>';
+        for (var cd = 0; cd < chien.di.length; cd++) {
+          var wd = chien.di[cd];
+          var tt = wd.trang === 'hieuluc' ? '<span class="do">Được phép giao chiến</span>' :
+            (wd.trang === 'dongminh' ? '<span class="luc">Đồng minh — đình chỉ</span>' :
+              '<span class="vang">Chờ ' + U.dem(wd.hieuLuc) + '</span>');
+          h += '<tr><td><b>' + U.esc(wd.tenD) + '</b></td><td class="tag-lm">' + U.esc(wd.lmD || '') +
+            '</td><td class="sz">' + G.gio(wd.khi * 1000) + '</td><td>' + tt + '</td></tr>';
+        }
+        h += '</table></div>';
+      }
+      h += '<h3 style="margin-top:14px">Bên tuyên chiến với ta</h3>';
+      if (!chien.den.length) h += '<span class="mo">Không có lệnh nào nhắm tới ta.</span>';
+      else {
+        h += '<div class="bang-cuon"><table><tr><th>Bên tuyên</th><th>Lúc tuyên</th><th>Trạng thái</th></tr>';
+        for (var ct = 0; ct < chien.den.length; ct++) {
+          var wi = chien.den[ct];
+          var ti = wi.trang === 'dongminh' ? '<span class="luc">Đồng minh — đình chỉ</span>' :
+            (wi.trang === 'dinhchi' ? '<span class="mo">Bên tuyên đã vào liên minh — đình chỉ</span>' :
+              (wi.duoc ? '<span class="do">Đã có hiệu lực</span>' :
+                '<span class="vang">Còn ' + U.dem(wi.hieuLuc) + '</span>'));
+          h += '<tr><td><b>' + U.esc(wi.ben) + '</b></td><td class="sz">' + G.gio(wi.khi * 1000) +
+            '</td><td>' + ti + '</td></tr>';
+        }
+        h += '</table></div>';
+      }
+      h += '</div></div>';
+    }
     return h;
   };
 
@@ -212,16 +383,17 @@
         APP.taiHe(U.gal.g, U.gal.h);
       }
       if (m === 'xephang') APP.taiXepHang(U.xhLoai);
-      if (m === 'lienminh') api('/api/lm').then(function (r) { MP.lm = r; U.ve(); }, function () { });
+      if (m === 'lienminh') taiLienMinh(true).catch(function () { });
       if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
+      if (m === 'chat') taiChat(true).catch(function () { });
     },
     /* vào/ra liên minh xong phải nạp lại danh sách thành viên từ server */
     'lm-vao': function (el) {
-      APP.lam('lmvao', { ten: el.getAttribute('data-ten') }, function (err) {
-        if (err) return U.toast(err, 'loi');
-        api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã gia nhập liên minh.', 'ok'); },
-          function () { U.ve(); });
-      });
+      api('/api/lmxin', { ten: el.getAttribute('data-ten') }).then(function () {
+        api('/api/lm').then(function (l) {
+          MP.lm = l; U.ve(); U.toast('Đã gửi đơn. Chờ chủ liên minh duyệt.', 'ok');
+        }, function () { U.ve(); });
+      }, function (e) { U.toast(e.message, 'loi'); });
     },
     'lm-ra': function () {
       APP.lam('lmra', {}, function (err) {
@@ -239,6 +411,67 @@
         api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã lập liên minh.', 'ok'); }, function () { U.ve(); });
       }, function (e) { U.toast(e.message, 'loi'); });
     },
+    'lm-duyet': function (el) {
+      api('/api/lmduyet', { tk: +el.getAttribute('data-tk') }).then(function () {
+        api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã duyệt thành viên.', 'ok'); });
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'lm-tu-choi': function (el) {
+      api('/api/lmtuchoi', { tk: +el.getAttribute('data-tk') }).then(function () {
+        api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã từ chối đơn.', 'ok'); });
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'lm-duoi': function (el) {
+      var tk = +el.getAttribute('data-tk'), ten = el.getAttribute('data-ten') || 'thành viên này';
+      U.hop('Loại thành viên', '<p>Loại <b>' + U.esc(ten) + '</b> khỏi liên minh?</p>' +
+        '<button class="nut xoa" data-act="lm-duoi-ok" data-tk="' + tk + '">Xác nhận loại</button>');
+    },
+    'lm-duoi-ok': function (el) {
+      api('/api/lmduoi', { tk: +el.getAttribute('data-tk') }).then(function () {
+        U.dongHop(); api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã loại thành viên.', 'ok'); });
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'lm-chuyen': function (el) {
+      var tk = +el.getAttribute('data-tk'), ten = el.getAttribute('data-ten') || 'thành viên này';
+      U.hop('Chuyển quyền chủ', '<p>Trao toàn bộ quyền chủ liên minh cho <b>' + U.esc(ten) + '</b>?</p>' +
+        '<button class="nut oke" data-act="lm-chuyen-ok" data-tk="' + tk + '">Xác nhận chuyển quyền</button>');
+    },
+    'lm-chuyen-ok': function (el) {
+      api('/api/lmchuyen', { tk: +el.getAttribute('data-tk') }).then(function () {
+        U.dongHop(); api('/api/lm').then(function (l) { MP.lm = l; U.ve(); U.toast('Đã chuyển quyền chủ.', 'ok'); });
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'tuyen-chien': function (el) {
+      var tk = +el.getAttribute('data-tk'), ten = el.getAttribute('data-ten') || 'chỉ huy này';
+      U.hop('Tuyên chiến với ' + ten,
+        '<p>Lệnh chiến tranh nhắm tới <b>' + U.esc(ten) + '</b> và có hiệu lực sau đúng 24 giờ.</p>' +
+        '<p class="mo">Nếu ta đang ở liên minh, chỉ chủ liên minh ra lệnh và toàn bộ thành viên hiện tại cùng hưởng quyền đánh.</p>' +
+        '<button class="nut xoa" data-act="tuyen-chien-ok" data-tk="' + tk + '">XÁC NHẬN TUYÊN CHIẾN</button>');
+    },
+    'tuyen-chien-ok': function (el) {
+      api('/api/tuyenchien', { tk: +el.getAttribute('data-tk') }).then(function (r) {
+        U.dongHop();
+        if (MP.lm) MP.lm.chien = r.chien;
+        if (U.gal) APP.taiHe(U.gal.g, U.gal.h);
+        if (U.man === 'lienminh') taiLienMinh(true).catch(function () { });
+        U.toast('Đã tuyên chiến. Hội Đồng Bảo An bắt đầu đếm 24 giờ.', 'ok');
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'chuyen-galana': function (el) {
+      var tk = +el.getAttribute('data-tk'), ten = el.getAttribute('data-ten') || 'đồng minh';
+      U.hop('Chuyển Galana cho ' + ten,
+        '<p>Kho hiện có <b class="vang">' + G.so(U.st().galana || 0) + ' Galana</b>.</p>' +
+        '<input id="galana-so" type="number" min="1" step="1000" style="width:100%" placeholder="Số Galana">' +
+        '<p class="mo">Nguồn lịch sử xác nhận chỉ thành viên cùng liên minh mới được chuyển tiền cho nhau.</p>' +
+        '<button class="nut oke" data-act="chuyen-galana-ok" data-tk="' + tk + '" style="margin-top:8px">CHUYỂN</button>');
+    },
+    'chuyen-galana-ok': function (el) {
+      var o = document.getElementById('galana-so'), so = Math.floor(+(o && o.value || 0));
+      if (!Number.isSafeInteger(so) || so < 1) return U.toast('Nhập số Galana hợp lệ.', 'loi');
+      api('/api/chuyengalana', { tk: +el.getAttribute('data-tk'), so: so }).then(function (r) {
+        apDung(r); U.dongHop(); U.ve(); U.toast('Đã chuyển ' + G.so(so) + ' Galana.', 'ok');
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
     'gui-thu': function (el) {
       var ten = el.getAttribute('data-ten') || '';
       U.hop('Gửi thư cho ' + ten,
@@ -254,6 +487,23 @@
       api('/api/guithu', { den: den, noi: noi }).then(function () {
         U.dongHop(); U.toast('Đã gửi thư cho ' + den + '.', 'ok');
       }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'chat-gui': function (el) {
+      var kenh = el.getAttribute('data-kenh') === 'lienminh' ? 'lienminh' : 'chung';
+      var o = document.getElementById('chat-noi-' + kenh);
+      var noi = o ? o.value.trim() : '';
+      if (!noi) return U.toast('Tin chat đang trống.', 'loi');
+      el.disabled = true;
+      api('/api/chat', { kenh: kenh, noi: noi }).then(function () {
+        if (o) o.value = '';
+        return taiChat(false);
+      }).then(function () {
+        el.disabled = false;
+        U.toast('Đã gửi vào ' + (kenh === 'lienminh' ? 'kênh liên minh.' : 'kênh chung.'), 'ok');
+      }, function (e) {
+        el.disabled = false;
+        U.toast(e.message, 'loi');
+      });
     },
     'doi-mk': function () {
       U.hop('Đổi mật khẩu',
@@ -286,16 +536,37 @@
       }, function (e) { U.toast(e.message, 'loi'); });
     },
     dangxuat: function () {
-      api('/api/dangxuat', {}).then(function () { dangXuatCuc(null); }, function () { dangXuatCuc(null); });
+      var tokenDangXuat = token;
+      api('/api/dangxuat', {}).then(function () {
+        if (token === tokenDangXuat) dangXuatCuc(null);
+      }, function () {
+        /* Response logout A về muộn không được xoá phiên B vừa đăng nhập. */
+        if (token === tokenDangXuat) dangXuatCuc(null);
+      });
     }
   });
 
   function dangXuatCuc(msg) {
     try { localStorage.removeItem(KHOA_TOKEN); } catch (e) { }
     token = null; window.ST = null;
+    /* Không để dữ liệu theo tài khoản A lọt sang tài khoản B khi đăng nhập lại
+       trong cùng tab, đặc biệt là lịch sử chat riêng và quyền quản trị LM. */
+    MP.he = null; MP.xh = null; MP.lm = null; MP.bt = null; MP.chat = null;
+    MP.ten = null; U.man = 'tongquan'; U.pi = 0; U.gal = null; U.form = null;
+    U.moTin = {}; U.cho = {}; U.mp = null; U.sigCu = '';
+    var ndCu = document.getElementById('noidung'); if (ndCu) ndCu.textContent = '';
+    var menuCu = document.getElementById('menu'); if (menuCu) menuCu.classList.remove('mo-ra');
+    if (U.dongHop) U.dongHop();
+    var hopCu = document.getElementById('ht-noi'); if (hopCu) hopCu.textContent = '';
+    ['dn-ten', 'dn-mk', 'dk-ten', 'dk-hienthi', 'dk-mk'].forEach(function (id) {
+      var o = document.getElementById(id); if (o) o.value = '';
+    });
+    var formDN = document.getElementById('form-dn'); if (formDN) formDN.style.display = '';
+    var formDK = document.getElementById('form-dk'); if (formDK) formDK.style.display = 'none';
+    var toastCu = document.getElementById('toast'); if (toastCu) toastCu.textContent = '';
     document.getElementById('game').style.display = 'none';
     document.getElementById('man-khoidong').style.display = '';
-    if (msg) loi(msg);
+    loi(msg || null);
   }
 
   /* -------------------------------------------------- màn đăng nhập ---- */
@@ -364,7 +635,7 @@
     MP.sv = sv;
     G.LECH_GIO = sv.now - Math.floor(Date.now() / 1000);
     document.getElementById('kd-sv').innerHTML =
-      'Năm <b>' + G.NAM_BOI_CANH + '</b> &middot; vũ trụ <b>' + U.esc(sv.seed) + '</b><br>' +
+      U.esc(G.BOI_CANH) + ' &middot; vũ trụ <b>' + U.esc(sv.seed) + '</b><br>' +
       G.so(sv.soNguoi) + ' chỉ huy &middot; ' + G.so(sv.soHT) + ' hành tinh đã có chủ &middot; ' +
       'sản xuất x' + sv.tocDo + ' &middot; bảo trì mỗi ' + (sv.chuKy / 3600) + ' giờ';
   }, function () {

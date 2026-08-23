@@ -12,6 +12,11 @@ var DB = path.join(os.tmpdir(), 'thdc-tai-' + process.pid + '.db');
 var loi = 0, ok = 0;
 function ktra(dk, ten) { if (dk) ok++; else { loi++; console.log('  ✗ ' + ten); } }
 function log(s) { console.log('  · ' + s); }
+function ctTheoCap(ds) {
+  var ra = {};
+  for (var k in ds) ra[k] = G.slTuCap(G.B(k), ds[k]);
+  return ra;
+}
 
 var kho = new Kho(DB);
 var tg = new TheGioi(kho);
@@ -42,8 +47,8 @@ try {
   for (i = 0; i < SO_TK; i++) {
     sua(ids[i], function (st) {
       var p = st.planets[0];
-      p.b = { metalMine: 16, crystalMine: 14, deutSyn: 12, farm: 12, solar: 18, metalStore: 7,
-              crystalStore: 7, deutStore: 6, silo: 6, robot: 5, shipyard: 7, lab: 6, fleetHQ: 2, maintDepot: 2 };
+      p.b = ctTheoCap({ metalMine: 16, crystalMine: 14, deutSyn: 12, farm: 12, solar: 18, metalStore: 7,
+              crystalStore: 7, deutStore: 6, silo: 6, robot: 5, shipyard: 7, lab: 6, fleetHQ: 2, maintDepot: 2 });
       p.res = { metal: 3e5, crystal: 2e5, deut: 3e5, food: 1e5 };
       p.ships = { cruiser: 30, cargoL: 10, probe: 5 };
       p.def = { missileLauncher: 20, laserS: 15, gauss: 5 };
@@ -60,7 +65,18 @@ try {
   log('tua 24 giờ cho ' + SO_TK + ' đế quốc mất ' + msTua + 'ms (' + Math.round(msTua / SO_TK) + 'ms/đế quốc)');
   ktra(msTua < 20000, 'tua 24 giờ toàn server dưới 20 giây');
   var mau = tg.nap(ids[0]).st;
-  ktra(mau.soChuKy >= 4, 'chu kỳ bảo trì đã chạy trong lúc tua (' + mau.soChuKy + ')');
+  ktra(mau.v === 6 && mau.moHinhCT === 'so-luong-v1' &&
+    mau.moHinhNhip === 'bao-tri-dan-su-v1' && mau.moHinhQuyDao === 'giu-quy-dao-v1',
+    'mọi state tải chạy trên contract v6 đầy đủ marker');
+  ktra(mau.baoTri && mau.baoTri.cycle >= 4,
+    'chu kỳ bảo trì đã chạy trong lúc tua (' + (mau.baoTri ? mau.baoTri.cycle : 0) + ')');
+
+  /* Mỗi chỉ huy độc lập tuyên chiến với người kế tiếp từ trước. Bài tải đo
+     xử lý PvP, nên không dùng việc thiếu thời gian chờ để làm nhiễu kết quả. */
+  for (i = 0; i < SO_TK; i++)
+    kho.q.chienThemTK.run(ids[i], ids[(i + 1) % SO_TK], now - 90000);
+  ktra(kho.db.prepare('SELECT COUNT(*) n FROM chien').get().n === SO_TK,
+    'đã chuẩn bị đủ lệnh chiến tranh có hiệu lực cho bài tải');
 
   /* ---------- PvP chéo đồng thời: ai cũng đánh người kế tiếp ---------- */
   var guiDuoc = 0, chan = 0;

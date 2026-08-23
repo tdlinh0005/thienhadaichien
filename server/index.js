@@ -18,6 +18,7 @@ var GOC = path.join(__dirname, '..');
 
 var kho = new Kho();
 var tg = new TheGioi(kho);
+var SO_NANG_CAP = tg.nangCapDuLieu();
 var api = new API(kho, tg);
 tg.seed();
 
@@ -134,6 +135,7 @@ server.listen(CONG, function () {
   console.log('  Database     : ' + (process.env.THDC_DB || path.join(__dirname, 'data', 'thdc.db')));
   console.log('  Hạt giống    : ' + tg.seed());
   console.log('  Tài khoản    : ' + kho.q.tkDem.get().n + ' · hành tinh đã có chủ: ' + kho.q.htDem.get().n);
+  if (SO_NANG_CAP) console.log('  Migration    : đã nâng ' + SO_NANG_CAP + ' đế quốc lên state v' + G.STATE_VERSION);
   console.log('  Tốc độ       : sản xuất x' + G.C.TOC_DO_SERVER + ' · bay x' + G.C.TOC_DO_BAY +
     ' · bảo trì mỗi ' + (G.C.CHU_KY_BAO_TRI / 3600) + ' giờ');
   console.log('  Nhịp tua     : ' + NHIP_MS + 'ms');

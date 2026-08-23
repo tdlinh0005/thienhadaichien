@@ -69,6 +69,22 @@ var SCHEMA = [
      PRIMARY KEY (tkA, fid)
    )`,
   "CREATE INDEX IF NOT EXISTS hamdang_tkd ON hamdang(tkD, denT)",
+  "CREATE INDEX IF NOT EXISTS hamdang_den_nv ON hamdang(den,nv,denT)",
+
+  /* Chỉ mục PHÁI SINH của các hạm đội đang đậu trên quỹ đạo. Tàu và hàng
+     vẫn chỉ có một bản canonical trong dq.state của tkA; bảng này tuyệt đối
+     không giữ JSON đội hình để tránh nhân đôi tài sản khi phục hồi/restart. */
+  `CREATE TABLE IF NOT EXISTS hamgiu (
+     tkA INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     fid INTEGER NOT NULL,
+     tkD INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     tu TEXT NOT NULL, td TEXT NOT NULL,
+     giuLuc INTEGER NOT NULL, giuDenT INTEGER NOT NULL, tiepNLT INTEGER NOT NULL,
+     PRIMARY KEY (tkA, fid)
+   )`,
+  "CREATE INDEX IF NOT EXISTS hamgiu_td ON hamgiu(td,giuLuc,giuDenT)",
+  "CREATE INDEX IF NOT EXISTS hamgiu_tkd ON hamgiu(tkD,td,giuDenT)",
+  "CREATE INDEX IF NOT EXISTS hamgiu_due ON hamgiu(giuDenT)",
 
   /* NPC dùng chung cả server */
   "CREATE TABLE IF NOT EXISTS npc (key TEXT PRIMARY KEY, data TEXT NOT NULL, t INTEGER NOT NULL)",
@@ -81,11 +97,46 @@ var SCHEMA = [
      ten TEXT PRIMARY KEY, tag TEXT NOT NULL, chu INTEGER NOT NULL, tao INTEGER NOT NULL, mota TEXT
    )`,
 
+  /* đơn xin gia nhập; chủ liên minh phải duyệt trước khi dq.lm thay đổi */
+  `CREATE TABLE IF NOT EXISTS lm_xin (
+     lm TEXT NOT NULL REFERENCES lm(ten) ON DELETE CASCADE,
+     tk INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     khi INTEGER NOT NULL,
+     PRIMARY KEY (lm,tk)
+   )`,
+  "CREATE INDEX IF NOT EXISTS lm_xin_tk ON lm_xin(tk,khi DESC)",
+
+  /* Lệnh chiến tranh của bản gốc nhắm tới một chỉ huy cụ thể. Bên tuyên là
+     liên minh (chủ ra lệnh, thành viên hiện tại cùng hưởng quyền) hoặc chính
+     tài khoản khi người đó chưa gia nhập liên minh. */
+  `CREATE TABLE IF NOT EXISTS chien (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     lmA TEXT REFERENCES lm(ten) ON DELETE CASCADE,
+     tkA INTEGER REFERENCES tk(id) ON DELETE CASCADE,
+     tkD INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     khi INTEGER NOT NULL,
+     CHECK ((lmA IS NULL) <> (tkA IS NULL)),
+     CHECK (tkA IS NULL OR tkA<>tkD)
+   )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS chien_lm_muctieu ON chien(lmA,tkD) WHERE lmA IS NOT NULL",
+  "CREATE UNIQUE INDEX IF NOT EXISTS chien_tk_muctieu ON chien(tkA,tkD) WHERE tkA IS NOT NULL",
+  "CREATE INDEX IF NOT EXISTS chien_muctieu ON chien(tkD,khi DESC)",
+
   /* bảng tin toàn server: ai đánh ai, ai lập liên minh... */
   `CREATE TABLE IF NOT EXISTS bangtin (
      id INTEGER PRIMARY KEY AUTOINCREMENT, khi INTEGER NOT NULL, loai TEXT NOT NULL, noi TEXT NOT NULL
    )`,
   "CREATE INDEX IF NOT EXISTS bangtin_khi ON bangtin(khi DESC)",
+
+  /* phòng chat chung được nguồn ITD xác nhận; kênh riêng liên minh là [SUY LUẬN] */
+  `CREATE TABLE IF NOT EXISTS chat (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, khi INTEGER NOT NULL,
+     tk INTEGER NOT NULL, ten TEXT NOT NULL, lm TEXT,
+     kenh TEXT NOT NULL CHECK(kenh IN ('chung','lienminh')), noi TEXT NOT NULL
+   )`,
+  "CREATE INDEX IF NOT EXISTS chat_kenh ON chat(kenh,khi DESC,id DESC)",
+  "CREATE INDEX IF NOT EXISTS chat_lm ON chat(lm,kenh,khi DESC,id DESC)",
+  "CREATE INDEX IF NOT EXISTS chat_khi ON chat(khi)",
 
   /* thống kê trận PvP để tra cứu về sau */
   `CREATE TABLE IF NOT EXISTS tran (
@@ -101,6 +152,19 @@ function moDB(duong) {
   if (duong !== ':memory:') fs.mkdirSync(path.dirname(duong), { recursive: true });
   var db = new sqlite.DatabaseSync(duong);
   SCHEMA.forEach(function (s) { db.exec(s); });
+  /* Tự sửa database của các bản cũ: trước khi có bộ máy quản trị, chủ liên
+     minh có thể rời/xoá tài khoản mà lm.chu không đổi. Chuyển quyền cho thành
+     viên mạnh nhất còn lại rồi xoá các liên minh thực sự không còn ai. */
+  db.exec(`UPDATE lm
+           SET chu=(SELECT dq.tk FROM dq WHERE dq.lm=lm.ten ORDER BY dq.diem DESC,dq.tk LIMIT 1)
+           WHERE NOT EXISTS (SELECT 1 FROM dq WHERE dq.tk=lm.chu AND dq.lm=lm.ten)
+             AND EXISTS (SELECT 1 FROM dq WHERE dq.lm=lm.ten);
+           DELETE FROM chat
+           WHERE kenh='lienminh' AND NOT EXISTS (
+             SELECT 1 FROM lm WHERE lm.ten=chat.lm
+               AND EXISTS (SELECT 1 FROM dq WHERE dq.lm=lm.ten)
+           );
+           DELETE FROM lm WHERE NOT EXISTS (SELECT 1 FROM dq WHERE dq.lm=lm.ten);`);
   return db;
 }
 
@@ -132,7 +196,8 @@ function Kho(duong) {
     dqGet: d.prepare('SELECT * FROM dq WHERE tk=?'),
     dqThem: d.prepare('INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'),
     dqLuu: d.prepare('UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'),
-    dqDenHan: d.prepare('SELECT tk FROM dq WHERE keTiep<=? ORDER BY keTiep LIMIT ?'),
+    dqLuuState: d.prepare('UPDATE dq SET state=?,capNhat=? WHERE tk=?'),
+    dqDenHan: d.prepare('SELECT tk FROM dq WHERE keTiep<=? ORDER BY keTiep,tk LIMIT ?'),
     dqXepHang: d.prepare(`SELECT dq.tk, dq.diem, dq.diemCT, dq.diemNC, dq.diemHam, dq.diemThu,
                                  dq.lm, dq.soHT, tk.hienthi, tk.vaoCuoi
                           FROM dq JOIN tk ON tk.id=dq.tk ORDER BY dq.diem DESC LIMIT ?`),
@@ -150,9 +215,40 @@ function Kho(duong) {
 
     hdXoaCua: d.prepare('DELETE FROM hamdang WHERE tkA=?'),
     hdThem: d.prepare('INSERT INTO hamdang(tkA,fid,tkD,tu,den,nv,denT,tenA,lmA) VALUES(?,?,?,?,?,?,?,?,?)'),
-    hdToi: d.prepare('SELECT * FROM hamdang WHERE tkD=? AND denT>? ORDER BY denT'),
+    hdToi: d.prepare(`SELECT d.* FROM hamdang d JOIN ht h ON h.td=d.den
+                      WHERE h.tk=? AND d.denT>? ORDER BY d.denT,d.tkA,d.fid`),
+    hdGiuDen: d.prepare("SELECT tkA,fid FROM hamdang WHERE den=? AND nv='hold' AND denT<=? ORDER BY tkA,fid"),
     hdDonRac: d.prepare('DELETE FROM hamdang WHERE denT<?'),
 
+    hgXoaCua: d.prepare('DELETE FROM hamgiu WHERE tkA=?'),
+    hgThem: d.prepare('INSERT INTO hamgiu(tkA,fid,tkD,tu,td,giuLuc,giuDenT,tiepNLT) VALUES(?,?,?,?,?,?,?,?)'),
+    /* `giuLuc<=T<giuDenT`: hạm tới đúng giây T được phòng thủ, hết hạn đúng
+       T thì không. JOIN ht + dq làm row cũ mất hiệu lực ngay khi đổi chủ/rời LM. */
+    hgTai: d.prepare(`SELECT g.*,tk.hienthi tenA,a.lm lmA
+                       FROM hamgiu g
+                       JOIN ht h ON h.td=g.td AND h.tk=g.tkD
+                       JOIN dq a ON a.tk=g.tkA
+                       JOIN dq d0 ON d0.tk=g.tkD
+                       JOIN tk ON tk.id=g.tkA
+                       WHERE g.tkD=? AND g.td=? AND g.giuLuc<=? AND g.giuDenT>?
+                         AND (g.tkA=g.tkD OR (a.lm IS NOT NULL AND a.lm=d0.lm))
+                       ORDER BY g.tkA,g.fid`),
+    /* Candidate thô để battle tua authoritative trước khi quyết định quyền và
+       expiry. Không lọc thời gian/LM ở đây: row stale phải được nạp để hook bắt
+       quay về, còn eligibility cuối vẫn là giuLuc<=T<giuDenT. */
+    hgCan: d.prepare(`SELECT g.tkA,g.fid
+                      FROM hamgiu g
+                      WHERE g.td=?
+                      ORDER BY g.tkA,g.fid`),
+    hgToi: d.prepare(`SELECT g.*,tk.hienthi tenA,a.lm lmA
+                       FROM hamgiu g
+                       JOIN ht h ON h.td=g.td AND h.tk=g.tkD
+                       JOIN dq a ON a.tk=g.tkA
+                       JOIN dq d0 ON d0.tk=g.tkD
+                       JOIN tk ON tk.id=g.tkA
+                       WHERE g.tkD=? AND g.giuLuc<=? AND g.giuDenT>? AND g.tiepNLT>?
+                         AND (g.tkA=g.tkD OR (a.lm IS NOT NULL AND a.lm=d0.lm))
+                       ORDER BY g.td,g.tkA,g.fid`),
     npcGet: d.prepare('SELECT data FROM npc WHERE key=?'),
     npcSet: d.prepare('INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,t=excluded.t'),
 
@@ -163,11 +259,43 @@ function Kho(duong) {
     lmDS: d.prepare(`SELECT lm.*, (SELECT COUNT(*) FROM dq WHERE dq.lm=lm.ten) sl,
                      (SELECT COALESCE(SUM(diem),0) FROM dq WHERE dq.lm=lm.ten) diem FROM lm ORDER BY diem DESC`),
     lmGet: d.prepare('SELECT * FROM lm WHERE ten=?'),
+    lmTheoTag: d.prepare('SELECT * FROM lm WHERE tag=? COLLATE NOCASE'),
+    lmCuaChu: d.prepare('SELECT * FROM lm WHERE chu=?'),
     lmThem: d.prepare('INSERT INTO lm(ten,tag,chu,tao,mota) VALUES(?,?,?,?,?)'),
+    lmDoiChu: d.prepare('UPDATE lm SET chu=? WHERE ten=?'),
+    lmKeNhi: d.prepare('SELECT tk FROM dq WHERE lm=? AND tk<>? ORDER BY diem DESC,tk LIMIT 1'),
     lmXoa: d.prepare('DELETE FROM lm WHERE ten=?'),
+    lmXinGet: d.prepare('SELECT * FROM lm_xin WHERE lm=? AND tk=?'),
+    lmXinThem: d.prepare('INSERT INTO lm_xin(lm,tk,khi) VALUES(?,?,?)'),
+    lmXinXoa: d.prepare('DELETE FROM lm_xin WHERE lm=? AND tk=?'),
+    lmXinXoaCua: d.prepare('DELETE FROM lm_xin WHERE tk=?'),
+    lmXinCua: d.prepare('SELECT lm,khi FROM lm_xin WHERE tk=? ORDER BY khi DESC'),
+    lmXinDS: d.prepare(`SELECT x.lm,x.tk,x.khi,tk.hienthi,dq.diem,dq.soHT
+                        FROM lm_xin x JOIN tk ON tk.id=x.tk JOIN dq ON dq.tk=x.tk
+                        WHERE x.lm=? ORDER BY x.khi,x.tk`),
+
+    chienGetLM: d.prepare('SELECT * FROM chien WHERE lmA=? AND tkD=?'),
+    chienGetTK: d.prepare('SELECT * FROM chien WHERE tkA=? AND tkD=?'),
+    chienThemLM: d.prepare('INSERT INTO chien(lmA,tkA,tkD,khi) VALUES(?,NULL,?,?)'),
+    chienThemTK: d.prepare('INSERT INTO chien(lmA,tkA,tkD,khi) VALUES(NULL,?,?,?)'),
+    chienTheoLM: d.prepare(`SELECT c.*,tk.hienthi tenD,dq.lm lmD
+                            FROM chien c JOIN tk ON tk.id=c.tkD JOIN dq ON dq.tk=c.tkD
+                            WHERE c.lmA=? ORDER BY c.khi DESC,c.id DESC`),
+    chienTheoTK: d.prepare(`SELECT c.*,tk.hienthi tenD,dq.lm lmD
+                            FROM chien c JOIN tk ON tk.id=c.tkD JOIN dq ON dq.tk=c.tkD
+                            WHERE c.tkA=? ORDER BY c.khi DESC,c.id DESC`),
+    chienToi: d.prepare(`SELECT c.*,a.hienthi tenA,adq.lm lmTkA
+                         FROM chien c LEFT JOIN tk a ON a.id=c.tkA LEFT JOIN dq adq ON adq.tk=c.tkA
+                         WHERE c.tkD=? ORDER BY c.khi DESC,c.id DESC`),
 
     btThem: d.prepare('INSERT INTO bangtin(khi,loai,noi) VALUES(?,?,?)'),
     btDS: d.prepare('SELECT * FROM bangtin ORDER BY khi DESC, id DESC LIMIT ?'),
+
+    chatThem: d.prepare('INSERT INTO chat(khi,tk,ten,lm,kenh,noi) VALUES(?,?,?,?,?,?)'),
+    chatChung: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='chung' AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
+    chatLM: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='lienminh' AND lm=? AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
+    chatLMXoa: d.prepare("DELETE FROM chat WHERE kenh='lienminh' AND lm=?"),
+    chatDonRac: d.prepare('DELETE FROM chat WHERE khi<?'),
 
     tranThem: d.prepare('INSERT INTO tran(khi,tkA,tkD,td,kq,cuop,matA,matD) VALUES(?,?,?,?,?,?,?,?)'),
     tranDS: d.prepare('SELECT * FROM tran ORDER BY khi DESC LIMIT ?')

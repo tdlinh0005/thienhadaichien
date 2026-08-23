@@ -1,5 +1,7 @@
-/* THIÊN HÀ ĐẠI CHIẾN — bảng hành động dùng chung
- * Đây là NƠI DUY NHẤT các hành động của người chơi được thực thi.
+/* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
+ * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
+ * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
+ * các phương thức server chuyên biệt vì chúng tác động dữ liệu dùng chung.
  *   - Chế độ một người: client gọi trực tiếp trên state trong máy.
  *   - Chế độ nhiều người: server gọi trên state trong database (client chỉ gửi
  *     yêu cầu). Vì vậy mọi kiểm tra ở đây phải coi dữ liệu vào là KHÔNG TIN ĐƯỢC.
@@ -24,7 +26,13 @@ G.HANHDONG = {
   xay: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     if (!G.B(chuoi(d.id, 30))) return 'Không có công trình này.';
-    return G.xepXay(st, p, d.id);
+    var n;
+    if (d.n !== undefined && d.n !== null) {
+      n = Number(d.n);
+      if (!Number.isSafeInteger(n) || n < 1 || n > 10000000)
+        return 'Số lượng xây phải là số nguyên từ 1 tới 10.000.000.';
+    }
+    return G.xepXay(st, p, d.id, n);
   },
   huyxay: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
@@ -42,6 +50,30 @@ G.HANHDONG = {
   huync: function (st) {
     if (!st.ncQueue) return 'Không có đề tài nào đang chạy.';
     G.huyNC(st); return null;
+  },
+
+  /* --- dân sự -------------------------------------------------------- */
+  doithue: function (st, d) {
+    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
+    var taxBp;
+    if (d.thue !== undefined) {
+      if (d.thue === null || (typeof d.thue === 'string' && !d.thue.trim()))
+        return 'Thuế phải nằm trong khoảng 0% tới 100%.';
+      var thue = Number(d.thue);
+      if (!isFinite(thue) || thue < 0 || thue > 100) return 'Thuế phải nằm trong khoảng 0% tới 100%.';
+      taxBp = Math.round(thue * 100);
+    } else {
+      var rawBp = d.taxBp !== undefined ? d.taxBp : d.bp;
+      if (rawBp === null || rawBp === undefined || (typeof rawBp === 'string' && !rawBp.trim()))
+        return 'Thuế phải là số nguyên từ 0 tới 10.000 bp.';
+      taxBp = Number(rawBp);
+      if (!Number.isSafeInteger(taxBp) || taxBp < G.NHIP_V1.minTaxBp || taxBp > G.NHIP_V1.maxTaxBp)
+        return 'Thuế phải là số nguyên từ 0 tới 10.000 bp.';
+    }
+    if (!p.danSu) p.danSu = G.danSuMacDinh();
+    p.danSu.taxBp = taxBp;
+    G.ghi(st, 'Đổi thuế tại ' + p.ten + ' ' + G.tdStr(p.c) + ' thành ' + (taxBp / 100).toFixed(2) + '%.');
+    return null;
   },
 
   /* --- đóng tàu / phòng thủ / tên lửa --- */
@@ -116,7 +148,8 @@ G.HANHDONG = {
 
   /* --- liên minh --- */
   lmvao: function (st, d) {
-    var ten = chuoi(d.ten, 40);
+    /* [THẺ 6 KÝ TỰ] + dấu cách + tên 32 ký tự có thể dài 41 ký tự. */
+    var ten = chuoi(d.ten, 48);
     if (!ten) return 'Thiếu tên liên minh.';
     if (st.lm) return 'Đang ở trong một liên minh khác.';
     if (!G.HOOK && G.LIEN_MINH.indexOf(ten) < 0) return 'Không có liên minh này.';

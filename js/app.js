@@ -42,7 +42,10 @@ var ACT = {
   luu: function () { if (APP.luu) APP.luu(false); },
 
   /* ---------- công trình / nghiên cứu / xưởng ---------- */
-  xay: function (el) { lam('xay', { pi: U.pi, id: el.getAttribute('data-id') }); },
+  xay: function (el) {
+    var id = el.getAttribute('data-id');
+    lam('xay', { pi: U.pi, id: id, n: soO('ct-sl-' + id) });
+  },
   huyxay: function (el) { lam('huyxay', { pi: U.pi, i: +el.getAttribute('data-i') }); },
   nc: function (el) { lam('nc', { pi: U.pi, id: el.getAttribute('data-id') }); },
   huync: function () { lam('huync', {}, 'Đã huỷ đề tài, hoàn lại chi phí.'); },
@@ -51,6 +54,10 @@ var ACT = {
     lam('dong', { pi: U.pi, id: id, n: soO('sl-' + id) || 1 });
   },
   huydong: function (el) { lam('huydong', { pi: U.pi, i: +el.getAttribute('data-i') }); },
+  doithue: function () {
+    var e = document.getElementById('thue-pct');
+    lam('doithue', { pi: U.pi, thue: e ? Number(e.value) : NaN }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
+  },
 
   /* ---------- chợ ---------- */
   ban: function (el) {
@@ -119,6 +126,19 @@ var ACT = {
     var nl = G.nhienLieu(st, f.ships, G.khoangCach(p.c, f.den), f.pct);
     f.cargo = {};
     var con = suc, ds = ['metal', 'crystal', 'deut', 'food'];
+    /* Với Giữ Chỗ, ưu tiên nạp đủ nhiên liệu quỹ đạo đã lên kế hoạch. Đây chỉ
+       là tiện ích điền form; engine/server vẫn tự kiểm tra authoritative. */
+    if (f.mission === 'hold' && G.QUY_DAO_V1 && G.nhienLieuGiu) {
+      var giuGiay = Math.max(1, Math.min(24, Math.floor(+f.giu || 1))) * 3600;
+      var canGiu = 0, doan = Math.max(1, G.QUY_DAO_V1.segmentSeconds);
+      if (G.nhienLieuGiuTong) canGiu = G.nhienLieuGiuTong(st, f.ships, giuGiay);
+      else for (var giuCon = giuGiay; giuCon > 0; giuCon -= doan)
+        canGiu += G.nhienLieuGiu(st, f.ships, Math.min(giuCon, doan));
+      var deutCo = Math.max(0, Math.floor((p.res.deut || 0) - nl));
+      var napGiu = Math.min(con, deutCo, canGiu);
+      if (napGiu > 0) { f.cargo.deut = napGiu; con -= napGiu; }
+      ds = ['metal', 'crystal', 'food'];
+    }
     for (var i = 0; i < ds.length && con > 0; i++) {
       var co = Math.max(0, Math.floor((p.res[ds[i]] || 0) - (ds[i] === 'deut' ? nl : 0)));
       var lay = (i === ds.length - 1) ? Math.min(co, con) : Math.min(co, Math.floor(con / (ds.length - i)));
@@ -251,6 +271,18 @@ document.addEventListener('input', function (e) {
   var id = e.target.id || '';
   if (id === 'f-pct') { var v = document.getElementById('f-pct-v'); if (v) v.textContent = e.target.value + '%'; }
   if (/^cho-/.test(id)) U.cho[id.slice(4)] = Math.max(0, Math.floor(+e.target.value || 0));
+  if (/^ct-sl-/.test(id)) {
+    var bid = id.slice(6), b = G.B(bid), n = Math.max(1, Math.min(10000000, Math.floor(+e.target.value || 1)));
+    var gia = document.getElementById('ct-gia-' + bid), tg = document.getElementById('ct-tg-' + bid);
+    var nut = document.querySelector('[data-act="xay"][data-id="' + bid + '"]');
+    var cost = b ? G.giaCongTrinh(b, n) : null;
+    if (b && gia) gia.innerHTML = U.gia(cost, U.ht(), U.st());
+    if (b && tg) tg.textContent = G.tg(G.tgXay(U.st(), U.ht(), cost));
+    if (nut) {
+      nut.textContent = 'Xây ×' + G.so(n);
+      nut.classList.toggle('oke', !!b && G.duTien(U.st(), U.ht(), cost) && !G.thieuDK(U.st(), U.ht(), b).length);
+    }
+  }
   if (/^(f-|ft-|fc-|fl-)/.test(id)) {
     U.capNhatForm();
     var tt = document.getElementById('hd-tt');

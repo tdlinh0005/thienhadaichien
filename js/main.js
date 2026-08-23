@@ -4,8 +4,9 @@
 'use strict';
 (function () {
   var G = window.G, U = window.U, APP = window.APP;
-  var KEY = 'thdc_save_v3';
+  var KEY = 'thdc_save_v6', KEY_CU = ['thdc_save_v5', 'thdc_save_v4', 'thdc_save_v3'];
   var ST = null;
+  var LOI_NAP = '';
   var COFILE = !window.THDC_ARTIFACT;   // trong Artifact không tải file được
 
   /* ---------------- lưu / nạp ---------------- */
@@ -16,17 +17,41 @@
       if (!im) U.toast('Đã lưu bàn chơi.', 'ok');
     } catch (e) { U.toast('Không lưu được: ' + e.message, 'loi'); }
   }
+  function chuanHoa(o) {
+    if (!o || !Array.isArray(o.planets) || !o.planets.length)
+      throw new Error('không phải bàn chơi hợp lệ');
+    var v = Math.max(0, Math.floor(Number(o.v) || 0));
+    if (v > G.STATE_VERSION)
+      throw new Error('bàn chơi dùng state v' + v + ', mới hơn engine v' + G.STATE_VERSION);
+    G.nangCapState(o, G.giay());
+    if (o.v !== G.STATE_VERSION || o.moHinhCT !== 'so-luong-v1' ||
+        o.moHinhNhip !== 'bao-tri-dan-su-v1' || o.moHinhQuyDao !== 'giu-quy-dao-v1')
+      throw new Error('marker mô hình state không hợp lệ cho state v' + o.v);
+    o.toi = Array.isArray(o.toi) ? o.toi : [];
+    o.tenLua = Array.isArray(o.tenLua) ? o.tenLua : [];
+    o.fleets = Array.isArray(o.fleets) ? o.fleets : [];
+    o.npc = o.npc || {}; o.debris = o.debris || {}; o.msgs = Array.isArray(o.msgs) ? o.msgs : [];
+    o.nk = Array.isArray(o.nk) ? o.nk : [];
+    o.stats = o.stats || { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 };
+    o.fleetIdSeq = o.fleetIdSeq || 1;
+    return o;
+  }
   function nap() {
+    var nguon = null;
     try {
       var s = localStorage.getItem(KEY);
+      for (var i = 0; !s && i < KEY_CU.length; i++) {
+        s = localStorage.getItem(KEY_CU[i]);
+        if (s) nguon = KEY_CU[i];
+      }
       if (!s) return null;
-      var o = JSON.parse(s);
-      if (!o || !o.planets || !o.planets.length) return null;
-      o.toi = o.toi || []; o.npc = o.npc || {}; o.debris = o.debris || {}; o.msgs = o.msgs || [];
-      o.nk = o.nk || []; o.stats = o.stats || { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 };
-      o.noBaoTri = o.noBaoTri || 0; o.soChuKy = o.soChuKy || 0; o.fleetIdSeq = o.fleetIdSeq || 1;
+      var o = chuanHoa(JSON.parse(s));
+      /* Chỉ ghi key mới sau khi parse + migration + validation đã thành công.
+         Các key v5/v4/v3 được giữ nguyên làm bản raw dự phòng cho tới khi người
+         chơi tự xoá bàn; bản v6 luôn được ưu tiên nên save cũ không sống lại. */
+      if (nguon) localStorage.setItem(KEY, JSON.stringify(o));
       return o;
-    } catch (e) { return null; }
+    } catch (e) { LOI_NAP = e && e.message || String(e); return null; }
   }
 
   /* ---------------- APP: chạy hành động tại chỗ ---------------- */
@@ -43,7 +68,7 @@
   })();
 
   function batDau(st) {
-    window.ST = ST = st;
+    window.ST = ST = chuanHoa(st);
     document.getElementById('man-khoidong').style.display = 'none';
     document.getElementById('game').style.display = '';
     G.tick(ST, G.giay());
@@ -91,7 +116,7 @@
     nhap: function () {
       U.hop('Nạp bàn chơi',
         '<p class="mo">Dán nội dung bàn chơi đã xuất vào đây rồi bấm Nạp. Bàn hiện tại sẽ bị ghi đè.</p>' +
-        '<textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":3,...}\'></textarea>' +
+        '<textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":6,...}\'></textarea>' +
         '<div style="margin-top:8px"><button class="nut oke" data-act="nhap-ok">Nạp</button>' +
         (COFILE ? ' <button class="nut" data-act="nhap-file">Chọn file...</button>' : '') + '</div>');
     },
@@ -99,7 +124,7 @@
       var v = (document.getElementById('nhap-js') || {}).value || '';
       try {
         var o = JSON.parse(v);
-        if (!o || !o.planets || !o.planets.length) throw new Error('không phải bàn chơi hợp lệ');
+        o = chuanHoa(o);
         window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.dongHop(); U.ve();
         U.toast('Đã nạp bàn chơi.', 'ok');
       } catch (e) { U.toast('Nạp thất bại: ' + e.message, 'loi'); }
@@ -110,7 +135,13 @@
         '<button class="nut xoa" data-act="xoa-that">Xoá và chơi lại</button> ' +
         '<button class="nut" data-act="dong-ht">Thôi</button>');
     },
-    'xoa-that': function () { localStorage.removeItem(KEY); location.reload(); }
+    'xoa-that': function () {
+      /* Ngăn beforeunload ghi lại đúng bàn vừa xoá trong lúc reload. */
+      ST = null; window.ST = null;
+      localStorage.removeItem(KEY);
+      for (var i = 0; i < KEY_CU.length; i++) localStorage.removeItem(KEY_CU[i]);
+      location.reload();
+    }
   });
 
   APP.doiFile = function (e) {
@@ -119,7 +150,7 @@
       fr.onload = function () {
         try {
           var o = JSON.parse(fr.result);
-          if (!o.planets) throw new Error('file không đúng định dạng');
+          o = chuanHoa(o);
           window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.ve();
           U.toast('Đã nạp bàn chơi từ file.', 'ok');
         } catch (err) { U.toast('Nạp thất bại: ' + err.message, 'loi'); }
@@ -131,6 +162,11 @@
   /* ---------------- màn khởi động ---------------- */
   document.getElementById('kd-ver').textContent = G.VERSION;
   var cu = nap();
+  if (LOI_NAP) {
+    var kd = document.querySelector('.kd-form');
+    if (kd) kd.insertAdjacentHTML('beforeend', '<div class="canh" style="margin-top:10px">Không nạp được bàn cũ: ' +
+      U.esc(LOI_NAP) + '. Dữ liệu gốc vẫn được giữ nguyên.</div>');
+  }
   if (cu) {
     var b = document.getElementById('kd-tieptuc');
     b.style.display = '';
