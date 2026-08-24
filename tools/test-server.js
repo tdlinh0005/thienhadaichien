@@ -962,6 +962,9 @@ function truyVan(sql, ...args) {
     ktra(!duoiCLanHai.loi && !docState(idC).lm, 'đưa C ra ngoài lại sau bài test chuyển tư cách giữa đường');
     epToiDich(idB); await goi('/api/state', null, b.token);  // cho hạm đội bị chặn về hết, giải phóng khe
 
+
+
+
     var lm5 = await goi('/api/lmxin', { ten: '[XXX] Không Có Thật' }, c.token);
     ktra(!!lm5.loi, 'không xin vào được liên minh không tồn tại');
     suaState(idB, function (st) {
@@ -974,6 +977,66 @@ function truyVan(sql, ...args) {
     ktra(!danhTruocKhiRoi.loi, 'B còn dùng được lệnh liên minh trước lúc rời');
     var lm6 = await goi('/api/lam', { ten: 'lmra', dl: {} }, b.token);
     ktra(!lm6.loi && !lm6.st.lm, 'B rời được liên minh');
+
+    /* ---------- 10b. [v7] BA CHÍNH THỂ: dân chủ biểu quyết ---------- */
+    /* B đã rời DNV ở bài trước; DNV chỉ còn A nên A rời là giải tán luôn */
+    var roiDNV = await goi('/api/lam', { ten: 'lmra', dl: {} }, a.token);
+    ktra(!roiDNV.loi && !roiDNV.st.lm, 'A rời [DNV] để lập liên minh có phiếu');
+    var lmDC = await goi('/api/lmtao', { ten: 'Liên Bang Dân Chủ', tag: 'LBDC', chinhThe: 'danChu' }, a.token);
+    ktra(!lmDC.loi, 'lập được liên minh Dân chủ' + (lmDC.loi ? ': ' + lmDC.loi : ''));
+    var xinDC = await goi('/api/lmxin', { ten: '[LBDC] Liên Bang Dân Chủ' }, c.token);
+    ktra(!xinDC.loi, 'C gửi đơn vào liên minh Dân chủ');
+    /* tuyenchien của LM có phiếu phải bị chặn khi chưa biểu quyết */
+    var tcChuaPhieu = await goi('/api/tuyenchien', { tk: idB }, a.token);
+    ktra(!!tcChuaPhieu.loi, 'Dân chủ không cho đặt lệnh chiến tranh khi chưa có phiếu đạt');
+    /* mở phiếu tuyên chiến nhắm B, A bỏ phiếu tán thành (2/2 thành viên → cần cả hai) */
+    var moP = await goi('/api/lmphieu', { loai: 'tuyenchien', doiTuong: idB }, a.token);
+    ktra(!moP.loi && moP.id, 'mở phiếu tuyên chiến' + (moP.loi ? ': ' + moP.loi : ''));
+    var bauA1 = await goi('/api/lmphieu', { phieuId: moP.id, giaTri: true }, a.token);
+    ktra(!bauA1.loi, 'A bỏ phiếu tán thành tuyên chiến');
+    /* 2 thành viên: đa số tuyệt đối cần 2 phiếu tán thành (ceil((2+1)/2)=2) — chưa đạt thì lệnh chưa đặt */
+    var chuaDuocLenh = truyVan("SELECT * FROM chien WHERE lmA='[LBDC] Liên Bang Dân Chủ' AND tkD=?", idB).length;
+    var bauB1 = await goi('/api/lmphieu', { phieuId: moP.id, giaTri: true }, b.token).catch(() => ({ loi: 'ngoài LM' }));
+    ktra(!!bauB1.loi, 'người ngoài liên minh không bỏ phiếu được');
+    /* duyệt B qua phiếu: A một mình (1 thành viên) → 1 tán thành là đa số ngay */
+    var xinB = await goi('/api/lmxin', { ten: '[LBDC] Liên Bang Dân Chủ' }, b.token);
+    ktra(!xinB.loi, 'B gửi đơn vào LBDC');
+    var moPB = await goi('/api/lmphieu', { loai: 'duyet', doiTuong: idB }, a.token);
+    ktra(!moPB.loi, 'mở phiếu duyệt đơn của B' + (moPB.loi ? ': ' + moPB.loi : ''));
+    var bauAB = await goi('/api/lmphieu', { phieuId: moPB.id, giaTri: true }, a.token);
+    ktra(!bauAB.loi && docState(idB).lm && docState(idB).lm.ten === '[LBDC] Liên Bang Dân Chủ',
+      'phiếu 1/1 tự động duyệt B vào liên minh');
+    /* duyệt C qua phiếu: giờ có 2 thành viên → 1/2 chưa đủ, 2/2 đạt */
+    var moP2 = await goi('/api/lmphieu', { loai: 'duyet', doiTuong: idC }, a.token);
+    ktra(!moP2.loi, 'mở phiếu duyệt đơn của C' + (moP2.loi ? ': ' + moP2.loi : ''));
+    var bauA2 = await goi('/api/lmphieu', { phieuId: moP2.id, giaTri: true }, a.token);
+    var lmCTruocPhieu = docState(idC).lm;
+    ktra(!bauA2.loi && (!lmCTruocPhieu || lmCTruocPhieu.ten !== '[LBDC] Liên Bang Dân Chủ'),
+      'phiếu 1/2 chưa thực thi khi thiếu đa số');
+    var bauB2b = await goi('/api/lmphieu', { phieuId: moP2.id, giaTri: true }, b.token);
+    ktra(!bauB2b.loi && docState(idC).lm && docState(idC).lm.ten === '[LBDC] Liên Bang Dân Chủ',
+      'phiếu 2/2 đạt đa số tự động duyệt C vào liên minh');
+    /* phiếu tuyên chiến moP đã đạt đa số ngay lúc A bầu (LBDC khi đó chỉ có A):
+       lệnh chiến tranh phải đã được tự động đặt */
+    ktra(truyVan("SELECT * FROM chien WHERE lmA='[LBDC] Liên Bang Dân Chủ' AND tkD=?", idB).length >= 1,
+      'phiếu tuyên chiến đạt tự động đặt lệnh chiến tranh');
+    /* Cộng hoà: A chuyển quyền B rồi rời để lập liên minh Cộng hoà riêng */
+    var chuyenB = await goi('/api/lmchuyen', { tk: idB }, a.token);
+    ktra(!chuyenB.loi, 'A chuyển quyền chủ LBDC cho B');
+    var roiLB = await goi('/api/lam', { ten: 'lmra', dl: {} }, a.token);
+    ktra(!roiLB.loi, 'A rời LBDC sau khi chuyển quyền');
+    var lmCH = await goi('/api/lmtao', { ten: 'Quốc Hội Liên Hành', tag: 'QHL', chinhThe: 'congHoa' }, a.token);
+    ktra(!lmCH.loi, 'lập được liên minh Cộng hoà' + (lmCH.loi ? ': ' + lmCH.loi : ''));
+    var qhInfo = await goi('/api/lm', null, a.token);
+    if (!qhInfo.ds || !qhInfo.ds.some(function (x) { return x.ten === '[QHL] Quốc Hội Liên Hành' && x.chinhThe === 'congHoa'; }))
+      console.log('  · DEBUG QHL:', JSON.stringify((qhInfo.ds || []).map(function (x) { return [x.ten, x.chinhThe]; })));
+    ktra(qhInfo.ds && qhInfo.ds.some(function (x) { return x.ten === '[QHL] Quốc Hội Liên Hành' && x.chinhThe === 'congHoa'; }),
+      'danh sách liên minh ghi nhận chính thể Cộng hoà');
+    /* dọn trạng thái: chuyển chủ LBDC cho C rồi cả hai rời; A giữ QHL */
+    var chuyenCBai = await goi('/api/lmchuyen', { tk: idC }, b.token);
+    ktra(!chuyenCBai.loi, 'B chuyển quyền chủ LBDC cho C');
+    await goi('/api/lam', { ten: 'lmra', dl: {} }, b.token);
+    await goi('/api/lam', { ten: 'lmra', dl: {} }, c.token);
     var tranTruocMatQuyen = truyVan('SELECT * FROM tran').length;
     epToiDich(idB); await goi('/api/state', null, b.token);
     ktra(docState(idB).msgs.some(m => m.td && m.td.indexOf('Hội Đồng Bảo An chặn') >= 0 && m.nd && m.nd.indexOf('Chưa có lệnh') >= 0),
@@ -984,7 +1047,7 @@ function truyVan(sql, ...args) {
     var oSauRoi = heSauRoi.o.find(x => x.c.p === c.nha.p);
     ktra(oSauRoi && oSauRoi.chien && oSauRoi.chien.trang === 'chua',
       'rời liên minh thì mất quyền đánh được thừa hưởng, không giữ snapshot thành viên');
-    var lmTrungTag = await goi('/api/lmtao', { ten: 'Một Tên Hoàn Toàn Khác', tag: 'DNV' }, c.token);
+    var lmTrungTag = await goi('/api/lmtao', { ten: 'Một Tên Hoàn Toàn Khác', tag: 'QHL' }, c.token);
     ktra(lmTrungTag.__ma === 400, 'không cho hai liên minh người chơi dùng trùng thẻ');
     var lmKhoangTrang = await goi('/api/lmtao', { ten: 'Đại Nam Vệ', tag: '   DNVX' }, c.token);
     ktra(!lmKhoangTrang.loi && lmKhoangTrang.st.lm && lmKhoangTrang.st.lm.ten === '[DNVX] Đại Nam Vệ',
@@ -1032,10 +1095,15 @@ function truyVan(sql, ...args) {
     ktra(docState(idA).galana === galNgoaiA && docState(idB).galana === galNgoaiB,
       'giao dịch Galana ngoài liên minh không đổi số dư hai bên');
 
-    var xinLaiB = await goi('/api/lmxin', { ten: '[DNV] Đại Nam Vệ' }, b.token);
+    /* DNV đã giải tán trong 10b (A rời khi chỉ còn mình): tái lập để chạy tiếp
+     * các bài tiếp tế/đồng minh như trước. A phải rời QHL trước (QHL hết vai trò). */
+    await goi('/api/lam', { ten: 'lmra', dl: {} }, a.token);
+    var lapLaiDNV = await goi('/api/lmtao', { ten: 'Đại Nam Vệ', tag: 'DN2' }, a.token);
+    ktra(!lapLaiDNV.loi, 'A tái lập Đại Nam Vệ (thẻ DN2)' + (lapLaiDNV.loi ? ': ' + lapLaiDNV.loi : ''));
+    var xinLaiB = await goi('/api/lmxin', { ten: '[DN2] Đại Nam Vệ' }, b.token);
     ktra(!xinLaiB.loi, 'B xin gia nhập lại để thử tiếp tế đồng minh');
     var duyetLaiB = await goi('/api/lmduyet', { tk: idB }, a.token);
-    ktra(!duyetLaiB.loi && docState(idB).lm && docState(idB).lm.ten === '[DNV] Đại Nam Vệ',
+    ktra(!duyetLaiB.loi && docState(idB).lm && docState(idB).lm.ten === '[DN2] Đại Nam Vệ',
       'A duyệt B trở lại liên minh');
     var tcDongMinh = await goi('/api/tuyenchien', { tk: idB }, a.token);
     ktra(tcDongMinh.__ma === 400, 'chủ liên minh không thể tuyên chiến với thành viên của mình');
@@ -1582,7 +1650,7 @@ function truyVan(sql, ...args) {
     /* Mô phỏng dữ liệu do bản server cũ để lại: cựu chủ B không còn là thành
        viên nhưng lm.chu vẫn trỏ tới B, kèm một liên minh hoàn toàn mồ côi. */
     var dbCu = moDB();
-    dbCu.prepare("UPDATE lm SET chu=? WHERE ten='[DNV] Đại Nam Vệ'").run(idB);
+    dbCu.prepare("UPDATE lm SET chu=? WHERE ten='[DN2] Đại Nam Vệ'").run(idB);
     dbCu.prepare('INSERT INTO lm(ten,tag,chu,tao,mota) VALUES(?,?,?,?,?)').run(
       '[CU] Liên Minh Mồ Côi', 'CU', 999999, Math.floor(Date.now() / 1000), null);
     dbCu.close();
@@ -1628,7 +1696,7 @@ function truyVan(sql, ...args) {
       var s3 = await goi('/api/state', null, dn3.token);
       ktra(!!s3.st && s3.st.planets.length >= 1, 'B đăng nhập lại và lấy được đế quốc cũ');
       ktra(s3.st.msgs.some(m => m.loai === 'tran'), 'báo cáo trận đánh vẫn còn trong hộp tin của B');
-      var lmDaSua = truyVan("SELECT * FROM lm WHERE ten='[DNV] Đại Nam Vệ'")[0];
+      var lmDaSua = truyVan("SELECT * FROM lm WHERE ten='[DN2] Đại Nam Vệ'")[0];
       ktra(lmDaSua && lmDaSua.chu === idA, 'mở DB cũ tự chuyển quyền khỏi cựu chủ đã rời liên minh');
       ktra(truyVan("SELECT * FROM lm WHERE ten='[CU] Liên Minh Mồ Côi'").length === 0,
         'mở DB cũ tự xoá liên minh không còn thành viên');

@@ -224,6 +224,193 @@ TheGioi.prototype.veHook = function () {
 };
 
 /* ----------------------------------------------------- chiến tranh / đồng minh */
+
+/* ===================== [v7] BA CHÍNH THỂ LIÊN MINH =========================
+ * [XÁC NHẬN] tư liệu GVN xác nhận ba kiểu lãnh đạo: Độc tài, Dân chủ, Cộng hoà.
+ * [TÁI DỰNG] toàn bộ cơ chế phiếu dưới đây vì nguồn không mô tả cách chúng vận hành:
+ *   - docTai:  chủ quyết mọi thứ trực tiếp (hành vi v6 giữ nguyên).
+ *   - danChu:  mọi quyết định lớn đi qua phiếu TOÀN thành viên, đa số đơn giản,
+ *              hạn 24 giờ; bầu chủ theo kỳ 14 ngày.
+ *   - congHoa: như dân chủ nhưng chỉ ĐẠI BIỂU (top 5 điểm) được bỏ phiếu.
+ * Phiếu đạt đa số hoặc hết hạn → server thực thi bằng chính luồng nội bộ hiện có. */
+var CHINH_THE_HOP_LE = ['docTai', 'danChu', 'congHoa'];
+var PHIEU_HAN = 24 * 3600;            // hạn phiếu thường
+var KY_BAU_CHU = 14 * 24 * 3600;      // kỳ bầu chủ của chính thể có phiếu
+var DAI_BIEU_TOI_DA = 5;
+
+TheGioi.prototype.coPhieu = function (lmTen) {
+  var lm = this.kho.q.lmGet.get(lmTen);
+  return !!lm && (lm.chinhThe === 'danChu' || lm.chinhThe === 'congHoa');
+};
+
+/* Đại biểu Cộng hoà: top DAI_BIEU_TOI_DA thành viên theo điểm, tái tính mỗi lần. */
+TheGioi.prototype.daiBieu = function (lmTen) {
+  return this.kho.q.lmThanhVienDiem.all(lmTen).slice(0, DAI_BIEU_TOI_DA).map(function (r) { return r.tk; });
+};
+
+/* Ai được bỏ phiếu cho một liên minh có phiếu. */
+TheGioi.prototype.duocBauKhong = function (lmTen, tk) {
+  var dq = this.kho.q.dqGet.get(tk);
+  if (!dq || dq.lm !== lmTen) return false;
+  var lm = this.kho.q.lmGet.get(lmTen);
+  if (!this.coPhieu(lmTen)) return false;
+  if (lm.chinhThe === 'congHoa') return this.daiBieu(lmTen).indexOf(tk) >= 0;
+  return true;
+};
+
+/* Tạo phiếu mới. doiTuong: tk mục tiêu (duyet/tuchoi/duoi/bachu/tuyenchien). */
+TheGioi.prototype.taoPhieu = function (tk, loai, doiTuong) {
+  var now = Math.floor(Date.now() / 1000), kho = this.kho;
+  var dq = kho.q.dqGet.get(tk);
+  if (!dq || !dq.lm) return { loi: 'Chỉ thành viên liên minh mới mở phiếu.' };
+  var lmTen = dq.lm;
+  if (!this.coPhieu(lmTen)) return { loi: 'Liên minh Độc tài không cần phiếu — chủ quyết định trực tiếp.' };
+  if (!this.duocBauKhong(lmTen, tk))
+    return { loi: 'Chỉ đại biểu (top ' + DAI_BIEU_TOI_DA + ' điểm) mới mở phiếu ở chính thể Cộng hoà.' };
+  if (['tuyenchien', 'duyet', 'tuchoi', 'duoi', 'bachu'].indexOf(loai) < 0)
+    return { loi: 'Loại phiếu không hợp lệ.' };
+  doiTuong = Math.floor(+doiTuong || 0);
+  if (!doiTuong) return { loi: 'Thiếu đối tượng của phiếu.' };
+  if (loai === 'tuyenchien') {
+    var dDich = kho.q.dqGet.get(doiTuong);
+    if (!dDich) return { loi: 'Mục tiêu không tồn tại.' };
+    if (dDich.lm === lmTen) return { loi: 'Không thể tuyên chiến với cùng liên minh.' };
+    if (kho.q.chienGetLM.get(lmTen, doiTuong)) return { loi: 'Đã có lệnh chiến tranh với chỉ huy này.' };
+  } else if (loai !== 'bachu') {
+    if (loai === 'duyet') {
+      var don = kho.q.lmXinGet.get(lmTen, doiTuong);
+      if (!don) return { loi: 'Không có đơn xin nào của người này.' };
+    } else {
+      var dQ = kho.q.dqGet.get(doiTuong);
+      if (!dQ || dQ.lm !== lmTen) return { loi: 'Đối tượng không phải thành viên liên minh.' };
+      if (doiTuong === tk) return { loi: 'Không thể mở phiếu nhắm chính mình.' };
+    }
+  }
+  /* mỗi loại chỉ một phiếu đang mở cùng lúc để tránh treo song song */
+  if (loai !== 'bachu' && kho.q.phieuDangMoLoai.get(lmTen, loai, now))
+    return { loi: 'Đã có một phiếu ' + loai + ' đang mở.' };
+  var info = kho.q.phieuThem.run(lmTen, loai, doiTuong, now + PHIEU_HAN, now);
+  return { id: Number(info.lastInsertRowid) };
+};
+
+/* Bỏ phiếu. giaTri 1 = tán thành, 0 = chống. */
+TheGioi.prototype.boPhieu = function (tk, phieuId, giaTri) {
+  phieuId = Math.floor(+phieuId);
+  giaTri = giaTri ? 1 : 0;
+  var kho = this.kho, now = Math.floor(Date.now() / 1000);
+  var phieu = kho.q.phieuGet.get(phieuId);
+  if (!phieu) return 'Phiếu không tồn tại.';
+  if (phieu.ketQua) return 'Phiếu này đã chốt kết quả.';
+  if (now >= phieu.hetHan) { this.kiemTraPhieu(phieu.lm); return 'Phiếu đã hết hạn.'; }
+  if (!this.duocBauKhong(phieu.lm, tk)) return 'Bạn không có quyền bỏ phiếu trong liên minh này.';
+  kho.q.phieuBau.run(phieuId, tk, giaTri);
+  this.kiemTraPhieu(phieu.lm);
+  return null;
+};
+
+/* Kiểm tra các phiếu đang mở của liên minh: đủ đa số → 'dat' + thực thi ngay;
+ * hết hạn chưa đạt → 'khong'. Trả danh sách phiếu vừa chốt. */
+TheGioi.prototype.kiemTraPhieu = function (lmTen) {
+  var kho = this.kho, now = Math.floor(Date.now() / 1000), daChot = [];
+  var mo = kho.q.phieuMoCua.all(lmTen, now);
+  for (var i = 0; i < mo.length; i++) {
+    var p = mo[i];
+    var chiTiet = kho.q.phieuChiTiet.all(p.id);
+    var ung = 0, chong = 0, j;
+    for (j = 0; j < chiTiet.length; j++) {
+      if (chiTiet[j].giaTri) ung++; else chong++;
+    }
+    var soCuaQuyen;
+    if (this.kho.q.lmGet.get(lmTen).chinhThe === 'congHoa')
+      soCuaQuyen = Math.min(DAI_BIEU_TOI_DA, kho.q.lmThanhVienDiem.all(lmTen).length);
+    else
+      soCuaQuyen = kho.q.dqTheoLM.all(lmTen).length;
+    var daBau = ung + chong;
+    var datSo = ung > chong && daBau >= Math.ceil((soCuaQuyen + 1) / 2);
+    var hetHan = now >= p.hetHan;
+    if (datSo || hetHan) {
+      var kq = datSo ? 'dat' : 'khong';
+      kho.q.phieuKetQua.run(kq, p.id);
+      daChot.push({ phieu: p, ketQua: kq });
+      if (datSo) this.thucThiPhieu(p);
+    }
+  }
+  return daChot;
+};
+
+/* Thực thi phiếu đạt bằng đúng luồng nội bộ hiện có. */
+TheGioi.prototype.thucThiPhieu = function (p) {
+  var chu = this.kho.q.lmGet.get(p.lm);
+  if (!chu) return;
+  var dt = p.doiTuong;
+  try {
+    if (p.loai === 'duyet') this.lmDuyetVoiQuyen(p.lm, dt, true);
+    else if (p.loai === 'tuchoi') this.lmDuyetVoiQuyen(p.lm, dt, false);
+    else if (p.loai === 'duoi') this.lmDuoiVoiQuyen(p.lm, dt);
+    else if (p.loai === 'tuyenchien') this.tuyenChienLMVoiQuyen(p.lm, dt);
+    else if (p.loai === 'bachu') {
+      var thanhVien = this.kho.q.dqGet.get(dt);
+      if (thanhVien && thanhVien.lm === p.lm) {
+        this.kho.q.lmDoiChu.run(dt, p.lm);
+        var tkMoi = this.kho.q.tkTheoId.get(dt);
+        this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+          'Bầu cử ' + p.lm + ': chủ mới là ' + (tkMoi ? tkMoi.hienthi : '?') + '.');
+      }
+    }
+  } catch (e) { console.error('[phieu] lỗi thực thi phiếu #' + p.id, e); }
+};
+
+/* Các biến thể "với quyền": gọi luồng cũ nhưng bỏ qua kiểm tra "chỉ chủ". */
+TheGioi.prototype.lmDuyetVoiQuyen = function (lmTen, ungVien, chapNhan) {
+  if (chapNhan) {
+    var don = this.kho.q.lmXinGet.get(lmTen, ungVien);
+    if (!don) return 'Đơn xin này không còn tồn tại.';
+    var kq = this.hanhDong(ungVien, 'lmvao', { ten: lmTen });
+    if (!kq.st || kq.loi) return kq.loi || 'Không thể cập nhật đế quốc của người xin vào.';
+    this.kho.q.lmXinXoaCua.run(ungVien);
+    var tk2 = this.kho.q.tkTheoId.get(ungVien);
+    this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+      (tk2 ? tk2.hienthi : 'Một chỉ huy') + ' được duyệt vào ' + lmTen + ' theo phiếu liên minh.');
+    return null;
+  }
+  this.kho.q.lmXinXoa.run(lmTen, ungVien);
+  return null;
+};
+TheGioi.prototype.lmDuoiVoiQuyen = function (lmTen, thanhVien) {
+  var dq = this.kho.q.dqGet.get(thanhVien);
+  if (!dq || dq.lm !== lmTen) return 'Người này không còn trong liên minh.';
+  var kq = this.hanhDong(thanhVien, 'lmra', {});
+  if (kq.loi) return kq.loi;
+  this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+    'Một thành viên bị loại khỏi ' + lmTen + ' theo phiếu liên minh.');
+  return null;
+};
+TheGioi.prototype.tuyenChienLMVoiQuyen = function (lmTen, tkD) {
+  var kho = this.kho, now = Math.floor(Date.now() / 1000);
+  var d = kho.q.dqGet.get(tkD), tenD = kho.q.tkTheoId.get(tkD);
+  if (!d || !tenD) return 'Chỉ huy mục tiêu không còn trong vũ trụ.';
+  if (d.lm === lmTen) return 'Không thể tuyên chiến với cùng liên minh.';
+  if (kho.q.chienGetLM.get(lmTen, tkD)) return 'Liên minh đã tuyên chiến với chỉ huy này.';
+  kho.q.chienThemLM.run(lmTen, tkD, now);
+  kho.q.btThem.run(now, 'chien', lmTen + ' tuyên chiến với ' + tenD.hienthi +
+    '; Hội Đồng Bảo An sẽ cho phép giao chiến sau 24 giờ.');
+  return null;
+};
+
+/* Danh sách phiếu gần đây cho /api/lm. */
+TheGioi.prototype.phieuCua = function (lmTen) {
+  var self = this;
+  return this.kho.q.phieuDS.all(lmTen).map(function (p) {
+    var dem = self.kho.q.phieuDem.all(p.id);
+    return {
+      id: p.id, loai: p.loai, doiTuong: p.doiTuong, hetHan: p.hetHan, khi: p.khi,
+      ketQua: p.ketQua, dangMo: !p.ketQua,
+      ung: dem.filter(function (x) { return x.giaTri === 1; }).reduce(function (s, x) { return s + x.n; }, 0),
+      chong: dem.filter(function (x) { return x.giaTri === 0; }).reduce(function (s, x) { return s + x.n; }, 0)
+    };
+  });
+};
+
 TheGioi.prototype.laDongMinh = function (tkA, tkD) {
   var a = this.kho.q.dqGet.get(tkA), d = this.kho.q.dqGet.get(tkD);
   return !!(a && d && a.lm && d.lm && a.lm === d.lm);
@@ -1146,6 +1333,12 @@ TheGioi.prototype.tuyenChien = function (tkA, tkD) {
   var now = Math.floor(Date.now() / 1000), ben;
   if (a.lm) {
     var lm = kho.q.lmGet.get(a.lm);
+    /* [v7] chính thể có phiếu: lệnh chiến tranh phải qua phiếu đạt trước */
+    if (this.coPhieu(a.lm)) {
+      var phieuTC = this.kho.q.phieuDangMoLoai.get(a.lm, 'tuyenchien', now);
+      return 'Liên minh ' + (lm.chinhThe === 'congHoa' ? 'Cộng hoà' : 'Dân chủ') +
+        ' phải biểu quyết tuyên chiến trước (mở phiếu ở màn Liên Minh).' + (phieuTC ? '' : '');
+    }
     if (!lm || lm.chu !== tkA) return 'Chỉ chủ liên minh mới được đặt lệnh chiến tranh.';
     if (kho.q.chienGetLM.get(a.lm, tkD)) return 'Liên minh đã tuyên chiến với chỉ huy này.';
     kho.q.chienThemLM.run(a.lm, tkD, now);
@@ -1243,16 +1436,18 @@ TheGioi.prototype.chuyenGalana = function (tkA, tkD, so) {
 /* --------------------------------------------------------------- liên minh */
 TheGioi.prototype.lmDS = function () {
   return this.kho.q.lmDS.all().map(function (r) {
-    return { ten: r.ten, tag: r.tag, sl: r.sl, diem: r.diem, chu: r.chu, mota: r.mota || '' };
+    return { ten: r.ten, tag: r.tag, sl: r.sl, diem: r.diem, chu: r.chu, mota: r.mota || '',
+      chinhThe: r.chinhThe || 'docTai' };
   });
 };
-TheGioi.prototype.lmTao = function (tk, ten, tag) {
+TheGioi.prototype.lmTao = function (tk, ten, tag, chinhThe) {
   function thatBai(loi, ma, st) { return { loi: loi, ma: ma || 400, st: st || null }; }
   var dq = this.kho.q.dqGet.get(tk);
   if (!dq) return thatBai('Đế quốc không tồn tại.');
   if (dq.lm) return thatBai('Phải rời liên minh hiện tại trước khi lập liên minh mới.');
   ten = String(ten || '').trim().slice(0, 32).trim();
   tag = String(tag || '').trim().slice(0, 6).toUpperCase();
+  chinhThe = CHINH_THE_HOP_LE.indexOf(chinhThe) >= 0 ? chinhThe : 'docTai';   // [v7] mặc định Độc tài
   if (ten.length < 3) return thatBai('Tên liên minh phải từ 3 ký tự.');
   if (!/^[A-Z0-9]{2,6}$/.test(tag)) return thatBai('Thẻ liên minh phải là 2–6 chữ/số.');
   var day = '[' + tag + '] ' + ten;
@@ -1266,6 +1461,9 @@ TheGioi.prototype.lmTao = function (tk, ten, tag) {
   }
   var now = Math.floor(Date.now() / 1000), kho = this.kho;
   kho.q.lmThem.run(day, tag, tk, now, null);
+  kho.q.lmDoiChinhThe.run(chinhThe, day);
+  /* chính thể có phiếu: mở kỳ bầu chủ đầu tiên sau KY_BAU_CHU */
+  if (chinhThe !== 'docTai') kho.q.lmDatBacCu.run(now + KY_BAU_CHU, day);
   /* Dùng chính chuỗi canonical vừa tạo; tuyệt đối không dựng lại từ body API
      vì trim/slice khác thứ tự từng cho phép gia nhập nhầm liên minh có sẵn. */
   var kq;

@@ -231,12 +231,17 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     var cua = r5 && r5.st.lm ? r5.st.lm.ten : null;
     var lmHienTai = cua ? self.kho.q.lmGet.get(cua) : null;
     var laChu = !!lmHienTai && lmHienTai.chu === p.tk;
+    /* [v7] tự chốt phiếu hết hạn mỗi lần mở màn liên minh */
+    if (cua && self.tg.coPhieu(cua)) self.tg.kiemTraPhieu(cua);
     return json(res, 200, {
       ds: self.tg.lmDS(),
       tv: cua ? self.tg.lmThanhVien(cua, p.tk) : [],
       xin: self.kho.q.lmXinCua.all(p.tk),
       don: laChu ? self.kho.q.lmXinDS.all(cua) : [],
       laChu: laChu,
+      chinhThe: lmHienTai ? (lmHienTai.chinhThe || 'docTai') : null,
+      duocBau: cua ? self.tg.duocBauKhong(cua, p.tk) : false,
+      phieu: cua ? self.tg.phieuCua(cua) : [],
       chien: self.tg.chienCua(p.tk)
     });
   }
@@ -258,9 +263,22 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
 
   if (duong === '/api/lmtao' && req.method === 'POST') {
     var b6 = await docBodyDaXacThuc();
-    var kq6 = self.tg.lmTao(p.tk, b6.ten, b6.tag);
+    var kq6 = self.tg.lmTao(p.tk, b6.ten, b6.tag, b6.chinhThe);
     if (kq6.loi) return json(res, kq6.ma || 400, { loi: kq6.loi, st: kq6.st, sv: self.thongTin() });
     return json(res, 200, { loi: kq6.loi, st: kq6.st, sv: self.thongTin() });
+  }
+
+  /* [v7] phiếu chính thể: mở phiếu mới hoặc bỏ phiếu một phiếu đang mở */
+  if (duong === '/api/lmphieu' && req.method === 'POST') {
+    var bPhieu = await docBodyDaXacThuc();
+    if (bPhieu.phieuId !== undefined) {
+      var loiBau = self.tg.boPhieu(p.tk, bPhieu.phieuId, !!bPhieu.giaTri);
+      if (loiBau) return json(res, 400, { loi: loiBau });
+      return json(res, 200, { ok: true });
+    }
+    var kqPhieu = self.tg.taoPhieu(p.tk, String(bPhieu.loai || '').slice(0, 20), bPhieu.doiTuong);
+    if (kqPhieu.loi) return json(res, 400, { loi: kqPhieu.loi });
+    return json(res, 200, { ok: true, id: kqPhieu.id });
   }
 
   if (duong === '/api/lmxin' && req.method === 'POST') {
