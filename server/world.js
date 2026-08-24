@@ -460,10 +460,16 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
   if (!a || !b) return 'Một trong hai đế quốc không còn trong vũ trụ.';
   this.batDau();
   try {
-    this.dangTick.add(hang.tk); this.chuStack.push(hang.tk);
+    /* Khoá ĐỐI XỨNG: tick state của ai thì chủ state đó phải nằm trên chuStack,
+     * vì mọi hook luật (danhNguoi/doThamNguoi/luu phản bội…) tra chuHienTai()
+     * để biết "đang xử lý của ai". Tick theo thứ tự id tăng để tránh khoá chéo. */
+    var capTk = [tkA, hang.tk].sort(function (x, y) { return x - y; });
+    for (var k = 0; k < capTk.length; k++) { this.dangTick.add(capTk[k]); this.chuStack.push(capTk[k]); }
     var gio = this.mocHoacGio();
-    G.tick(a.st, gio);
-    G.tick(b.st, gio);
+    for (k = 0; k < capTk.length; k++) {
+      var dK = capTk[k] === tkA ? a : b;
+      G.tick(dK.st, gio);
+    }
     /* tìm đơn tương ứng trong st.choDon của người bán */
     var donBan = null, i;
     for (i = 0; i < b.st.choDon.length; i++)
@@ -501,11 +507,15 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
       (hang.loai === 'tudo' ? '; hàng về sau 6 giờ.' : '.'));
     this.luu(tkA, a.st);
     this.luu(hang.tk, b.st);
-    this.chuStack.pop(); this.dangTick.delete(hang.tk);
+    for (var k2 = 0; k2 < capTk.length; k2++) { this.chuStack.pop(); this.dangTick.delete(capTk[k2]); }
     this.ketThuc();
     return null;
   } catch (e) {
-    this.chuStack.pop(); this.dangTick.delete(hang.tk);
+    var capTkLui = [tkA, hang.tk].sort(function (x, y) { return x - y; });
+    for (var k3 = capTkLui.length - 1; k3 >= 0; k3--) {
+      if (this.chuStack[this.chuStack.length - 1] === capTkLui[k3]) this.chuStack.pop();
+      this.dangTick.delete(capTkLui[k3]);
+    }
     try { this.ketThuc(false); } catch (e2) { }
     throw e;
   }
