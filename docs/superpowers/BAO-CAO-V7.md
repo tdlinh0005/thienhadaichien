@@ -58,6 +58,27 @@ Ngày hoàn thành: 2026-08-25 · Người thực hiện: Claude (ox-alpha) · T
 | Độ sâu NPC solo | trần per-resource, hồi 2%/giờ | `G.CHO_NPC` trong `js/thitruong.js` |
 | Đại biểu Cộng hoà | top 5 điểm | `DAI_BIEU_TOI_DA` trong `server/world.js` |
 
+## Các bug đã phát hiện & sửa trong vòng review
+
+| # | Bug | Mức độ | Fix |
+|---|---|---|---|
+| 1 | Dispatcher migration: sau `nangV5LenV6` biến `phienBan` không được tăng → save v3/v5 dừng ở v6, không lên v7 | Nghiêm trọng | Tăng `phienBan = 6` trước khi gọi `nangV6LenV7` |
+| 2 | Bảng `G.DIA_HINH` dùng key `rungia`/`bangha` sai id thật (`runggia`/`banghai`) → hệ số địa hình âm thầm vô hiệu | Nghiêm trọng | Sửa key đúng id |
+| 3 | `G.tickCho` chưa được nối vào vòng tick → hàng Tự Do không bao giờ nhập kho | Nghiêm trọng | Gọi `G.tickCho(st, t)` trong `G.xuLySuKien` |
+| 4 | Mua từ NPC không trừ kho hàng hồi dần → mua vô hạn từ cùng lượng NPC | Cao | Trừ thẳng vào `st.npcCho[res].con` |
+| 5 | `choMua` chỉ khoá người bán, không khoá người mua → race khi buyer đang bị tick | Cao | Khoá cả hai trước unit-of-work |
+| 6 | Đơn cạn (mua hết) bị xoá khỏi bảng `cho` nhưng còn sót trong projection state người bán | Trung bình | Splice khỏi `choDon` khi cạn |
+| 7 | `lmDuyetVoiQuyen`: ứng viên vào LM khác trong lúc phiếu mở → phiếu 'dat' ma, đơn không dọn | Thấp | Xoá đơn khi `lmvao` lỗi |
+| 8 | Migration v7 thiếu default `st.choDon` cho save cũ → UI đọc undefined | Trung bình | `Array.isArray` guard + default [] |
+| 9 | UI so sánh `st.lm === chuỗi` trong test server (st.lm là object) | Chỉ test | Sửa test so sánh `.ten` |
+
+Ngoài ra đã tự rà và pass: lãi lẻ giữ trong `laiLuc` không bốc hơi khi rút; đơn 0/hết hàng báo lỗi đúng; huỷ đơn NPC bị chặn; `ban/mua` alias chặn chợ cũ.
+
+## Kết quả kiểm thử cuối
+- `node tools/smoke.js`: **239/239 đạt**
+- `node tools/test-server.js`: **333/333 đạt**
+- `npm run build`: bundle 311 KB parse OK
+
 ## Cách chạy lại kiểm chứng
 ```bash
 npm test          # smoke + server tests
