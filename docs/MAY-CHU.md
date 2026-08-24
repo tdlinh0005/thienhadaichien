@@ -187,7 +187,7 @@ Chỉ mục: `dq_ketiep(keTiep)` cho scheduler, `dq_diem(diem DESC)` cho bảng 
 
 #### Contract state v6: số lượng, nhịp dân sự và giữ quỹ đạo
 
-State hiện có `st.v = 6`, `st.moHinhCT = 'so-luong-v1'`,
+State hiện có `st.v = 7` (+ `moHinhKT = 'kinh-te-that-v1'`: ngân hàng `st.nganHang`, đầu tư siêu thị `st.dauTuST`, Uranium `st.uranium`, lương gián điệp `st.luongGD`, đơn chợ projection `st.choDon`), `st.moHinhCT = 'so-luong-v1'`,
 `st.moHinhNhip = 'bao-tri-dan-su-v1'` và
 `st.moHinhQuyDao = 'giu-quy-dao-v1'`. Trong mỗi hành tinh,
 `p.b[id]` là **số nguyên số công trình đã hoàn thành**, còn hàng đợi xây dựng dùng
@@ -418,6 +418,10 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/chat` | GET | **có** | — | tối đa 60 tin chung + 60 tin của liên minh hiện tại |
 | `/api/chat` | POST | **có** | `{kenh, noi}` | gửi tối đa 300 ký tự; tối đa 3 tin / 10 giây; kênh riêng đòi membership |
 | `/api/bangtin` | GET | **có** | — | `{bt:[…40 tin…], tran:[…20 trận…]}` |
+| `/api/lmphieu` | POST | **có** | mở phiếu: `{loai, doiTuong}` · bỏ phiếu: `{phieuId, giaTri}` | `{ok:true, id?}` — [v7] phiếu chính thể; chỉ thành viên/đại biểu (top 5) được bầu |
+| `/api/cho` | GET/POST | **có** | GET `?loai=sieuthi\|tudo` · POST `{pi, loai, res, so, gia}` | danh sách 60 đơn mới nhất / đăng bán — [v7] siêu thị ép giá gốc, tự do tự định giá |
+| `/api/cho/mua` | POST | **có** | `{choId, so}` | mua đơn người khác; siêu thị giao ngay, tự do hàng về sau 6 giờ |
+| `/api/cho/huy` | POST | **có** | `{choId}` | huỷ đơn của ta, hoàn hàng còn lại về kho |
 | `/api/xoatk` | POST | **có** | `{mk, xacnhan:"XOA"}` | `{ok:true}` — xoá tài khoản, đế quốc, hành tinh và phiên; giữ lại lịch sử `tran` |
 | `/api/doimk` | POST | **có** | `{cu, moi}` | `{ok:true}` · 401 mật khẩu cũ sai · 400 mật khẩu mới ngắn hơn 6 ký tự |
 
