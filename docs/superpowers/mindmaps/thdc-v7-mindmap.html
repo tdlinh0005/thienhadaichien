@@ -1,0 +1,427 @@
+<title>Thiên Hà Đại Chiến — Bản đồ thiết kế v7</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg0:#08111c; --bg1:#0d1a2b; --bg2:#122238; --bg3:#1a3050;
+    --line:#22405f; --fg:#e6eef7; --dim:#9db4cb;
+    --kl:#c9a06a; --ta:#7fd4f5; --nl:#9be59b; --tp:#e5c76b; --gl:#f0b3ff;
+    --ok:#57d98e; --warn:#ffb45e; --danger:#ff7a6b;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme]) { --bg0:#f2f5fa; --bg1:#ffffff; --bg2:#e9eff6; --bg3:#dbe5ef; --line:#c3cfdd; --fg:#17222f; --dim:#54677a; } }
+  :root[data-theme="light"] { --bg0:#f2f5fa; --bg1:#ffffff; --bg2:#e9eff6; --bg3:#dbe5ef; --line:#c3cfdd; --fg:#17222f; --dim:#54677a; }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg0); color: var(--fg);
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    font-size: 14px; line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* ── Top bar ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 14px 20px;
+    background: var(--bg1); border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .brand h1 {
+    font-family: 'Chakra Petch', system-ui, sans-serif;
+    font-size: 17px; font-weight: 700; letter-spacing: .04em;
+    margin: 0; text-transform: uppercase;
+  }
+  .brand p { margin: 0; color: var(--dim); font-size: 12px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button.ctl {
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    background: var(--bg2); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  button.ctl:hover { background: var(--bg3); }
+  button.ctl:focus-visible { outline: 2px solid var(--ta); outline-offset: 1px; }
+
+  /* ── Canvas ── */
+  #stage { width: 100vw; height: calc(100vh - 61px); cursor: grab; touch-action: none; overflow: hidden; }
+  #stage.dragging { cursor: grabbing; }
+  svg#map { width: 100%; height: 100%; user-select: none; }
+  .edge { fill:none; stroke: var(--line); stroke-width: 1.5; transition: stroke .15s; }
+  .edge.hot { stroke: var(--dim); }
+  g.node { cursor: pointer; }
+  g.node rect.card { transition: filter .15s, stroke .15s; }
+  g.node:hover rect.card { filter: brightness(1.18); }
+  g.root > rect.card { stroke-width: 2; }
+  .t-root { font-family:'Chakra Petch',sans-serif; font-size:15px; font-weight:700; letter-spacing:.03em; fill:var(--fg); }
+  .t-branch { font-family:'Chakra Petch',sans-serif; font-size:12px; font-weight:700; letter-spacing:.06em; fill:var(--fg); }
+  .t-item  { font-family:'Be Vietnam Pro',sans-serif; font-size:12px; font-weight:400; fill:var(--fg); }
+  .t-tag   { font-family:'Be Vietnam Pro',sans-serif; font-size:10px; font-weight:600; letter-spacing:.02em; }
+  .t-badge { font-family:'Be Vietnam Pro',sans-serif; font-size:10px; font-weight:600; fill:var(--dim); }
+  .tag-xn  { fill: var(--ok); }   .tag-td { fill: var(--warn); }
+  .badge-ok   { fill: var(--ok); } .badge-pend { fill: var(--warn); }
+  .legend-box { fill: var(--bg1); stroke: var(--line); }
+  .legend-t   { font-family:'Be Vietnam Pro',sans-serif; font-size:10.5px; fill:var(--fg); }
+  .legend-d   { font-family:'Be Vietnam Pro',sans-serif; font-size:10.5px; fill:var(--dim); }
+
+  /* ── Detail drawer ── */
+  aside {
+    position: fixed; top: 61px; right: 0; bottom: 0; width: min(420px, 92vw);
+    background: var(--bg1); border-left: 1px solid var(--line);
+    transform: translateX(105%); transition: transform .28s cubic-bezier(.4,0,.2,1);
+    z-index: 60; display: flex; flex-direction: column;
+  }
+  aside.open { transform: translateX(0); }
+  .drawer-head {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .drawer-head h2 { font-family:'Chakra Petch',sans-serif; font-size:16px; font-weight:700; margin:0; line-height:1.35; }
+  .drawer-close {
+    background: none; border: none; color: var(--dim); font-size: 22px;
+    cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 4px;
+  }
+  .drawer-close:hover { color: var(--fg); }
+  .drawer-body { padding: 16px 20px 32px; overflow-y: auto; }
+  .drawer-body section { margin-bottom: 20px; }
+  .drawer-body h3 {
+    font-family:'Chakra Petch',sans-serif; font-size:11px; font-weight:700;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--dim);
+    margin: 0 0 8px; padding-top: 4px;
+  }
+  .drawer-body ul { margin: 0; padding-left: 18px; }
+  .drawer-body li { margin-bottom: 6px; }
+  code {
+    font-family: ui-monospace, monospace; font-size: 12px;
+    background: var(--bg2); padding: 1px 5px; border-radius: 3px;
+  }
+  .pill-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .pill {
+    font-size:11px; font-weight:600; padding:3px 10px; border-radius:99px;
+    border:1px solid var(--line); background:var(--bg2); color:var(--dim);
+  }
+  .pill.xn { color:var(--ok); border-color:color-mix(in srgb, var(--ok) 40%, transparent); }
+  .pill.td { color:var(--warn); border-color:color-mix(in srgb, var(--warn) 40%, transparent); }
+
+  /* ── Review bar ── */
+  footer {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 55;
+    background: var(--bg1); border-top: 1px solid var(--line);
+    padding: 10px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  footer .sum { color: var(--dim); font-size: 12.5px; }
+  footer .sum b { color: var(--fg); }
+  .btn-approve {
+    margin-left: auto; font-family:'Chakra Petch',sans-serif; font-weight:700;
+    font-size: 14px; letter-spacing:.03em;
+    background: var(--ok); color: #07130c; border: none; border-radius: 6px;
+    padding: 9px 22px; cursor: pointer;
+  }
+  .btn-approve:hover { filter: brightness(1.08); }
+  .approved-note { color: var(--ok); font-family:'Chakra Petch',sans-serif; font-weight:600; font-size:13px; display:none; }
+  .approved-note.show { display:inline; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<header>
+  <div class="brand">
+    <h1>Thiên Hà Đại Chiến — Bản đồ thiết kế v7</h1>
+    <p>Kinh tế thật · Địa hình chiến thuật · Tình báo lương · Ba chính thể — review trước khi lập plan</p>
+  </div>
+  <div class="actions">
+    <button class="ctl" id="btnExpand">Mở hết</button>
+    <button class="ctl" id="btnCollapse">Gọn L2</button>
+    <button class="ctl" id="btnFit">⤢ Vừa màn hình</button>
+  </div>
+</header>
+<div id="stage"><svg id="map" role="img" aria-label="Mindmap thiết kế state v7"></svg></div>
+<aside id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <h2 id="dTitle"></h2>
+    <button class="drawer-close" id="dClose" aria-label="Đóng">×</button>
+  </div>
+  <div class="drawer-body" id="dBody"></div>
+</aside>
+<footer>
+  <span class="sum" id="sum"></span>
+  <span class="approved-note" id="okNote">✓ Đã duyệt — có thể chuyển sang writing-plans</span>
+  <button class="btn-approve" id="btnOk">Duyệt thiết kế</button>
+</footer>
+
+<script>
+'use strict';
+/* ── Dữ liệu mindmap (nguồn: docs/superpowers/specs/2026-08-25-kinh-te-chinh-the-design.md) ── */
+const TAG = { xn:'XN', td:'TĐ' };
+const DATA = {
+  label:['THIÊN HÀ ĐẠI CHIẾN','STATE v7'],
+  kind:'root',
+  detail:{ pills:[], secs:[
+    ['Bối cảnh',['Phục dựng webgame ITD 2004–2010 theo tư liệu GVN + GameLand','Hiện trạng: v1.36, state v6, solo + multiplayer Node/SQLite']],
+    ['Quyết định đã chốt',['Trung thành lịch sử là ưu tiên số 1','Một đợt — 4 phase, mỗi phase commit riêng + npm test xanh','Neo con số tư liệu trước, cân bằng sau']],
+  ]},
+  children:[
+  { label:'PHASE 1', sub:'Kinh tế thật', kind:'branch', accent:'var(--gl)', detail:{ pills:[['Ngân hàng lãi ~2%/ngày','xn'],['Siêu thị giá gốc, thuế 10%','xn'],['Tự Do thuế 5%, hàng về 6h','xn'],['Kỳ đầu tư 7 ngày','td'],['NPC solo độ sâu giới hạn','td']], secs:[
+    ['Ngân Hàng Vũ Trụ',['Lãi liên tục theo giây trong G.tick','laiNam = 0.02 × k/(k+soDu), kẹp [0.0007 … 0.02]/ngày','k chọn để số dư ~1 tỷ → ~1%/ngày','Rút về ngay được']],
+    ['Siêu Thị Thiên Hà',['Chỉ mua được khi CÓ người bán vào — hết bộ đổi vô hạn','Giá gốc: KL=1, TA=2, NL=4, TP=1 GL','Thuế 10% vào quỹ chia người đầu tư','Solo: NPC bán, hồi dần theo giờ']],
+    ['Thị Trường Tự Do',['Người bán tự đặt giá bất kỳ','Thuế 5% — hàng đến sau 6 giờ qua p.giaoHang','Chặn self-trade; ≤20 đơn mở/người']],
+    ['Đầu tư & Uranium',['Đầu tư Siêu Thị: khoá 7 ngày, không rút giữa kỳ','Uranium chỉ thưởng sự kiện — tăng tốc xây + mua điểm NC','Không chuyển nhượng, không nạp tiền thật']],
+    ['Chợ cũ',['ban/mua thành alias báo lỗi hướng dẫn','G.C.TY_GIA xoá khỏi đường dùng, giữ cho migration']],
+  ]}, children:[
+    { label:'st.nganHang.soDu', tag:'xn' },
+    { label:'st.dauTuST (kỳ 7 ngày)', tag:'td' },
+    { label:'st.uranium', tag:'td' },
+    { label:'bảng SQLite: cho', tag:'' },
+    { label:'p.giaoHang [{don,res,so,xongAt}]', tag:'' },
+  ]},
+  { label:'PHASE 2', sub:'Chiến đấu theo địa hình', kind:'branch', accent:'var(--kl)', detail:{ pills:[['Hướng theo loại hành tinh','xn'],['Toàn bộ hệ số','td']], secs:[
+    ['Bảng G.DIA_HINH [chungQuan][loaiHT]',[
+      'Tank: Sa Mạc 1.50 vô địch · Rừng 0.60 · Nước 0.80',
+      'Robot: Rừng 1.40 luồn lách · Nước 0.70 · Sa Mạc 0.90',
+      'Máy Bay: Băng 0.75 dễ hạ · Nước 1.15 thuận gió ẩm',
+      'Hỏa tiễn/Boom: Sa Mạc 1.25 đạn đạo · Rừng 0.70 rừng dày']],
+    ['Phân lớp áp hệ số',['Mặt đất: nhận hệ số ĐẦY ĐỦ','Quỹ đạo: trung bình hoá về 1 — chiến tranh vũ trụ không chịu địa hình','thuDat theo loại hành tinh hiện có giữ nguyên, cộng thêm']],
+    ['Không thuộc phạm vi',['KHÔNG làm đơn vị tàng hình / robot trá hình (đã cắt ở phỏng vấn)']],
+  ]}, children:[
+    { label:'js/data.js: G.DIA_HINH', tag:'' },
+    { label:'js/combat.js: nhân lúc dựng nhóm', tag:'' },
+    { label:'thuDat hiện có giữ nguyên', tag:'xn' },
+  ]},
+  { label:'PHASE 3', sub:'Tình báo lương & phản bội', kind:'branch', accent:'var(--ta)', detail:{ pills:[['Có lương → phản bội nếu thiếu','xn'],['Ngưỡng + mức lương','td']], secs:[
+    ['Lương gián điệp',['Mỗi tàu do thám tốn lương NL nhỏ/giờ','Trừ tại checkpoint bảo trì','Thiếu qua một kỳ → cờ st.luongGD.phanBoi']],
+    ['Phản bội',['Do thám kế tiếp của bạn bị LỘ NGƯỢC','Đối phương nhận báo cáo tình báo về đế quốc bạn (mức 2) + tin cảnh báo','Tàu do thám bị bắt 50%']],
+    ['Khôi phục',['Trả đủ lương (nút trả ngay hoặc tự trừ kỳ sau)','Cờ sạch sau một kỳ sạch']],
+    ['Báo cáo mở rộng',['Mức cao nhất thêm SẢN LƯỢNG TỪNG MỎ — tư liệu ghi rõ báo cáo thấy mức sản xuất']],
+  ]}, children:[
+    { label:'st.luongGD {muc, traLuc, phanBoi}', tag:'' },
+    { label:'tick trừ lương tại bảo trì', tag:'' },
+    { label:'báo cáo mức 5 + sản lượng mỏ', tag:'xn' },
+  ]},
+  { label:'PHASE 4', sub:'Ba chính thể liên minh', kind:'branch', accent:'var(--tp)', detail:{ pills:[['Tên 3 chính thể','xn'],['Toàn bộ cơ chế phiếu','td']], secs:[
+    ['Độc tài (mặc định, LM cũ migrate về đây)',['Giữ nguyên hành vi hiện tại','Chủ duyệt/loại/tuyên chiến/chuyển quyền trực tiếp','Bỏ qua bảng phiếu hoàn toàn']],
+    ['Dân chủ',['Đa số đơn giản toàn thành viên — hạn phiếu 24 giờ','Phiếu: tuyên chiến · duyệt/từ chối đơn · loại thành viên','Bầu chủ kỳ 14 ngày — nhiều phiếu hơn chủ đương nhiệm thì đổi']],
+    ['Cộng hoà',['Như Dân chủ nhưng chỉ đại biểu được bầu','Đại biểu = top 5 điểm, tái tính mỗi kỳ']],
+    ['Cơ chế lm_phieu',['Đủ đa số hoặc hết hạn → server thực thi bằng luồng nội bộ hiện có','Trong unit-of-work SQLite chuẩn như PvP','Phiếu tuyên chiến đạt mới được đặt lệnh chien']],
+  ]}, children:[
+    { label:"lm.chinhThe ∈ docTai|danChu|congHoa", tag:'' },
+    { label:'bảng lm_phieu + chi tiết phiếu', tag:'' },
+    { label:'UNIQUE(phieuId, tkBau)', tag:'' },
+  ]},
+  { label:'KỸ THUẬT', sub:'State v7 & kiểm thử', kind:'branch', accent:'var(--nl)', detail:{ pills:[['Migration additive',''],['Test mở rộng khuôn cũ','']], secs:[
+    ['Migration v6→v7',['Additive: chỉ gắn default, không đụng dữ liệu cũ','LM cũ → chinhThe docTai','State mới hơn engine → từ chối khởi động (giữ nguyên hành vi)','Solo đọc key v7 rồi fallback v6→v3, giữ key cũ dự phòng']],
+    ['Kiểm thử',['tools/smoke.js: lãi đúng dải · đơn chợ trừ đúng · hệ số nhân đúng lớp · phiếu thực thi đúng · phản bội đúng ngưỡng','tools/test-server.js: chợ chéo 2 đế quốc · phiếu LM 2 tài khoản thật · migration giữ save · NPC hồi hàng','Sau mỗi phase: npm test xanh + npm run build']],
+    ['Error handling',['Validation chuẩn soDuong/chuoi/tdParse','Mutation chéo đế quốc bọc unit-of-work SQLite','Client cũ thiếu trường mới → default, không crash']],
+  ]}, children:[
+    { label:'st.v = 7 (additive)', tag:'' },
+    { label:'nangCapDuLieu() mở rộng', tag:'' },
+    { label:'npm test sau mỗi phase', tag:'' },
+  ]},
+]};
+
+/* ── Layout: cây ngang, lá xếp dọc phải ── */
+const IW=258, IH=30, GAP=9, BR_GAP=26, RX=40;
+const nodes=[], edges=[];
+let leafY=0;
+function measure(n){
+  if(!n.children){ n.h=IH; return n.h; }
+  let h=0;
+  for(const c of n.children) h+=measure(c)+GAP;
+  n.h=h-GAP;
+  return n.h;
+}
+function place(n,depth,x,y){
+  const w=n.kind==='root'?300:(depth===1?IW:IW-28);
+  n.x=x; n.w=w;
+  if(!n.children){
+    n.y=y+n.h/2-IH/2; leafY=Math.max(leafY,n.y+IH);
+    nodes.push(n); return;
+  }
+  let cy=y;
+  const cx=x+w+RX*(depth===0?1.4:1);
+  for(const c of n.children){ place(c,depth+1,cx,cy); cy+=c.h+GAP; }
+  const first=n.children[0], last=n.children[n.children.length-1];
+  n.y=(first.y+first.h/2+last.y+last.h/2)/2-IH/2;
+  nodes.push(n);
+}
+measure(DATA);
+place(DATA,0,RX,0);
+const TOTAL_H=leafY+40;
+
+/* depth: root=0 branch=1 leaf=2 */
+nodes.forEach(n=>{ n.depth = n.kind==='root'?0 : (n.kind==='branch'?1:2); });
+
+const svg=document.getElementById('map');
+const NS='http://www.w3.org/2000/svg';
+function el(t,at,parent){ const e=document.createElementNS(NS,t); for(const k in at)e.setAttribute(k,at[k]); (parent||svg).appendChild(e); return e; }
+
+let gViewport=null;
+function build(){
+  svg.innerHTML='';
+  gViewport=el('g',{});
+  /* gán id theo thứ tự mảng TRƯỚC khi vẽ cạnh để data-to khớp */
+  nodes.forEach((n,i)=>{ n._id=i; });
+  /* edges */
+  function drawEdges(n){
+    if(!n.children)return;
+    for(const c of n.children){
+      const x1=n.x+n.w, y1=n.y+IH/2, x2=c.x, y2=c.y+IH/2, mx=(x1+x2)/2;
+      el('path',{class:'edge',d:`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`,'data-to':c._id},gViewport);
+      drawEdges(c);
+    }
+  }
+  drawEdges(DATA);
+  /* node groups */
+  nodes.forEach((n)=>{
+    const g=el('g',{class:'node'+(n.kind==='root'?' root':''),tabindex:n.depth<2?'0':null,role:'button','aria-label':n.kind==='root'?n.label.join(' '):String(n.label)},gViewport);
+    const r=el('rect',{class:'card',x:n.x,y:n.y,width:n.w,height:IH,rx:6,
+      fill:n.kind==='root'?'var(--bg3)':(n.kind==='branch'?'var(--bg2)':'var(--bg1)'),
+      stroke:n.accent||'var(--line)','stroke-width':n.kind==='root'?2:1},g);
+    if(n.kind!=='root') r.setAttribute('stroke-opacity','.55');
+    let tx=n.x+12;
+    if(n.kind==='root'){
+      el('text',{class:'t-root',x:tx,y:n.y+19},g).textContent=n.label[0];
+      el('text',{class:'badge-ok',x:tx+205,y:n.y+19},g).textContent='v7';
+    } else if(n.kind==='branch'){
+      el('text',{class:'t-branch',x:tx,y:n.y+14,fill:n.accent},g).textContent=n.label;
+      el('text',{class:'t-item',x:tx,y:n.y+26,opacity:.75},g).textContent=n.sub;
+      el('text',{class:'t-badge',x:n.x+n.w-10,y:n.y+14,'text-anchor':'end'},g).textContent=countLeaves(n)+' mục';
+    } else {
+      el('text',{class:'t-item',x:tx,y:n.y+20},g).textContent=n.label;
+      if(n.tag&&TAG[n.tag]){
+        const tw=n.tag==='xn'?24:26;
+        el('text',{class:'t-tag '+(n.tag==='xn'?'tag-xn':'tag-td'),x:n.x+n.w-10-tw,y:n.y+20},g).textContent=TAG[n.tag];
+      }
+    }
+    g.addEventListener('click',ev=>{ev.stopPropagation();openDrawer(n);highlightPath(n);});
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openDrawer(n);highlightPath(n);}});
+  });
+}
+function countLeaves(n){ let k=0;(function w(x){if(!x.children){k++;return;}x.children.forEach(w);})(n);return k; }
+function pathTo(n){ const p=[n];let cur=n;while(cur._parent){cur=cur._parent;p.push(cur);}return p.reverse(); }
+function assignParents(n){(n.children||[]).forEach(c=>{c._parent=n;assignParents(c);});}
+assignParents(DATA);
+
+function highlightPath(n){
+  document.querySelectorAll('.edge').forEach(e=>e.classList.remove('hot'));
+  let cur=n;
+  while(cur){
+    document.querySelectorAll(`[data-to="${cur._id}"]`).forEach(e=>e.classList.add('hot'));
+    cur=cur._parent;
+  }
+}
+
+/* ── Viewport pan/zoom ── */
+const view={x:0,y:0,k:1};
+function apply(){gViewport.setAttribute('transform',`translate(${view.x},${view.y}) scale(${view.k})`);}
+function fit(){
+  const W=svg.clientWidth,H=svg.clientHeight;
+  const kw=W/(TOTAL_W+80), kh=H/TOTAL_H;
+  view.k=Math.min(kw,kh,1.15);
+  view.x=(W-TOTAL_W*view.k)/2;
+  view.y=(H-TOTAL_H*view.k)/2;
+  apply();
+}
+const stage=document.getElementById('stage');
+let drag=null;
+stage.addEventListener('pointerdown',e=>{
+  drag={sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y};
+  stage.classList.add('dragging');stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  view.x=drag.vx+(e.clientX-drag.sx);view.y=drag.vy+(e.clientY-drag.sy);apply();
+});
+stage.addEventListener('pointerup',()=>{drag=null;stage.classList.remove('dragging');});
+stage.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const f=e.deltaY<0?1.12:1/1.12;
+  const nx=(view.x-e.offsetX)*f+e.offsetX, ny=(view.y-e.offsetY)*f+e.offsetY;
+  view.k*=f;view.x=nx;view.y=ny;apply();
+},{passive:false});
+
+/* ── Collapse/expand: ẩn subtree bằng display none trên group ── */
+function wrapGroups(){
+  nodes.forEach(n=>{ n._el=document.querySelectorAll(`g.node`)[n._id]; });
+}
+function isOpen(n){ return !n._closed; }
+function refreshVisibility(){
+  nodes.forEach(n=>{
+    let hide=false,cur=n._parent;
+    while(cur){ if(cur._closed){hide=true;break;} cur=cur._parent; }
+    n._el.style.display=hide?'none':'';
+  });
+  document.querySelectorAll('.edge').forEach(e=>{
+    const to=+e.getAttribute('data-to'), tn=nodes.find(x=>x._id===to);
+    let hide=false,cur=tn._parent;
+    while(cur){ if(cur._closed){hide=true;break;} cur=cur._parent; }
+    e.style.display=hide?'none':'';
+  });
+  updateSum();
+}
+function setAll(v){ nodes.forEach(n=>{if(n.kind==='branch')n._closed=v;});refreshVisibility();fit(); }
+
+/* ── Drawer ── */
+const drawer=document.getElementById('drawer');
+function openDrawer(n){
+  document.getElementById('dTitle').textContent=n.kind==='root'?n.label[0]:(n.label+(n.sub?' — '+n.sub:''));
+  const body=document.getElementById('dBody');body.innerHTML='';
+  if(n.detail){
+    if(n.detail.pills.length){
+      const pr=document.createElement('div');pr.className='pill-row';
+      n.detail.pills.forEach(([txt,cls])=>{const s=document.createElement('span');s.className='pill '+cls;s.textContent=(cls==='xn'?'XÁC NHẬN — ':'TÁI DỰNG — ')+txt;pr.appendChild(s);});
+      body.appendChild(pr);
+    }
+    n.detail.secs.forEach(([h,items])=>{
+      const sec=document.createElement('section');
+      const h3=document.createElement('h3');h3.textContent=h;sec.appendChild(h3);
+      const ul=document.createElement('ul');
+      items.forEach(t=>{const li=document.createElement('li');li.innerHTML=t.replace(/\[(.+?)\]\((.+?)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');ul.appendChild(li);});
+      sec.appendChild(ul);body.appendChild(sec);
+    });
+  } else {
+    const sec=document.createElement('section');
+    sec.innerHTML='<h3>Vị trí</h3><ul>'+pathTo(n).map(p=>'<li>'+(p.kind==='root'?p.label[0]:p.label)+'</li>').join('')+'</ul>';
+    body.appendChild(sec);
+  }
+  drawer.classList.add('open');drawer.setAttribute('aria-hidden','false');
+}
+document.getElementById('dClose').onclick=()=>{drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){drawer.classList.remove('open');}});
+
+/* ── Review footer ── */
+let approved=false;
+function updateSum(){
+  const openBranches=nodes.filter(n=>n.kind==='branch'&&isOpen(n)).length;
+  document.getElementById('sum').innerHTML=
+    `<b>${nodes.filter(n=>n.depth===2).length}</b> hạng mục trong <b>${openBranches}</b> nhóm đang mở · `+
+    `${DATA.children.reduce((a,b)=>a+countLeaves(b),0)} tổng cộng · nhấp node để xem chi tiết & nguồn`;
+}
+document.getElementById('btnExpand').onclick=()=>setAll(false);
+document.getElementById('btnCollapse').onclick=()=>setAll(true);
+document.getElementById('btnFit').onclick=fit;
+document.getElementById('btnOk').onclick=function(){
+  approved=true;
+  this.style.display='none';
+  document.getElementById('okNote').classList.add('show');
+};
+
+/* legend */
+function addLegend(){
+  const lx=RX, ly=TOTAL_H-18;
+  const g=el('g',{},gViewport);
+  el('rect',{class:'legend-box',x:lx-8,y:ly-14,width:330,height:22,rx:5},g);
+  el('circle',{cx:lx+2,cy:ly-3,r:3.5,fill:'var(--ok)'},g);
+  el('text',{class:'legend-t',x:lx+12,y:ly},g).textContent='XN = XÁC NHẬN (tư liệu nói trực tiếp)';
+  el('circle',{cx:lx+230,cy:ly-3,r:3.5,fill:'var(--warn)'},g);
+  el('text',{class:'legend-d',x:lx+240,y:ly},g).textContent='TĐ = TÁI DỰNG';
+}
+
+build();wrapGroups();addLegend();updateSum();
+const TOTAL_W=340+4*(IW+RX)+40;
+fit();
+</script>
+
