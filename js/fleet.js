@@ -1069,6 +1069,8 @@ G.xuLySuKien = function (st, t) {
    * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   if (nextNhip <= t) G.baoTri(st);
+  /* [v7] thị trường: hàng Tự Do tới hạn nhập kho + hồi hàng NPC (mọi nhịp tick) */
+  if (G.tickCho) G.tickCho(st, t);
   /* Kết toán lãi ngân hàng tại checkpoint [v7]: nguyên phần nguyên nhập số dư,
    * phần lẻ giữ lại để không bốc hơi do làm tròn. */
   if (st.nganHang && st.nganHang.laiLuc >= 1) {
