@@ -58,21 +58,46 @@ Ngày hoàn thành: 2026-08-25 · Người thực hiện: Claude (ox-alpha) · T
 | Độ sâu NPC solo | trần per-resource, hồi 2%/giờ | `G.CHO_NPC` trong `js/thitruong.js` |
 | Đại biểu Cộng hoà | top 5 điểm | `DAI_BIEU_TOI_DA` trong `server/world.js` |
 
-## Các bug đã phát hiện & sửa trong vòng review
+## Code review độc lập (agent) + vòng fix
 
-| # | Bug | Mức độ | Fix |
-|---|---|---|---|
-| 1 | Dispatcher migration: sau `nangV5LenV6` biến `phienBan` không được tăng → save v3/v5 dừng ở v6, không lên v7 | Nghiêm trọng | Tăng `phienBan = 6` trước khi gọi `nangV6LenV7` |
-| 2 | Bảng `G.DIA_HINH` dùng key `rungia`/`bangha` sai id thật (`runggia`/`banghai`) → hệ số địa hình âm thầm vô hiệu | Nghiêm trọng | Sửa key đúng id |
-| 3 | `G.tickCho` chưa được nối vào vòng tick → hàng Tự Do không bao giờ nhập kho | Nghiêm trọng | Gọi `G.tickCho(st, t)` trong `G.xuLySuKien` |
-| 4 | Mua từ NPC không trừ kho hàng hồi dần → mua vô hạn từ cùng lượng NPC | Cao | Trừ thẳng vào `st.npcCho[res].con` |
-| 5 | `choMua` chỉ khoá người bán, không khoá người mua → race khi buyer đang bị tick | Cao | Khoá cả hai trước unit-of-work |
-| 6 | Đơn cạn (mua hết) bị xoá khỏi bảng `cho` nhưng còn sót trong projection state người bán | Trung bình | Splice khỏi `choDon` khi cạn |
-| 7 | `lmDuyetVoiQuyen`: ứng viên vào LM khác trong lúc phiếu mở → phiếu 'dat' ma, đơn không dọn | Thấp | Xoá đơn khi `lmvao` lỗi |
-| 8 | Migration v7 thiếu default `st.choDon` cho save cũ → UI đọc undefined | Trung bình | `Array.isArray` guard + default [] |
-| 9 | UI so sánh `st.lm === chuỗi` trong test server (st.lm là object) | Chỉ test | Sửa test so sánh `.ten` |
+Reviewer độc lập chấm **BLOCK** với 1 CRITICAL + 4 HIGH + 2 MEDIUM + 3 LOW. Toàn bộ đã được sửa:
 
-Ngoài ra đã tự rà và pass: lãi lẻ giữ trong `laiLuc` không bốc hơi khi rút; đơn 0/hết hàng báo lỗi đúng; huỷ đơn NPC bị chặn; `ban/mua` alias chặn chợ cũ.
+### CRITICAL
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Đầu tư Siêu Thị KHÔNG BAO GIỜ đáo hạn: `ketThucAt` không nằm trong lịch sự kiện, vốn biến mất vĩnh viễn; quỹ chia lợi nhuận thuế không tồn tại | Thêm `ketThucAt` vào `G.sukienKe`; nhánh đáo hạn trong `xuLySuKien` hoàn vốn gốc + 5%/kỳ (`laiDauTuKy`) |
+
+### HIGH
+| # | Bug | Fix |
+|---|---|---|
+| 2 | Hệ số địa hình VÔ HIỆU 100% trong chơi thật: callers truyền tên hiển thị ("Sa Mạc") thay vì id ("samac"); trận đổ bộ không truyền loaiHT chút nào | Tất cả callers truyền `Lmuc.id/Ld.id/Lp.id`; `doBoXuong` nhận + forward `loaiHT` |
+| 3 | `choMua` khoá/chuStack bất đối xứng: tick state người mua khi chủ trên stack là người bán → nhánh phản bội có thể GHI ĐÈ TOÀN BỘ đế quốc người mua vào tài khoản người bán | Khoá đối xứng cả hai tk theo id tăng; pop/delete đối xứng trong try và catch |
+| 4 | Bảng `cho` ghi ngoài transaction: rollback state không hoàn được đơn → ghost listing / mất hàng chưa nhận tiền | Lệnh INSERT/UPDATE/DELETE chợ xếp vào `ctx.choLenh`, flush TRƯỚC serialize state trong cùng COMMIT |
+| 5 | Nút thị trường MP gọi `/api/lam` (luật local) thay vì `/api/cho*` → đơn vô hình, tài nguyên bị khoá | Override 3 handler trong mp.js gọi đúng endpoint; lọc đơn của ta bằng `MP.tk` thật |
+
+### MEDIUM
+| # | Bug | Fix |
+|---|---|---|
+| 6 | Hàng Tự Do "6 giờ" thực tế tới sau 6–12 giờ: `xongAt` không nằm trong lịch sự kiện | Duyệt `giaoHang[*].xongAt` trong `G.sukienKe` |
+| 7 | Kỳ bầu chủ 14 ngày chưa có gate; phiếu bầu chủ miễn validate ứng viên | `taoPhieu` chặn `bachu` trước `bacCuAt`; yêu cầu ứng viên có quyền bầu; set `bacCuAt` mới sau bầu thành công |
+
+### LOW
+| # | Bug | Fix |
+|---|---|---|
+| 8 | Dead ternary trong thông báo tuyên chiến | Xoá |
+| 9 | Nhánh phản bội có thể ghi `probe: NaN` | Guard `if (!f.ships.probe) return;` |
+| 10 | Marker `moHinhKT` không được khẳng định lại khi nạp v7 | Chấp nhận rủi ro thấp — chỉ một nguồn gán marker, migration idempotent có test bảo vệ |
+
+### Bug tự tìm thấy trong vòng tự review trước đó
+1. Dispatcher migration dừng ở v6 (`phienBan` không tăng) — nghiêm trọng, sửa.
+2. Key `rungia`/`bangha` sai id thật — hệ số âm thầm vô hiệu, sửa.
+3. `tickCho` chưa nối vòng tick — hàng không bao giờ nhập kho, sửa.
+4. Mua NPC không trừ stock — mua vô hạn, sửa.
+5. Đơn cạn sót projection state người bán — splice, sửa.
+6. Migration thiếu default `choDon` — default [], sửa.
+
+### Reviewer xác nhận OK (không đổi)
+Kinh tế trừ các bug trên · Migration additive idempotent · Rapidfire/khiên · Hai lớp quỹ đạo/mặt đất · Phản bội luồng thường · Công thức đa số phiếu · Bảo mật API mới (auth/rate-limit/validation/no-leak).
 
 ## Kết quả kiểm thử cuối
 - `node tools/smoke.js`: **239/239 đạt**
