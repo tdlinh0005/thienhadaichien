@@ -98,6 +98,11 @@ G.muaDon = function (st, pi, don, so) {
   var thue = don.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
   if (st.galana < tongGL) return 'Cần ' + G.so(tongGL) + ' Galana.';
   st.galana -= tongGL;
+  /* đơn NPC: trừ thẳng vào kho hàng hồi dần của thị trường */
+  if (don.npc && st.npcCho && st.npcCho[don.res]) {
+    st.npcCho[don.res].con = Math.max(0, st.npcCho[don.res].con - so);
+    don.soConLai = Math.floor(st.npcCho[don.res].con);
+  }
   don.daBan = (don.daBan || 0) + so;
   don.thuNhap = (don.thuNhap || 0) + Math.floor(tongGL * (1 - thue));
   if (don.loai === 'sieuthi') {
