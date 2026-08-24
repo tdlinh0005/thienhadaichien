@@ -188,6 +188,7 @@ G.HANHDONG = {
       if (String(st.choDon[i].id) === id ||
           st.choDon[i].id === 'npc-' + id.replace(/^npc-/, '')) { don = st.choDon[i]; break; }
     }
+    /* solo: đơn NPC sinh lười khi cần — bộ luật chạy cả server nên chỉ tra khi có npcCho */
     if (!don && st.npcCho) {
       var dsNpc = G.npcCho(st);
       for (i = 0; i < dsNpc.length; i++) if (String(dsNpc[i].id) === id) { don = dsNpc[i]; break; }
