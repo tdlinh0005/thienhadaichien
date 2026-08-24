@@ -1428,8 +1428,11 @@ G.gopThuMatDat = function (def, con) {
 
 G.doBoXuong = function (st, f, ben) {
   if (!f.linh || G.trong(f.linh)) return null;
+  /* LƯU Ý: chỉ BO BINH của hạm tham gia trận đất; tàu ở lại quỹ đạo không đánh.
+   * loaiHT forward để máy bay/hỏa tiễn trong `linh`... thực tế linh là bộ binh,
+   * còn hệ số địa hình áp qua D (công sự + bộ binh phòng thủ). */
   var kq = G.danhTran(
-    { ten: st.ten + ' (quân đổ bộ)', tech: st.tech, ships: f.ships, doBo: true, loaiHT: ben.loaiHT },
+    { ten: st.ten + ' (quân đổ bộ)', tech: st.tech, bo: f.linh, doBo: true },
     { ten: ben.ten, tech: ben.tech || {}, bo: ben.linh || {}, def: ben.def || {}, thuDat: ben.thuDat || 1, loaiHT: ben.loaiHT },
     G.hash('dobo' + f.id + ':' + st.now));
   f.linh = kq.conBoA;
