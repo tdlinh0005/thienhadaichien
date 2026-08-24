@@ -281,6 +281,31 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     return json(res, 200, { ok: true, id: kqPhieu.id });
   }
 
+  /* [v7] thị trường chéo đế quốc */
+  if (duong === '/api/cho' && req.method === 'GET') {
+    var loaiCho = truyVan.get('loai') === 'tudo' ? 'tudo' : 'sieuthi';
+    return json(res, 200, self.tg.choDS(loaiCho));
+  }
+  if (duong === '/api/cho' && req.method === 'POST') {
+    var bCho = await docBodyDaXacThuc();
+    var loiDangBan = self.tg.choDangBan(p.tk, bCho.pi, String(bCho.loai || '').slice(0, 10),
+      bCho.res, bCho.so, bCho.gia);
+    if (loiDangBan) return json(res, 400, { loi: loiDangBan });
+    return json(res, 200, { ok: true, st: self.tg.nap(p.tk).st, sv: self.thongTin() });
+  }
+  if (duong === '/api/cho/mua' && req.method === 'POST') {
+    var bMua = await docBodyDaXacThuc();
+    var loiMua = self.tg.choMua(p.tk, bMua.choId, bMua.so);
+    if (loiMua) return json(res, 400, { loi: typeof loiMua === 'string' ? loiMua : loiMua.loi });
+    return json(res, 200, { ok: true, st: self.tg.nap(p.tk).st, sv: self.thongTin() });
+  }
+  if (duong === '/api/cho/huy' && req.method === 'POST') {
+    var bHuy = await docBodyDaXacThuc();
+    var loiHuy = self.tg.choHuy(p.tk, bHuy.choId);
+    if (loiHuy) return json(res, 400, { loi: loiHuy });
+    return json(res, 200, { ok: true, st: self.tg.nap(p.tk).st, sv: self.thongTin() });
+  }
+
   if (duong === '/api/lmxin' && req.method === 'POST') {
     var bXin = await docBodyDaXacThuc();
     var loiXin = self.tg.lmXin(p.tk, bXin.ten);

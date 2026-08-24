@@ -978,6 +978,44 @@ function truyVan(sql, ...args) {
     var lm6 = await goi('/api/lam', { ten: 'lmra', dl: {} }, b.token);
     ktra(!lm6.loi && !lm6.st.lm, 'B rời được liên minh');
 
+    /* ---------- 10a2. [v7] THỊ TRƯỜNG chéo đế quốc ---------- */
+    suaState(idB, function (st) { st.planets[0].res.metal = (st.planets[0].res.metal || 0) + 800000; });
+    var banCho = await goi('/api/cho', { pi: 0, loai: 'sieuthi', res: 'metal', so: 500000 }, b.token);
+    ktra(!banCho.loi, 'B đăng bán 500k Kim Loại ở Siêu Thị' + (banCho.loi ? ': ' + banCho.loi : ''));
+    var dsCho = await goi('/api/cho?loai=sieuthi', null, a.token);
+    var donCuaB = (dsCho.don || []).filter(function (d) { return d.tk === idB && d.res === 'metal'; })[0];
+    ktra(!!donCuaB, 'A thấy đơn của B trên thị trường');
+    var giaMua = donCuaB ? donCuaB.gia * 200000 : 200000;
+    var glATruoc = docState(idA).galana, glBTruoc = docState(idB).galana;
+    var muaCho = await goi('/api/cho/mua', { choId: donCuaB.id, so: 200000 }, a.token);
+    ktra(!muaCho.loi, 'A mua 200k Kim Loại của B' + (muaCho.loi ? ': ' + muaCho.loi : ''));
+    if (!muaCho.loi) {
+      ktra(docState(idA).galana === glATruoc - giaMua,
+        'A trả đúng giá gốc (' + G_so(giaMua) + ' GL)');
+      ktra(docState(idB).galana === glBTruoc + Math.floor(giaMua * 0.9),
+        'B nhận giá sau thuế 10%');
+      ktra(docState(idA).planets[0].res.metal >= 200000, 'A nhận hàng NGAY (siêu thị)');
+    }
+    /* tự do: giá tự đặt + hàng về sau 6 giờ */
+    var banTudo = await goi('/api/cho', { pi: 0, loai: 'tudo', res: 'deut', so: 1000, gia: 7 }, c.token);
+    ktra(!banTudo.loi, 'C đăng bán Tự Do giá tự đặt' + (banTudo.loi ? ': ' + banTudo.loi : ''));
+    var dsTudo = await goi('/api/cho?loai=tudo', null, a.token);
+    var donCuaC = (dsTudo.don || []).filter(function (d) { return d.tk === idC && d.res === 'deut'; })[0];
+    if (donCuaC) {
+      var muaTD = await goi('/api/cho/mua', { choId: donCuaC.id, so: 500 }, a.token);
+      ktra(!muaTD.loi, 'A mua 500 Nhiên Liệu Tự Do của C');
+      var stSauMua = docState(idA);
+      var hangVe = stSauMua.planets[0].giaoHang || [];
+      ktra(hangVe.some(function (h) { return h.res === 'deut' && h.so === 500; }),
+        'hàng Tự Do lên đường, chưa nhập kho ngay');
+      ktra(hangVe.every(function (h) { return h.xongAt <= stSauMua.now + 6 * 3600 + 1; }),
+        'mốc giao hàng đúng 6 giờ');
+    }
+    /* huỷ đơn */
+    var huyDon = await goi('/api/cho/huy', { choId: donCuaB ? donCuaB.id : -1 }, b.token);
+    if (donCuaB) ktra(!huyDon.loi && !docState(idB).choDon.some(function (d) { return d.choId === donCuaB.id; }),
+      'B huỷ đơn và hoàn hàng còn lại về kho');
+
     /* ---------- 10b. [v7] BA CHÍNH THỂ: dân chủ biểu quyết ---------- */
     /* B đã rời DNV ở bài trước; DNV chỉ còn A nên A rời là giải tán luôn */
     var roiDNV = await goi('/api/lam', { ten: 'lmra', dl: {} }, a.token);

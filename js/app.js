@@ -20,6 +20,7 @@ U.nguon = {
 };
 
 function soO(id) { var e = document.getElementById(id); return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
+function soO2(e) { return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
 function veLai(err, okMsg) {
   if (err) U.toast(err, 'loi');
   else if (okMsg) U.toast(okMsg, 'ok');
@@ -57,6 +58,52 @@ var ACT = {
   doithue: function () {
     var e = document.getElementById('thue-pct');
     lam('doithue', { pi: U.pi, thue: e ? Number(e.value) : NaN }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
+  },
+
+  /* ---------- [v7] tài chính & thị trường ---------- */
+  'tab-tc': function (el) { U.tabTC = el.getAttribute('data-tab'); U.ve(); },
+  'gui-nh': function () {
+    var e = document.getElementById('nh-gui');
+    lam('guiNH', { so: soO2(e) }, 'Đã gửi vào Ngân Hàng Vũ Trụ.');
+  },
+  'rut-nh': function () {
+    var e = document.getElementById('nh-rut');
+    lam('rutNH', { so: soO2(e) }, 'Đã rút từ Ngân Hàng Vũ Trụ.');
+  },
+  'rut-nh-all': function () {
+    lam('rutNH', { so: U.st().nganHang.soDu }, 'Đã rút toàn bộ số dư ngân hàng.');
+  },
+  'dau-tu-st': function () {
+    var e = document.getElementById('st-von');
+    lam('dauTuST', { so: soO2(e) }, 'Đã đầu tư vào Siêu Thị Thiên Hà.');
+  },
+  'tang-toc': function () {
+    lam('tangTocXay', { pi: U.pi }, 'Đã hoàn thành lô đang xây bằng Uranium.');
+  },
+  'mua-diem': function () {
+    lam('muaDiemNC', { diem: 1 }, 'Đã mua 1 điểm Kỹ Thuật.');
+  },
+  'mua-don': function (el) {
+    var id = el.getAttribute('data-id');
+    var e = document.getElementById('mua-' + id);
+    lam('muaDon', { pi: U.pi, donId: id, so: soO2(e) || 0 });
+  },
+  'huy-don': function (el) {
+    lam('huyDon', { donId: el.getAttribute('data-id') }, 'Đã huỷ đơn và hoàn hàng về kho.');
+  },
+  'dang-ban': function (el) {
+    var loai = el.getAttribute('data-loai'), dl = { pi: U.pi, loai: loai }, co = false;
+    for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
+      var r = G.RES_HANH_TINH[i], v = soO2(document.getElementById('ban-' + r));
+      if (v > 0) { dl.res = r; dl.so = v; co = true; }
+    }
+    if (!co) { U.toast('Nhập số lượng cần bán cho một loại tài nguyên.', 'loi'); return; }
+    if (loai === 'tudo') {
+      var g = document.getElementById('ban-gia');
+      if (!g || !(Number(g.value) > 0)) { U.toast('Nhập giá Galana cho Thị Trường Tự Do.', 'loi'); return; }
+      dl.gia = Number(g.value);
+    }
+    lam('dangBan', dl, 'Đã đăng bán.');
   },
 
   /* ---------- chợ ---------- */

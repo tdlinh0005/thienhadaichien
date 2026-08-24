@@ -411,6 +411,125 @@ TheGioi.prototype.phieuCua = function (lmTen) {
   });
 };
 
+/* ===================== [v7] THỊ TRƯỜNG CHÉO ĐẾ QUỐC ======================== */
+
+/* Mốc giờ dùng chung cho luồng chợ: horizon ngoài cùng nếu có, không thì bây giờ. */
+TheGioi.prototype.mocHoacGio = function () {
+  return this.mocTick.length ? this.mocTick[this.mocTick.length - 1] : Math.floor(Date.now() / 1000);
+};
+
+/* Người chơi đăng bán: luật kiểm tra trên state thật rồi mirror xuống bảng `cho`. */
+TheGioi.prototype.choDangBan = function (tk, pi, loai, res, so, gia) {
+  var d = this.nap(tk);
+  if (!d) return 'Đế quốc không tồn tại.';
+  this.batDau();
+  try {
+    G.tick(d.st, this.mocHoacGio());
+    var loi = G.dangBan(d.st, Math.max(0, Math.floor(+pi || 0)), loai === 'tudo' ? 'tudo' : 'sieuthi',
+      String(res || '').slice(0, 10), so, gia);
+    if (loi) { this.ketThuc(false); return loi; }
+    var donMoi = d.st.choDon[d.st.choDon.length - 1];
+    if (donMoi) {
+      donMoi.pi = Math.max(0, Math.floor(+pi || 0));   // nhớ hành tinh để huỷ hoàn đúng kho
+      this.kho.q.choThem.run(loai === 'tudo' ? 'tudo' : 'sieuthi', tk,
+        donMoi.res, donMoi.soConLai, donMoi.gia, d.st.now);
+      donMoi.choId = Number(this.kho.db.prepare('SELECT last_insert_rowid() AS i').get().i);
+    }
+    this.luu(tk, d.st);
+    this.ketThuc();
+    return null;
+  } catch (e) { try { this.ketThuc(false); } catch (e2) { } throw e; }
+};
+
+/* Mua đơn của người khác: unit-of-work bọc cả hai đế quốc. */
+TheGioi.prototype.choMua = function (tkA, choId, so) {
+  choId = Math.floor(+choId);
+  var hang = this.kho.q.choGet.get(choId);
+  if (!hang || hang.so <= 0) return 'Đơn này vừa hết hàng hoặc đã bị huỷ.';
+  if (hang.tk === tkA) return 'Không thể tự mua đơn của chính mình.';
+  so = Math.max(1, Math.floor(+so || 0));
+  if (so > hang.so) so = hang.so;
+
+  if (this.dangTick.has(hang.tk)) return 'Người bán đang được xử lý, thử lại sau một nhịp.';
+  var a = this.nap(tkA), b = this.nap(hang.tk);
+  if (!a || !b) return 'Một trong hai đế quốc không còn trong vũ trụ.';
+  this.batDau();
+  try {
+    this.dangTick.add(hang.tk); this.chuStack.push(hang.tk);
+    var gio = this.mocHoacGio();
+    G.tick(a.st, gio);
+    G.tick(b.st, gio);
+    /* tìm đơn tương ứng trong st.choDon của người bán */
+    var donBan = null, i;
+    for (i = 0; i < b.st.choDon.length; i++)
+      if (b.st.choDon[i].choId === choId) { donBan = b.st.choDon[i]; break; }
+    if (!donBan || donBan.soConLai <= 0) { this.ketThuc(false); return 'Đơn này vừa hết hàng.'; }
+    if (donBan.soConLai < so) so = donBan.soConLai;
+    var tongGL = Math.ceil(so * donBan.gia);
+    var thue = donBan.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
+    if (a.st.galana < tongGL) { this.ketThuc(false); return 'Cần ' + G.so(tongGL) + ' Galana.'; }
+    a.st.galana -= tongGL;
+    b.st.galana += Math.floor(tongGL * (1 - thue));       // người bán nhận sau thuế
+    donBan.soConLai -= so;
+    donBan.daBan = (donBan.daBan || 0) + so;
+    donBan.thuNhap = (donBan.thuNhap || 0) + Math.floor(tongGL * (1 - thue));
+    /* giao hàng: siêu thị ngay, tự do lên đường 6 giờ vào kho hành tinh mẹ tạm */
+    var pa = a.st.planets[0] || a.st.planets[a.st.planets.length - 1];
+    var resTen = G.byId(G.RES, donBan.res).ten;
+    if (hang.loai === 'sieuthi') {
+      pa.res[donBan.res] = (pa.res[donBan.res] || 0) + so;
+    } else {
+      pa.giaoHang = pa.giaoHang || [];
+      pa.giaoHang.push({ res: donBan.res, so: so, xongAt: a.st.now + G.KINH_TE_V1.giaoHangGiay });
+    }
+    this.kho.q.choTru.run(so, choId);
+    if (donBan.soConLai <= 0) this.kho.q.choXoaId.run(choId);
+    G.tin(b.st, 'tiepte', 'Bán được ' + G.so(so) + ' ' + resTen,
+      'Nhận ' + G.so(Math.floor(tongGL * (1 - thue))) + ' Galana sau thuế từ ' + a.st.ten + '.');
+    G.tin(a.st, 'tiepte', 'Mua ' + G.so(so) + ' ' + resTen + ' từ ' + b.st.ten,
+      'Trả ' + G.so(tongGL) + ' Galana' +
+      (hang.loai === 'tudo' ? '; hàng về sau 6 giờ.' : '.'));
+    this.luu(tkA, a.st);
+    this.luu(hang.tk, b.st);
+    this.chuStack.pop(); this.dangTick.delete(hang.tk);
+    this.ketThuc();
+    return null;
+  } catch (e) {
+    this.chuStack.pop(); this.dangTick.delete(hang.tk);
+    try { this.ketThuc(false); } catch (e2) { }
+    throw e;
+  }
+};
+
+/* Huỷ đơn: hoàn tài nguyên còn lại trong state, xoá khỏi bảng chung. */
+TheGioi.prototype.choHuy = function (tk, choId) {
+  choId = Math.floor(+choId);
+  var hang = this.kho.q.choGet.get(choId);
+  if (!hang || hang.tk !== tk) return 'Không có đơn này của ta.';
+  var d = this.nap(tk);
+  if (!d) return 'Đế quốc không tồn tại.';
+  this.batDau();
+  try {
+    var i, don = null;
+    for (i = 0; i < d.st.choDon.length; i++) if (d.st.choDon[i].choId === choId) { don = d.st.choDon[i]; break; }
+    if (don && don.soConLai > 0) {
+      var p = d.st.planets[Math.min(Math.max(0, don.pi | 0), d.st.planets.length - 1)] || d.st.planets[0];
+      p.res[don.res] = (p.res[don.res] || 0) + don.soConLai;
+      d.st.choDon.splice(i, 1);
+      G.ghi(d.st, 'Huỷ đơn bán ' + G.byId(G.RES, don.res).ten + ', hoàn ' + G.so(don.soConLai) + ' vào kho.');
+    }
+    this.kho.q.choXoaId.run(choId);
+    this.luu(tk, d.st);
+    this.ketThuc();
+    return null;
+  } catch (e) { try { this.ketThuc(false); } catch (e2) { } throw e; }
+};
+
+/* Danh sách đơn mở một loại cho /api/cho. */
+TheGioi.prototype.choDS = function (loai) {
+  return { loai: loai === 'tudo' ? 'tudo' : 'sieuthi', don: this.kho.q.choMoLoai.all(loai === 'tudo' ? 'tudo' : 'sieuthi') };
+};
+
 TheGioi.prototype.laDongMinh = function (tkA, tkD) {
   var a = this.kho.q.dqGet.get(tkA), d = this.kho.q.dqGet.get(tkD);
   return !!(a && d && a.lm && d.lm && a.lm === d.lm);

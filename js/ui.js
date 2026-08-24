@@ -128,6 +128,7 @@ U.MAN = [
   { id: 'hamdoi', ten: 'Hạm Đội' },
   { id: 'thienha', ten: 'Thiên Hà' },
   { id: 'lienminh', ten: 'Liên Minh' },
+  { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
   { id: 'xephang', ten: 'Bảng Xếp Hạng' },
   { id: 'mophong', ten: 'Máy Tính Trận' },
   { id: 'tinnhan', ten: 'Tin Nhắn' },
@@ -919,6 +920,29 @@ U.m_lienminh = function () {
     h += '<h2>' + U.esc(st.lm.ten) + '</h2>';
     h += '<p>Gia nhập ngày ' + G.gio(st.lm.t * 1000) + '. Quyền lợi: <b>+5% sản lượng</b> toàn đế quốc, ' +
       'được đứng tên liên minh trên bảng xếp hạng' + (APP.mp ? ' và dùng kênh chat riêng' : '') + '.</p>';
+    /* [v7] chính thể & phiếu — chỉ bản nhiều người có bảng phiếu thật */
+    if (APP.mp && U.nguon.chinhThe) {
+      var ctTen = { docTai: 'Độc Tài', danChu: 'Dân Chủ', congHoa: 'Cộng Hoà' };
+      h += '<p>Chính thể: <b class="vang">' + (ctTen[U.nguon.chinhThe()] || 'Độc Tài') + '</b>' +
+        (U.nguon.duocBau ? ' · ta là <b>đại biểu/bỏ phiếu được</b>' : '') + '</p>';
+      var phieu = U.nguon.phieuDS ? U.nguon.phieuDS() : [];
+      if (phieu.length) {
+        h += '<div class="bang-cuon"><table><tr><th>Phiếu</th><th class="r">Tán thành / Chống</th>' +
+          '<th class="r">Hạn</th><th class="r">Kết quả</th><th></th></tr>';
+        for (var pv = 0; pv < phieu.length; pv++) {
+          var P = phieu[pv];
+          var mo = P.dangMo;
+          h += '<tr><td>' + P.loai + ' #' + P.id + (P.doiTuong ? ' → #' + P.doiTuong : '') + '</td>' +
+            '<td class="r sz luc">' + P.ung + '</td><td class="r sz do">' + P.chong + '</td>' +
+            '<td class="r sz">' + (mo ? G.tg(P.hetHan - Date.now() / 1000) : (P.ketQua === 'dat' ? 'ĐẠT' : 'Không đạt')) + '</td>' +
+            '<td class="r">' + (mo && U.nguon.duocBau ?
+              '<button class="nut nho oke" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="1">Tán thành</button> ' +
+              '<button class="nut nho xoa" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="0">Chống</button>' : '') +
+            '</td></tr>';
+        }
+        h += '</table></div>';
+      }
+    }
     if (U.nguon.thanhVien) {
       var tv = U.nguon.thanhVien(st.lm.ten);
       if (tv && tv.length) {
@@ -953,6 +977,106 @@ U.m_lienminh = function () {
         (daXin ? ' disabled' : '') + '>' + (daXin ? 'Đã gửi đơn' : 'Xin vào') + '</button></td></tr>';
     }
     h += '</table></div>';
+  }
+  h += '</div></div>';
+  return h;
+};
+
+/* [v7] Ngân Hàng & Thị Trường — bộ ba tài chính của bản gốc:
+ * ngân hàng lãi 0,07–2%/ngày, siêu thị giá gốc thuế 10%, tự do thuế 5% giao 6h. */
+U.tabTC = 'nganhang';
+
+U.m_taichinh = function () {
+  var st = U.st(), p = U.ht();
+  var tab = U.tabTC || 'nganhang';
+  var tenTab = { nganhang: 'Ngân Hàng Vũ Trụ', sieuthi: 'Siêu Thị Thiên Hà', tudo: 'Thị Trường Tự Do' };
+  var h = '<div class="panel"><h3>Tài Chính Đế Quốc</h3><div class="noi">';
+  h += '<div class="gal-dh">';
+  for (var tb in tenTab)
+    h += '<button class="nut nho' + (tab === tb ? ' oke' : '') + '" data-act="tab-tc" data-tab="' + tb + '">' + tenTab[tb] + '</button> ';
+  h += '</div>';
+
+  if (tab === 'nganhang') {
+    var laiNgay = G.laiNganHangNgay(st.nganHang.soDu);
+    h += '<table style="margin-top:8px"><tr><td>Số dư gửi</td><td class="r sz">' + G.so(st.nganHang.soDu) + ' Galana</td></tr>' +
+      '<tr><td>Lãi hiện tại</td><td class="r sz luc">' + (laiNgay * 100).toFixed(2) + '%/ngày' +
+      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr></table>';
+    h += '<p class="mo">Lãi suy giảm theo số dư: tiền lớn khó sinh lời — dải tư liệu gốc là 0,07–2%/ngày.</p>';
+    h += '<div>Gửi <input id="nh-gui" type="number" min="1" style="width:120px"> Galana ' +
+      '<button class="nut nho oke" data-act="gui-nh">Gửi</button> ' +
+      '<button class="nut nho" data-act="rut-nh-all">Rút hết</button></div>';
+    h += '<div style="margin-top:6px">Rút <input id="nh-rut" type="number" min="1" style="width:120px"> Galana ' +
+      '<button class="nut nho" data-act="rut-nh">Rút</button></div>';
+    /* đầu tư siêu thị */
+    h += '<h3 style="margin-top:12px">Đầu Tư Siêu Thị Thiên Hà</h3>';
+    if ((st.dauTuST.ketThucAt || 0) > st.now) {
+      h += '<p>Đang đầu tư <b>' + G.so(st.dauTuST.von) + '</b> Galana — đáo hạn ' + G.tg(st.dauTuST.ketThucAt - st.now) +
+        '. Không rút giữa kỳ được [XÁC NHẬN].</p>';
+    } else {
+      h += '<div>Đầu tư <input id="st-von" type="number" min="1" style="width:120px"> Galana (khoá 7 ngày, chia lợi nhuận thuế) ' +
+        '<button class="nut nho oke" data-act="dau-tu-st">Đầu tư</button></div>';
+    }
+    /* uranium */
+    h += '<h3 style="margin-top:12px">Uranium: <b>' + G.so(st.uranium || 0) + '</b></h3>';
+    h += '<div><button class="nut nho" data-act="tang-toc"' + (p.qB.length && p.qB[0].xong ? '' : ' disabled') + '>Tăng tốc lô đang xây (' +
+      G.KINH_TE_V1.uraniumTangToc + ' Ur)</button> ' +
+      '<button class="nut nho" data-act="mua-diem">Mua 1 điểm Kỹ Thuật (' + G.KINH_TE_V1.uraniumMotDiem + ' Ur)</button></div>';
+  } else {
+    /* thị trường: đơn đối tác */
+    var donNgoai = [];
+    if (!APP.mp) donNgoai = G.npcCho(st);
+    else if (U.nguon.choDonNgoai) donNgoai = U.nguon.choDonNgoai(tab);
+    h += '<h4 style="margin-top:10px">' + (tab === 'sieuthi' ? 'Hàng đang bán (giá gốc, giao ngay)' : 'Đơn chào bán (tự định giá, hàng về sau 6 giờ)') + '</h4>';
+    h += '<div class="bang-cuon"><table><tr><th>Tài nguyên</th><th class="r">Còn</th><th class="r">Giá GL/đơn vị</th><th class="r">Mua số lượng</th><th></th></tr>';
+    for (var i = 0; i < donNgoai.length; i++) {
+      var d = donNgoai[i];
+      if (d.loai !== tab && !(d.npc && tab === 'sieuthi')) continue;
+      h += '<tr><td style="color:' + G.byId(G.RES, d.res).mau + '">' + G.byId(G.RES, d.res).ten + '</td>' +
+        '<td class="r sz">' + G.so(d.soConLai) + '</td><td class="r sz">' + G.so(d.gia) + '</td>' +
+        '<td class="r"><input id="mua-' + d.id + '" type="number" min="1" style="width:100px"></td>' +
+        '<td class="r"><button class="nut nho oke" data-act="mua-don" data-id="' + d.id + '">Mua</button></td></tr>';
+    }
+    h += '</table></div>';
+    /* đơn của ta */
+    var donTa = (st.choDon || []).filter(function (x) { return !x.npc; });
+    if (donTa.length) {
+      h += '<h4 style="margin-top:12px">Đơn đang mở của ta</h4><div class="bang-cuon"><table>' +
+        '<tr><th>Tài nguyên</th><th class="r">Còn</th><th class="r">Giá</th><th class="r">' +
+        (donTa[0].daBan ? 'Đã bán / Thu nhập sau thuế' : '') + '</th><th></th></tr>';
+      for (var j = 0; j < donTa.length; j++) {
+        var dj = donTa[j];
+        if (dj.loai !== tab) continue;
+        h += '<tr><td style="color:' + G.byId(G.RES, dj.res).mau + '">' + G.byId(G.RES, dj.res).ten + '</td>' +
+          '<td class="r sz">' + G.so(dj.soConLai) + '</td><td class="r sz">' + G.so(dj.gia) + '</td>' +
+          '<td class="r sz">' + (dj.daBan ? G.so(dj.daBan) + ' / ' + G.so(dj.thuNhap || 0) : '') + '</td>' +
+          '<td class="r"><button class="nut nho xoa" data-act="huy-don" data-id="' + dj.id + '">Huỷ</button></td></tr>';
+      }
+      h += '</table></div>';
+    }
+    /* đăng bán */
+    h += '<h4 style="margin-top:12px">Đăng bán từ ' + U.esc(p.ten) + '</h4><table><tr>';
+    for (var r2 = 0; r2 < G.RES_HANH_TINH.length; r2++) {
+      var resId = G.RES_HANH_TINH[r2];
+      h += '<td style="color:' + G.byId(G.RES, resId).mau + '">' + G.byId(G.RES, resId).ky +
+        ': <input id="ban-' + resId + '" type="number" min="0" style="width:90px"></td>';
+    }
+    if (tab === 'tudo') h += '<td>Giá GL: <input id="ban-gia" type="number" min="1" style="width:90px"></td>';
+    h += '<td><button class="nut nho oke" data-act="dang-ban" data-loai="' + tab + '">Đăng bán</button></td></tr></table>';
+    if (tab === 'tudo') {
+      h += '<p class="mo">Thuế 5%. Hàng đến tay người mua sau 6 giờ — đúng nhịp bảo trì của bản gốc.</p>';
+    }
+    /* hàng đang về */
+    var dangVe = [];
+    for (var pi = 0; pi < st.planets.length; pi++)
+      for (var g2 = 0; g2 < (st.planets[pi].giaoHang || []).length; g2++)
+        dangVe.push({ p: st.planets[pi].ten, hang: st.planets[pi].giaoHang[g2] });
+    if (dangVe.length) {
+      h += '<h4 style="margin-top:12px">Hàng đang về</h4><ul>';
+      for (var v3 = 0; v3 < dangVe.length; v3++)
+        h += '<li>' + G.so(dangVe[v3].hang.so) + ' ' + G.byId(G.RES, dangVe[v3].hang.res).ten + ' → ' +
+          U.esc(dangVe[v3].p) + ' (còn ' + G.tg(dangVe[v3].hang.xongAt - st.now) + ')</li>';
+      h += '</ul>';
+    }
   }
   h += '</div></div>';
   return h;

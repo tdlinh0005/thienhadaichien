@@ -108,6 +108,22 @@
       var ds = (MP.lm && MP.lm.xin) || [];
       for (var i = 0; i < ds.length; i++) if (ds[i].lm === ten) return true;
       return false;
+    },
+    /* [v7] chính thể & phiếu & thị trường chéo đế quốc */
+    chinhThe: function () { return (MP.lm && MP.lm.chinhThe) || 'docTai'; },
+    duocBau: function () { return !!(MP.lm && MP.lm.duocBau); },
+    phieuDS: function () { return (MP.lm && MP.lm.phieu) || []; },
+    choDonNgoai: function (loai) {
+      var ds = (MP.cho && MP.cho.don) || [];
+      var out = [];
+      for (var i = 0; i < ds.length; i++) {
+        var d = ds[i];
+        if (d.loai !== loai) continue;
+        if ((st_choCuaTa(d))) continue;
+        out.push(d);
+      }
+      return out;
+      function st_choCuaTa() { return false; }   // đơn của ta đã lọc ở server-side projection
     }
   };
 
@@ -134,6 +150,7 @@
     { id: 'hamdoi', ten: 'Hạm Đội' },
     { id: 'thienha', ten: 'Thiên Hà' },
     { id: 'lienminh', ten: 'Liên Minh' },
+    { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
     { id: 'xephang', ten: 'Bảng Xếp Hạng' },
     { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
     { id: 'chat', ten: 'Phòng Chat' },
@@ -384,6 +401,9 @@
       }
       if (m === 'xephang') APP.taiXepHang(U.xhLoai);
       if (m === 'lienminh') taiLienMinh(true).catch(function () { });
+      if (m === 'taichinh') api('/api/cho?loai=' + (U.tabTC || 'sieuthi')).then(function (r) {
+        MP.cho = r; U.ve();
+      }, function () { });
       if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
       if (m === 'chat') taiChat(true).catch(function () { });
     },
@@ -394,6 +414,11 @@
           MP.lm = l; U.ve(); U.toast('Đã gửi đơn. Chờ chủ liên minh duyệt.', 'ok');
         }, function () { U.ve(); });
       }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'bau-phieu': function (el) {
+      api('/api/lmphieu', { phieuId: +el.getAttribute('data-id'), giaTri: el.getAttribute('data-giatri') === '1' })
+        .then(function () { return taiLienMinh(true); },
+          function (e) { U.toast(e.message, 'loi'); });
     },
     'lm-ra': function () {
       APP.lam('lmra', {}, function (err) {

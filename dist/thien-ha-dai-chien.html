@@ -740,8 +740,59 @@ G.MOC_LICH_SU = {
   nhaMay: { soLuong: 1000, nhaXuong: 20, mayBayTangHinhNgay: 10000 },
   mbcdMotTrieu: { soLuong: 1000000, cost: { metal: 10000000000, crystal: 5000000000, galana: 10000000000 } }
 };
+
+/* --- Kinh tế thật [XÁC NHẬN khung từ tư liệu; các hằng tinh chỉnh là TÁI DỰNG] --- */
+G.KINH_TE_V1 = {
+  marker: 'kinh-te-that-v1',
+  /* Giá trao đổi gốc ghi nguyên trong bài giới thiệu GVN năm 2006:
+   * Kim Loại 1 GL · Thạch Anh 2 GL · Nhiên Liệu 4 GL · Thực Phẩm 1 GL. */
+  giaGoc: { metal: 1, crystal: 2, deut: 4, food: 1 },
+  thueSieuThi: 0.10,          // "Thuế mỗi lần buôn bán tại siêu thị thiên hà là 10%"
+  thueTuDo: 0.05,             // thị trường tự do thuế "chỉ 5%"
+  giaoHangGiay: 6 * 3600,     // "hàng hóa sẽ được chuyển đến sau 6 giờ"
+  laiMaxNgay: 0.02,           // Ngân hàng vũ trụ "lãi cỡ 2%/ngày"
+  laiMinNgay: 0.0007,         // dải dưới 0,07%/ngày
+  laiK: 1000000000,           /* [TÁI DỰNG] số dư cỡ này nhận ~1%/ngày;
+                                 tiền lớn khó sinh lời nên lãi suy giảm theo số dư */
+  kyDauTuGiay: 7 * 24 * 3600, // [TÁI DỰNG] kỳ đầu tư Siêu Thị, không rút giữa kỳ
+  donToiDaMo: 20,             // [TÁI DỰNG] chống spam đơn
+  uraniumTangToc: 10,         // [TÁI DỰNG] giá Uranium một lần hoàn thành lô ngay
+  uraniumMotDiem: 20,         // [TÁI DỰNG] giá Uranium mua 1 điểm Kỹ Thuật
+  luongProbeDeutGio: 0.5,     // [TÁI DỰNG] lương Nhiên Liệu mỗi tàu do thám mỗi giờ
+  phanBoiBat50: 0.5           // [TÁI DỰNG] tàu do thám bị bắt khi phản bội
+};
+
+/* --- Chiến đấu theo địa hình ------------------------------------------------
+ * [XÁC NHẬN hướng từng loại từ GameLand "Theo ITD": Tank vô địch Sa Mạc và kém
+ * hiệu quả Rừng; Robot luồn lách Rừng, chìm Nước; máy bay thuận gió ẩm Nước,
+ * dễ bị hạ Băng; hoả tiễn đạn đạo mạnh Sa Mạc, rừng dày chặn bom.
+ * Toàn bộ HỆ SỐ là [TÁI DỰNG] bảo thủ. Chỉ tác động trận MẶT ĐẤT; chiến tranh
+ * quỹ đạo trung bình hoá về 1 vì không chịu địa hình.                        */
+G.DIA_HINH = {
+  tank:     { samac: 1.50, runggia: 0.60, nuoc: 0.80, banghai: 1.00, onhoa: 1.00 },
+  robot:    { samac: 0.90, runggia: 1.40, nuoc: 0.70, banghai: 1.00, onhoa: 1.00 },
+  fighterL: { samac: 1.00, runggia: 0.90, nuoc: 1.15, banghai: 0.75, onhoa: 1.10 },
+  fighterH: { samac: 1.00, runggia: 0.90, nuoc: 1.15, banghai: 0.75, onhoa: 1.10 },
+  hoaTien:  { samac: 1.25, runggia: 0.70, nuoc: 1.00, banghai: 1.00, onhoa: 1.00 },
+  bomber:   { samac: 1.25, runggia: 0.70, nuoc: 1.00, banghai: 1.00, onhoa: 1.00 }
+};
+G.hsDiaHinh = function (id, loaiHTId) {
+  var hang = G.DIA_HINH[id];
+  return hang && hang[loaiHTId] ? hang[loaiHTId] : 1;
+};
 G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
 G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
+
+/* --- Ngân hàng vũ trụ [XÁC NHẬN dải lãi 0,07–2%/ngày] ----------------------
+ * Lãi suy giảm theo số dư: tiền lớn khó sinh lời; laiK là điểm ~1%/ngày.     */
+G.laiNganHangNgay = function (soDu) {
+  var kt = G.KINH_TE_V1;
+  soDu = Math.max(0, Number(soDu) || 0);
+  if (!isFinite(soDu)) soDu = 0;
+  return Math.max(kt.laiMinNgay,
+    Math.min(kt.laiMaxNgay, kt.laiMaxNgay * kt.laiK / (kt.laiK + soDu)));
+};
+G.laiNganHangGio = function (soDu) { return G.laiNganHangNgay(soDu) / 24; };
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };
@@ -1093,16 +1144,19 @@ var G = window.G = window.G || {};
 
 G.VONG_XUONG_DAT = 3;
 
-function nhom(id, n, tech, ben, thuDat, nguon) {
+function nhom(id, n, tech, ben, thuDat, nguon, diaHinh) {
   var u = G.UNIT(id);
   var w = 1 + 0.1 * (tech.weapon || 0), s = 1 + 0.1 * (tech.shield || 0), a = 1 + 0.1 * (tech.armor || 0);
   /* Loại hành tinh làm phòng thủ MẶT ĐẤT dày thêm (Băng Hà, Nước – Đầm Lầy) */
   if (u.lop === 'dat' && thuDat) { s *= thuDat; a *= thuDat; }
+  /* [v7] Hệ số địa hình chỉ tác động đơn vị chạm mặt đất (công sự/bộ binh);
+   * chiến tranh quỹ đạo trung hoá — xem bảng G.DIA_HINH trong data.js. */
+  var dh = diaHinh === undefined ? 1 : diaHinh;
   return {
     id: id, ten: u.ten, n: n, n0: n, ben: ben,
-    atk: u.atk * w,
+    atk: u.atk * w * dh,
     shield: u.shield * s,
-    hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a,   // vỏ thép cơ bản × giáp
+    hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a * dh,   // vỏ thép cơ bản × giáp
     hongDu: 0,
     lop: u.lop || 'ham',
     cost: u.cost,
@@ -1110,12 +1164,15 @@ function nhom(id, n, tech, ben, thuDat, nguon) {
   };
 }
 
-function gomBen(ships, def, tech, ben, thuDat, bo, nguon) {
+function gomBen(ships, def, tech, ben, thuDat, bo, nguon, loaiHT) {
   var out = [];
   var id;
-  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben, 1, nguon));
-  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1));
-  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1));
+  /* Công sự và bộ binh luôn nhận hệ số địa hình. Tàu chỉ nhận khi `loaiHT`
+   * được truyền vào — tức trận đổ bộ nơi tàu bay đã chạm khí quyển. */
+  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id))
+    out.push(nhom(id, ships[id], tech, ben, 1, nguon, loaiHT ? G.hsDiaHinh(id, loaiHT) : 1));
+  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1, G.hsDiaHinh(id, loaiHT)));
+  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1, G.hsDiaHinh(id, loaiHT)));
   return out;
 }
 
@@ -1188,7 +1245,12 @@ function tinhLuc(gs) {
 G.danhTran = function (A, D, seed) {
   var rnd = G.rng(seed || (Date.now() >>> 0));
   var doBo = !!A.doBo;                 /* trận đổ bộ: không chia lớp, đánh hết từ vòng 1 */
-  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1);
+  /* [v7] Trận ĐỔ BỘ: tàu của bên công hạ độ cao chạm khí quyển/mặt đất nên
+   * máy bay & hoả tiễn mang theo chịu hệ số địa hình (tư liệu: "máy bay dễ
+   * bị tiêu diệt ở Băng", "bom yếu đi ở Rừng"). Trận quỹ đạo thuần túy thì không. */
+  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1,
+    doBo ? (D.loaiHT || null) : null);
+  var loaiHT = D.loaiHT || null;
   var nhomTau = Array.isArray(D.nhomTau) && D.nhomTau.length
     ? D.nhomTau
     : [{ ships: D.ships || {}, tech: D.tech || {} }];
@@ -1198,7 +1260,7 @@ G.danhTran = function (A, D, seed) {
     for (var ig = 0; ig < them.length; ig++) defAll.push(them[ig]);
   }
   /* Công sự và bộ binh luôn thuộc hành tinh, không thuộc một nhóm tàu. */
-  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1);
+  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1, loaiHT);
   for (var idf = 0; idf < them.length; idf++) defAll.push(them[idf]);
 
   var quyDao = [], mDat = [];
@@ -1335,7 +1397,7 @@ G.thuyThu = function (ships) {
  * đúng thứ tự thời gian — nên chơi offline vẫn ra kết quả đúng.            */
 'use strict';
 var G = window.G = window.G || {};
-G.STATE_VERSION = 6;
+G.STATE_VERSION = 7;
 
 /* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
 G.LECH_GIO = 0;
@@ -1376,6 +1438,13 @@ G.moiGame = function (ten, seedStr, home) {
     nextRaid: now + 3600 * 3,
     soChuKy: 0, noBaoTri: 0,
     lm: null,
+    /* Kinh tế thật v7 [XÁC NHẬN khung; hằng số trong G.KINH_TE_V1] */
+    nganHang: { soDu: 0, laiLuc: 0 },
+    dauTuST: { von: 0, ketThucAt: 0 },
+    uranium: 0,
+    luongGD: { muc: 0, traLuc: 0, phanBoi: false },
+    choDon: [],
+    moHinhKT: G.KINH_TE_V1.marker,
     stats: { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 },
     fleetIdSeq: 1
   };
@@ -1709,6 +1778,23 @@ function nangV5LenV6(st, activatedAt) {
   st.moHinhQuyDao = qd.marker;
 }
 
+/* STATE V7: KINH TẾ THẬT — thuần additive. Ngân hàng, đầu tư siêu thị, Uranium
+ * và lương gián điệp chỉ được GẮN DEFAULT; tuyệt đối không đụng số liệu cũ.
+ * LM/chính thể không nằm trong state đế quốc nên không thuộc bước này. */
+function nangV6LenV7(st) {
+  if (!st.nganHang) st.nganHang = { soDu: 0, laiLuc: 0 };
+  else {
+    if (!isFinite(Number(st.nganHang.soDu))) st.nganHang.soDu = 0;
+    if (!isFinite(Number(st.nganHang.laiLuc))) st.nganHang.laiLuc = 0;
+  }
+  if (!st.dauTuST || !isFinite(Number(st.dauTuST.ketThucAt)))
+    st.dauTuST = { von: 0, ketThucAt: 0 };
+  if (!isFinite(Number(st.uranium))) st.uranium = 0;
+  if (!st.luongGD) st.luongGD = { muc: 0, traLuc: 0, phanBoi: false };
+  st.moHinhKT = G.KINH_TE_V1.marker;
+  st.v = 7;
+}
+
 /* Nâng tuần tự, không nhảy thẳng: save v3 luôn đi qua đúng phép quy đổi vốn
  * công trình v4, schema nhịp v5 rồi schema quỹ đạo v6. `activatedAt` là
  * wall-clock do loader/server truyền vào; mặc định dùng giờ hiện tại. */
@@ -1729,7 +1815,8 @@ G.nangCapState = function (st, activatedAt) {
     nangV4LenV5(st, moc);
     phienBan = 5;
   }
-  if (phienBan === 5) nangV5LenV6(st, moc);
+  if (phienBan === 5) { nangV5LenV6(st, moc); phienBan = 6; }
+  if (phienBan === 6) nangV6LenV7(st);
   return st;
 };
 
@@ -2149,6 +2236,166 @@ G.tin = function (st, loai, tieuDe, noiDung, data) {
 G.ghi = function (st, s) {
   st.nk.unshift({ t: st.now, s: s });
   if (st.nk.length > 120) st.nk.length = 120;
+};
+
+/* ===== js/thitruong.js ===== */
+/* =========================================================================
+ * THIÊN HÀ ĐẠI CHIẾN — Thị trường v7 (Siêu Thị Thiên Hà & Thị Trường Tự Do)
+ * -------------------------------------------------------------------------
+ * Tư liệu gốc [XÁC NHẬN]:
+ *   - Siêu Thị Thiên Hà: chỉ bán giá GỐC, chỉ có hàng khi có người bán vào,
+ *     thuế 10% mỗi lượt.
+ *   - Thị Trường Tự Do: người chơi tự định giá, thuế 5%, hàng về sau 6 giờ,
+ *     giao dịch trực tiếp giữa hai người chơi.
+ * Mọi con số tinh chỉnh khác (độ sâu NPC solo, trần đơn) là [TÁI DỰNG].
+ *
+ * Nguồn sự thật của đơn:
+ *   - Solo: st.choDon trong state người chơi (đơn NPC sinh tất định).
+ *   - Multiplayer: bảng SQLite `cho` là nguồn chéo đế quốc; st.choDon chỉ là
+ *     projection hiển thị cho chủ đơn, được world.js dựng lại khi lưu.
+ * File này chỉ chứa LUẬT dùng chung cả hai chế độ.                          */
+'use strict';
+var G = window.G = window.G || {};
+
+/* Độ sâu thị trường NPC ở bản một người [TÁI DỨNG]: mỗi loại có lượng sẵn
+ * bán, hồi dần theo giờ (tỉ lệ/giờ) lên trần. Multiplayer bỏ qua. */
+G.CHO_NPC = {
+  TRAN: { metal: 2000000, crystal: 1000000, deut: 400000, food: 1500000 },
+  HOI_GIO: 0.02          // mỗi giờ hồi 2% trần
+};
+
+function donKeTiep(st) {
+  var maxId = 0, i;
+  for (i = 0; i < st.choDon.length; i++) maxId = Math.max(maxId, st.choDon[i].id || 0);
+  return maxId + 1;
+}
+
+/* Giá gốc GL/đơn vị [XÁC NHẬN]; loại lạ trả NaN để caller chặn. */
+G.giaGoc = function (res) {
+  var g = G.KINH_TE_V1 && G.KINH_TE_V1.giaGoc[res];
+  return g === undefined ? NaN : g;
+};
+
+G.donChoCua = function (st) { return st.choDon || (st.choDon = []); };
+
+/* Đăng bán: TRỪ tài nguyên ngay lúc đặt lệnh — hàng bị khoá trong đơn tới khi
+ * mua hết hoặc huỷ. Siêu thị ép đúng giá gốc; Tự Do nhận giá nguyên dương bất kỳ. */
+G.dangBan = function (st, pi, loai, res, so, gia) {
+  var p = st.planets[pi];
+  if (!p) return 'Hành tinh không tồn tại.';
+  if (loai !== 'sieuthi' && loai !== 'tudo') return 'Loại chợ không hợp lệ.';
+  if (G.RES_HANH_TINH.indexOf(res) < 0) return 'Không đăng bán được loại này.';
+  so = Math.floor(+so);
+  if (!isFinite(so) || so <= 0) return 'Nhập số lượng cần bán.';
+  if ((p.res[res] || 0) < so) return 'Không đủ ' + G.byId(G.RES, res).ten + '.';
+  gia = Math.floor(+gia);
+  if (loai === 'sieuthi') gia = G.giaGoc(res);           // giá gốc là luật của siêu thị
+  else {
+    if (!isFinite(gia) || gia <= 0) return 'Giá phải là số Galana dương.';
+    if (gia > 1e12) return 'Giá quá lớn.';
+  }
+  var don = st.choDon.filter(function (x) { return !x.npc; });
+  if (don.length >= G.KINH_TE_V1.donToiDaMo)
+    return 'Đã mở tối đa ' + G.KINH_TE_V1.donToiDaMo + ' đơn; hãy huỷ bớt.';
+  p.res[res] -= so;
+  st.choDon.push({ id: donKeTiep(st), loai: loai, res: res, soConLai: so, gia: gia, taoAt: st.now });
+  G.ghi(st, 'Đăng bán ' + G.so(so) + ' ' + G.byId(G.RES, res).ten + ' (' +
+    (loai === 'sieuthi' ? 'Siêu Thị' : 'Thị Trường Tự Do') + ') giá ' + G.so(gia) + ' GL/đơn vị.');
+  return null;
+};
+
+/* Huỷ đơn của mình: hoàn phần tài nguyên còn khoá trong đơn. */
+G.huyDon = function (st, donId) {
+  var i;
+  for (i = 0; i < st.choDon.length; i++) if (st.choDon[i].id === donId) break;
+  if (i >= st.choDon.length) return 'Không có đơn này.';
+  var d = st.choDon[i];
+  if (d.npc) return 'Đơn của thị trường không thể huỷ.';
+  /* Hoàn vào hành tinh có ô toạ độ lưu cùng đơn nếu có, không thì hành tinh đầu. */
+  var p = st.planets[Math.min(Math.max(0, d.pi | 0), st.planets.length - 1)] || st.planets[0];
+  p.res[d.res] = (p.res[d.res] || 0) + d.soConLai;
+  st.choDon.splice(i, 1);
+  G.ghi(st, 'Huỷ đơn bán ' + G.byId(G.RES, d.res).ten + ', hoàn ' + G.so(d.soConLai) + ' vào kho.');
+  return null;
+};
+
+/* Mua một đơn. Trả {loi} hoặc null. Luật:
+ *   - không được tự mua đơn của chính mình;
+ *   - siêu thị: giao NGAY vào kho hành tinh `pi` của người mua;
+ *   - tự do: hàng lên đường, tới sau giaoHangGiay (tickCho nhập kho).
+ * Ở multiplayer, đơn đối tác nằm trên đế quốc khác nên server gọi hàm này sau
+ * khi đã tua và kiểm tra cả hai bên; bên đây chỉ thấy đơn qua tham số. */
+G.muaDon = function (st, pi, don, so) {
+  var p = st.planets[pi];
+  if (!p) return 'Hành tinh không tồn tại.';
+  if (!don || don.soConLai <= 0) return 'Đơn này vừa hết hàng hoặc đã bị huỷ.';
+  /* Đơn thường nằm trong st.choDon của chủ đơn; đơn NPC thì được mua thoải mái. */
+  if (!don.npc && st.choDon.indexOf(don) >= 0)
+    return 'Không thể tự mua đơn của chính mình.';
+  so = Math.floor(+so);
+  if (!isFinite(so) || so <= 0) return 'Nhập số lượng cần mua.';
+  if (so > don.soConLai) so = don.soConLai;
+  var tongGL = Math.ceil(so * don.gia);
+  var thue = don.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
+  if (st.galana < tongGL) return 'Cần ' + G.so(tongGL) + ' Galana.';
+  st.galana -= tongGL;
+  don.daBan = (don.daBan || 0) + so;
+  don.thuNhap = (don.thuNhap || 0) + Math.floor(tongGL * (1 - thue));
+  if (don.loai === 'sieuthi') {
+    p.res[don.res] = (p.res[don.res] || 0) + so;
+  } else {
+    p.giaoHang = p.giaoHang || [];
+    p.giaoHang.push({ res: don.res, so: so, xongAt: st.now + G.KINH_TE_V1.giaoHangGiay });
+  }
+  G.ghi(st, 'Mua ' + G.so(so) + ' ' + G.byId(G.RES, don.res).ten + ' hết ' +
+    G.so(tongGL) + ' Galana' + (don.loai === 'tudo' ? '; hàng về sau 6 giờ.' : '.'));
+  return null;
+};
+
+/* Đơn NPC cho bản solo [TÁI DỨNG]: sinh tất định từ id đế quốc, lượng sẵn
+ * giảm dần theo lần mua (lưu trong st.npcCho), hồi dần theo giờ trong tickCho. */
+G.npcCho = function (st) {
+  if (!st.npcCho) st.npcCho = {};
+  var r = G.rng(G.hash('cho-npc:' + (st.seed || ''))), out = [], i;
+  var ds = G.RES_HANH_TINH;
+  for (i = 0; i < ds.length; i++) {
+    var res = ds[i];
+    var tran = G.CHO_NPC.TRAN[res] || 0;
+    if (!st.npcCho[res]) st.npcCho[res] = { con: tran * (0.4 + 0.3 * r()), luc: st.now };
+    out.push({
+      id: 'npc-' + res, npc: true, loai: 'sieuthi', res: res, gia: G.giaGoc(res),
+      soConLai: Math.floor(st.npcCho[res].con), tran: tran
+    });
+  }
+  return out;
+};
+
+/* Tick thị trường: nhập hàng Tự Do tới hạn + hồi hàng NPC (solo). */
+G.tickCho = function (st, t) {
+  var i, j;
+  for (i = 0; i < st.planets.length; i++) {
+    var p = st.planets[i];
+    if (!p.giaoHang || !p.giaoHang.length) continue;
+    for (j = p.giaoHang.length - 1; j >= 0; j--) {
+      if (p.giaoHang[j].xongAt <= t) {
+        var hang = p.giaoHang.splice(j, 1)[0];
+        p.res[hang.res] = (p.res[hang.res] || 0) + hang.so;
+        G.ghi(st, p.ten + ': nhận ' + G.so(hang.so) + ' ' + G.byId(G.RES, hang.res).ten +
+          ' từ Thị Trường Tự Do.');
+      }
+    }
+  }
+  /* hồi NPC */
+  if (st.npcCho) {
+    for (var res in st.npcCho) {
+      var s = st.npcCho[res], tran = G.CHO_NPC.TRAN[res] || 0;
+      var gio = (t - Number(s.luc || t)) / 3600;
+      if (gio > 0 && s.con < tran) {
+        s.con = Math.min(tran, s.con + tran * G.CHO_NPC.HOI_GIO * gio);
+        s.luc = t;
+      }
+    }
+  }
 };
 
 /* ===== js/fleet.js ===== */
@@ -2949,6 +3196,42 @@ G.baoTri = function (st) {
   }
   var muc = dat ? 0 : Math.min(3, bt.missStreak);
   for (var i = 0; i < st.planets.length; i++) G.nhipDanSu(st, st.planets[i], dat, muc, dong);
+  /* [v7] LƯƠNG GIÁN ĐIỆP [XÁC NHẬN "không trả lương thì phản bội"; mức là TÁI DỰNG]:
+   * mỗi tàu do thám tốn NL/giờ trừ tại checkpoint. Thiếu một kỳ → cờ phản bội;
+   * trả đủ liên tục một kỳ sạch → đối tượng tin lại, cờ tắt. */
+  if (st.luongGD) {
+    var soProbe = 0;
+    for (i = 0; i < st.planets.length; i++) soProbe += Math.max(0, st.planets[i].ships.probe || 0);
+    var luongKy = Math.ceil(soProbe * G.KINH_TE_V1.luongProbeDeutGio * chuKy / 3600);
+    if (luongKy > 0) {
+      var deutCo = 0;
+      for (i = 0; i < st.planets.length; i++) deutCo += Math.max(0, st.planets[i].res.deut || 0);
+      var noLuong = Math.ceil(Number(st.luongGD.traLuc) || 0) + luongKy;
+      if (deutCo >= noLuong) {
+        var canTra = noLuong;
+        for (i = 0; i < st.planets.length && canTra > 0; i++) {
+          var truNL = Math.min(st.planets[i].res.deut || 0, canTra);
+          st.planets[i].res.deut -= truNL; canTra -= truNL;
+        }
+        if (st.luongGD.phanBoi) {
+          /* kỳ đầu TRẢ ĐỦ sau phản bội: giữ cờ thêm một kỳ để chứng minh niềm tin */
+          if (!st.luongGD.kySanh) st.luongGD.kySanh = 1;
+          else { st.luongGD.phanBoi = false; st.luongGD.kySanh = 0; }
+        }
+        dong.push('Lương gián điệp: đã trả ' + G.so(luongKy) + ' Nhiên Liệu cho ' + G.so(soProbe) +
+          ' tàu do thám.');
+      } else {
+        st.luongGD.traLuc = noLuong;
+        if (!st.luongGD.phanBoi) {
+          st.luongGD.phanBoi = true;
+          dong.push('KHÔNG ĐỦ NHIÊN LIỆU TRẢ LƯƠNG GIÁN ĐIỆP — mạng lưới tình báo sẽ PHẢN BỘI!');
+          G.tin(st, 'canh', 'Gián điệp sắp phản bội',
+            'Thiếu ' + G.so(noLuong - deutCo) + ' Nhiên Liệu trả lương. Trả ngay ở màn Tình Báo ' +
+            'nếu không lần do thám tới sẽ bị lộ ngược và tàu bị bắt.');
+        }
+      }
+    }
+  }
   var mocKeTiep = Number(bt.nextAt);
   if (!isFinite(mocKeTiep)) mocKeTiep = st.now;
   bt.nextAt = mocKeTiep + chuKy;       // giữ nguyên pha đồng hồ tài khoản
@@ -3141,6 +3424,9 @@ G.tick = function (st, now) {
         G.sanXuat(st, st.planets[i], dt);
         G.chayXuong(st, st.planets[i], dt);
       }
+      /* Lãi ngân hàng tích liên tục theo giây [v7]; kết toán ở checkpoint. */
+      if (st.nganHang && st.nganHang.soDu > 0)
+        st.nganHang.laiLuc += st.nganHang.soDu * G.laiNganHangGio(st.nganHang.soDu) * dt / 3600;
       if (st.ncQueue) st.ncQueue.conLai = Math.max(0, (Number(st.ncQueue.finishAt) || t) - t);
       st.lastTick = t; st.now = t;
     }
@@ -3184,6 +3470,15 @@ G.xuLySuKien = function (st, t) {
    * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   if (nextNhip <= t) G.baoTri(st);
+  /* Kết toán lãi ngân hàng tại checkpoint [v7]: nguyên phần nguyên nhập số dư,
+   * phần lẻ giữ lại để không bốc hơi do làm tròn. */
+  if (st.nganHang && st.nganHang.laiLuc >= 1) {
+    var laiNhap = Math.floor(st.nganHang.laiLuc);
+    st.nganHang.soDu += laiNhap;
+    st.nganHang.laiLuc -= laiNhap;
+    G.ghi(st, 'Ngân hàng vũ trụ: +' + G.so(laiNhap) + ' Galana lãi (số dư ' +
+      G.so(Math.floor(st.nganHang.soDu)) + ').');
+  }
   /* công trình */
   for (i = 0; i < st.planets.length; i++) {
     p = st.planets[i];
@@ -3619,30 +3914,107 @@ G.HANHDONG = {
   },
 
   /* --- chợ Thiên Hà --- */
-  ban: function (st, d) {
-    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không bán được loại này.';
-    var n = soDuong(d.n);
-    if (!n) return 'Nhập số lượng cần bán.';
-    if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
-    var g = Math.floor(n / G.C.TY_GIA[r]);
-    if (g <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
-    p.res[r] -= n; st.galana += g;
-    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' lấy ' + G.so(g) + ' Galana.');
+  /* [v7] Bộ đổi vô hạn đã đóng: tư liệu gốc xác nhận siêu thị chỉ có hàng khi
+   * có người bán vào. Hai tên này giữ lại chỉ để client cũ nhận thông báo rõ. */
+  ban: function () {
+    return 'Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường để đăng bán hoặc mua.';
+  },
+  mua: function () {
+    return 'Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường để đăng bán hoặc mua.';
+  },
+
+  /* --- tài chính v7: ngân hàng / đầu tư siêu thị / uranium --------------- */
+  guiNH: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần gửi.';
+    if (st.galana < so) return 'Chỉ có ' + G.so(Math.floor(st.galana)) + ' Galana.';
+    st.galana -= so;
+    st.nganHang.soDu += so;
+    G.ghi(st, 'Gửi Ngân Hàng Vũ Trụ ' + G.so(so) + ' Galana (số dư ' + G.so(Math.floor(st.nganHang.soDu)) + ').');
     return null;
   },
-  mua: function (st, d) {
-    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
-    var n = soDuong(d.n);
-    if (!n) return 'Nhập số lượng cần mua.';
-    var g = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
-    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana.';
-    st.galana -= g; p.res[r] = (p.res[r] || 0) + n;
-    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) + ' Galana.');
+  rutNH: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần rút.';
+    if (st.nganHang.soDu < so) return 'Trong ngân hàng chỉ có ' + G.so(Math.floor(st.nganHang.soDu)) + ' Galana.';
+    st.nganHang.soDu -= so;
+    st.galana += so;
+    /* lãi lũy đang treo thuộc kỳ trước — giữ nguyên, checkpoint sau kết toán */
+    G.ghi(st, 'Rút ' + G.so(so) + ' Galana từ Ngân Hàng Vũ Trụ.');
     return null;
+  },
+  dauTuST: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần đầu tư.';
+    if ((Number(st.dauTuST.ketThucAt) || 0) > st.now)
+      return 'Đang có ' + G.so(st.dauTuST.von) + ' Galana trong kỳ đầu tư tới ' +
+        G.gio(st.dauTuST.ketThucAt * 1000) + ' — không rút giữa kỳ được [XÁC NHẬN].';
+    if (st.galana < so) return 'Chỉ có ' + G.so(Math.floor(st.galana)) + ' Galana.';
+    st.galana -= so;
+    st.dauTuST = { von: so, ketThucAt: st.now + G.KINH_TE_V1.kyDauTuGiay };
+    G.ghi(st, 'Đầu tư Siêu Thị Thiên Hà ' + G.so(so) + ' Galana, đáo hạn sau 7 ngày.');
+    return null;
+  },
+  tangTocXay: function (st, d) {
+    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
+    if (!p.qB.length || !p.qB[0].xong) return 'Không có lô xây dựng nào đang chạy.';
+    var gia = G.KINH_TE_V1.uraniumTangToc;
+    if ((Number(st.uranium) || 0) < gia) return 'Cần ' + gia + ' Uranium để tăng tốc.';
+    st.uranium -= gia;
+    var m = p.qB.shift();
+    G.themCongTrinh(p, m.id, Math.max(1, Math.floor(Number(m.n) || 1)));
+    if (p.qB.length && p.qB[0].tg) p.qB[0].xong = st.now + p.qB[0].tg;
+    G.ghi(st, p.ten + ': tăng tốc hoàn thành ' + G.B(m.id).ten + ' bằng ' + gia + ' Uranium.');
+    return null;
+  },
+  muaDiemNC: function (st, d) {
+    var diem = soDuong(d.diem, 100000);
+    if (!diem) return 'Nhập số điểm Kỹ Thuật cần mua.';
+    var gia = diem * G.KINH_TE_V1.uraniumMotDiem;
+    if ((Number(st.uranium) || 0) < gia) return 'Cần ' + gia + ' Uranium (' + G.KINH_TE_V1.uraniumMotDiem + '/điểm).';
+    st.uranium -= gia;
+    st.techPts += diem;
+    G.ghi(st, 'Mua ' + G.so(diem) + ' điểm Kỹ Thuật bằng ' + gia + ' Uranium.');
+    return null;
+  },
+  traLuongGD: function (st) {
+    /* Trả ngay toàn bộ lương gián điệp treo bằng Nhiên Liệu kho đế quốc. */
+    var can = Math.ceil(Number(st.luongGD.traLuc) || 0);
+    if (can <= 0) return 'Không có lương nào treo.';
+    var co = 0, i;
+    for (i = 0; i < st.planets.length; i++) co += Math.max(0, st.planets[i].res.deut || 0);
+    if (co < can) return 'Thiếu Nhiên Liệu: cần ' + G.so(can) + ', kho có ' + G.so(co) + '.';
+    for (i = 0; i < st.planets.length && can > 0; i++) {
+      var p = st.planets[i], tru = Math.min(p.res.deut || 0, can);
+      p.res.deut -= tru; can -= tru;
+    }
+    st.luongGD.traLuc = 0;
+    G.ghi(st, 'Đã trả lương gián điệp.');
+    return null;
+  },
+
+  /* --- thị trường v7 ------------------------------------------------------ */
+  dangBan: function (st, d) {
+    return G.dangBan(st, Math.floor(+d.pi), d.loai === 'tudo' ? 'tudo' : chuoi(d.loai, 10),
+      chuoi(d.res, 10), d.so, d.gia);
+  },
+  huyDon: function (st, d) {
+    var id = Math.floor(+d.donId);
+    if (!id) return 'Đơn không hợp lệ.';
+    return G.huyDon(st, id);
+  },
+  muaDon: function (st, d) {
+    var don = null, i, id = String(d.donId === undefined ? '' : d.donId);
+    for (i = 0; i < st.choDon.length; i++) {
+      if (String(st.choDon[i].id) === id ||
+          st.choDon[i].id === 'npc-' + id.replace(/^npc-/, '')) { don = st.choDon[i]; break; }
+    }
+    if (!don && st.npcCho) {
+      var dsNpc = G.npcCho(st);
+      for (i = 0; i < dsNpc.length; i++) if (String(dsNpc[i].id) === id) { don = dsNpc[i]; break; }
+    }
+    if (!don) return 'Không có đơn này trên thị trường của ta (đơn đối tác đi qua server).';
+    return G.muaDon(st, Math.floor(+d.pi), don, d.so);
   },
 
   /* --- hạm đội --- */
@@ -3848,6 +4220,7 @@ U.MAN = [
   { id: 'hamdoi', ten: 'Hạm Đội' },
   { id: 'thienha', ten: 'Thiên Hà' },
   { id: 'lienminh', ten: 'Liên Minh' },
+  { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
   { id: 'xephang', ten: 'Bảng Xếp Hạng' },
   { id: 'mophong', ten: 'Máy Tính Trận' },
   { id: 'tinnhan', ten: 'Tin Nhắn' },
@@ -4639,6 +5012,29 @@ U.m_lienminh = function () {
     h += '<h2>' + U.esc(st.lm.ten) + '</h2>';
     h += '<p>Gia nhập ngày ' + G.gio(st.lm.t * 1000) + '. Quyền lợi: <b>+5% sản lượng</b> toàn đế quốc, ' +
       'được đứng tên liên minh trên bảng xếp hạng' + (APP.mp ? ' và dùng kênh chat riêng' : '') + '.</p>';
+    /* [v7] chính thể & phiếu — chỉ bản nhiều người có bảng phiếu thật */
+    if (APP.mp && U.nguon.chinhThe) {
+      var ctTen = { docTai: 'Độc Tài', danChu: 'Dân Chủ', congHoa: 'Cộng Hoà' };
+      h += '<p>Chính thể: <b class="vang">' + (ctTen[U.nguon.chinhThe()] || 'Độc Tài') + '</b>' +
+        (U.nguon.duocBau ? ' · ta là <b>đại biểu/bỏ phiếu được</b>' : '') + '</p>';
+      var phieu = U.nguon.phieuDS ? U.nguon.phieuDS() : [];
+      if (phieu.length) {
+        h += '<div class="bang-cuon"><table><tr><th>Phiếu</th><th class="r">Tán thành / Chống</th>' +
+          '<th class="r">Hạn</th><th class="r">Kết quả</th><th></th></tr>';
+        for (var pv = 0; pv < phieu.length; pv++) {
+          var P = phieu[pv];
+          var mo = P.dangMo;
+          h += '<tr><td>' + P.loai + ' #' + P.id + (P.doiTuong ? ' → #' + P.doiTuong : '') + '</td>' +
+            '<td class="r sz luc">' + P.ung + '</td><td class="r sz do">' + P.chong + '</td>' +
+            '<td class="r sz">' + (mo ? G.tg(P.hetHan - Date.now() / 1000) : (P.ketQua === 'dat' ? 'ĐẠT' : 'Không đạt')) + '</td>' +
+            '<td class="r">' + (mo && U.nguon.duocBau ?
+              '<button class="nut nho oke" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="1">Tán thành</button> ' +
+              '<button class="nut nho xoa" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="0">Chống</button>' : '') +
+            '</td></tr>';
+        }
+        h += '</table></div>';
+      }
+    }
     if (U.nguon.thanhVien) {
       var tv = U.nguon.thanhVien(st.lm.ten);
       if (tv && tv.length) {
@@ -4673,6 +5069,106 @@ U.m_lienminh = function () {
         (daXin ? ' disabled' : '') + '>' + (daXin ? 'Đã gửi đơn' : 'Xin vào') + '</button></td></tr>';
     }
     h += '</table></div>';
+  }
+  h += '</div></div>';
+  return h;
+};
+
+/* [v7] Ngân Hàng & Thị Trường — bộ ba tài chính của bản gốc:
+ * ngân hàng lãi 0,07–2%/ngày, siêu thị giá gốc thuế 10%, tự do thuế 5% giao 6h. */
+U.tabTC = 'nganhang';
+
+U.m_taichinh = function () {
+  var st = U.st(), p = U.ht();
+  var tab = U.tabTC || 'nganhang';
+  var tenTab = { nganhang: 'Ngân Hàng Vũ Trụ', sieuthi: 'Siêu Thị Thiên Hà', tudo: 'Thị Trường Tự Do' };
+  var h = '<div class="panel"><h3>Tài Chính Đế Quốc</h3><div class="noi">';
+  h += '<div class="gal-dh">';
+  for (var tb in tenTab)
+    h += '<button class="nut nho' + (tab === tb ? ' oke' : '') + '" data-act="tab-tc" data-tab="' + tb + '">' + tenTab[tb] + '</button> ';
+  h += '</div>';
+
+  if (tab === 'nganhang') {
+    var laiNgay = G.laiNganHangNgay(st.nganHang.soDu);
+    h += '<table style="margin-top:8px"><tr><td>Số dư gửi</td><td class="r sz">' + G.so(st.nganHang.soDu) + ' Galana</td></tr>' +
+      '<tr><td>Lãi hiện tại</td><td class="r sz luc">' + (laiNgay * 100).toFixed(2) + '%/ngày' +
+      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr></table>';
+    h += '<p class="mo">Lãi suy giảm theo số dư: tiền lớn khó sinh lời — dải tư liệu gốc là 0,07–2%/ngày.</p>';
+    h += '<div>Gửi <input id="nh-gui" type="number" min="1" style="width:120px"> Galana ' +
+      '<button class="nut nho oke" data-act="gui-nh">Gửi</button> ' +
+      '<button class="nut nho" data-act="rut-nh-all">Rút hết</button></div>';
+    h += '<div style="margin-top:6px">Rút <input id="nh-rut" type="number" min="1" style="width:120px"> Galana ' +
+      '<button class="nut nho" data-act="rut-nh">Rút</button></div>';
+    /* đầu tư siêu thị */
+    h += '<h3 style="margin-top:12px">Đầu Tư Siêu Thị Thiên Hà</h3>';
+    if ((st.dauTuST.ketThucAt || 0) > st.now) {
+      h += '<p>Đang đầu tư <b>' + G.so(st.dauTuST.von) + '</b> Galana — đáo hạn ' + G.tg(st.dauTuST.ketThucAt - st.now) +
+        '. Không rút giữa kỳ được [XÁC NHẬN].</p>';
+    } else {
+      h += '<div>Đầu tư <input id="st-von" type="number" min="1" style="width:120px"> Galana (khoá 7 ngày, chia lợi nhuận thuế) ' +
+        '<button class="nut nho oke" data-act="dau-tu-st">Đầu tư</button></div>';
+    }
+    /* uranium */
+    h += '<h3 style="margin-top:12px">Uranium: <b>' + G.so(st.uranium || 0) + '</b></h3>';
+    h += '<div><button class="nut nho" data-act="tang-toc"' + (p.qB.length && p.qB[0].xong ? '' : ' disabled') + '>Tăng tốc lô đang xây (' +
+      G.KINH_TE_V1.uraniumTangToc + ' Ur)</button> ' +
+      '<button class="nut nho" data-act="mua-diem">Mua 1 điểm Kỹ Thuật (' + G.KINH_TE_V1.uraniumMotDiem + ' Ur)</button></div>';
+  } else {
+    /* thị trường: đơn đối tác */
+    var donNgoai = [];
+    if (!APP.mp) donNgoai = G.npcCho(st);
+    else if (U.nguon.choDonNgoai) donNgoai = U.nguon.choDonNgoai(tab);
+    h += '<h4 style="margin-top:10px">' + (tab === 'sieuthi' ? 'Hàng đang bán (giá gốc, giao ngay)' : 'Đơn chào bán (tự định giá, hàng về sau 6 giờ)') + '</h4>';
+    h += '<div class="bang-cuon"><table><tr><th>Tài nguyên</th><th class="r">Còn</th><th class="r">Giá GL/đơn vị</th><th class="r">Mua số lượng</th><th></th></tr>';
+    for (var i = 0; i < donNgoai.length; i++) {
+      var d = donNgoai[i];
+      if (d.loai !== tab && !(d.npc && tab === 'sieuthi')) continue;
+      h += '<tr><td style="color:' + G.byId(G.RES, d.res).mau + '">' + G.byId(G.RES, d.res).ten + '</td>' +
+        '<td class="r sz">' + G.so(d.soConLai) + '</td><td class="r sz">' + G.so(d.gia) + '</td>' +
+        '<td class="r"><input id="mua-' + d.id + '" type="number" min="1" style="width:100px"></td>' +
+        '<td class="r"><button class="nut nho oke" data-act="mua-don" data-id="' + d.id + '">Mua</button></td></tr>';
+    }
+    h += '</table></div>';
+    /* đơn của ta */
+    var donTa = (st.choDon || []).filter(function (x) { return !x.npc; });
+    if (donTa.length) {
+      h += '<h4 style="margin-top:12px">Đơn đang mở của ta</h4><div class="bang-cuon"><table>' +
+        '<tr><th>Tài nguyên</th><th class="r">Còn</th><th class="r">Giá</th><th class="r">' +
+        (donTa[0].daBan ? 'Đã bán / Thu nhập sau thuế' : '') + '</th><th></th></tr>';
+      for (var j = 0; j < donTa.length; j++) {
+        var dj = donTa[j];
+        if (dj.loai !== tab) continue;
+        h += '<tr><td style="color:' + G.byId(G.RES, dj.res).mau + '">' + G.byId(G.RES, dj.res).ten + '</td>' +
+          '<td class="r sz">' + G.so(dj.soConLai) + '</td><td class="r sz">' + G.so(dj.gia) + '</td>' +
+          '<td class="r sz">' + (dj.daBan ? G.so(dj.daBan) + ' / ' + G.so(dj.thuNhap || 0) : '') + '</td>' +
+          '<td class="r"><button class="nut nho xoa" data-act="huy-don" data-id="' + dj.id + '">Huỷ</button></td></tr>';
+      }
+      h += '</table></div>';
+    }
+    /* đăng bán */
+    h += '<h4 style="margin-top:12px">Đăng bán từ ' + U.esc(p.ten) + '</h4><table><tr>';
+    for (var r2 = 0; r2 < G.RES_HANH_TINH.length; r2++) {
+      var resId = G.RES_HANH_TINH[r2];
+      h += '<td style="color:' + G.byId(G.RES, resId).mau + '">' + G.byId(G.RES, resId).ky +
+        ': <input id="ban-' + resId + '" type="number" min="0" style="width:90px"></td>';
+    }
+    if (tab === 'tudo') h += '<td>Giá GL: <input id="ban-gia" type="number" min="1" style="width:90px"></td>';
+    h += '<td><button class="nut nho oke" data-act="dang-ban" data-loai="' + tab + '">Đăng bán</button></td></tr></table>';
+    if (tab === 'tudo') {
+      h += '<p class="mo">Thuế 5%. Hàng đến tay người mua sau 6 giờ — đúng nhịp bảo trì của bản gốc.</p>';
+    }
+    /* hàng đang về */
+    var dangVe = [];
+    for (var pi = 0; pi < st.planets.length; pi++)
+      for (var g2 = 0; g2 < (st.planets[pi].giaoHang || []).length; g2++)
+        dangVe.push({ p: st.planets[pi].ten, hang: st.planets[pi].giaoHang[g2] });
+    if (dangVe.length) {
+      h += '<h4 style="margin-top:12px">Hàng đang về</h4><ul>';
+      for (var v3 = 0; v3 < dangVe.length; v3++)
+        h += '<li>' + G.so(dangVe[v3].hang.so) + ' ' + G.byId(G.RES, dangVe[v3].hang.res).ten + ' → ' +
+          U.esc(dangVe[v3].p) + ' (còn ' + G.tg(dangVe[v3].hang.xongAt - st.now) + ')</li>';
+      h += '</ul>';
+    }
   }
   h += '</div></div>';
   return h;
@@ -5298,6 +5794,7 @@ U.nguon = {
 };
 
 function soO(id) { var e = document.getElementById(id); return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
+function soO2(e) { return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
 function veLai(err, okMsg) {
   if (err) U.toast(err, 'loi');
   else if (okMsg) U.toast(okMsg, 'ok');
@@ -5335,6 +5832,52 @@ var ACT = {
   doithue: function () {
     var e = document.getElementById('thue-pct');
     lam('doithue', { pi: U.pi, thue: e ? Number(e.value) : NaN }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
+  },
+
+  /* ---------- [v7] tài chính & thị trường ---------- */
+  'tab-tc': function (el) { U.tabTC = el.getAttribute('data-tab'); U.ve(); },
+  'gui-nh': function () {
+    var e = document.getElementById('nh-gui');
+    lam('guiNH', { so: soO2(e) }, 'Đã gửi vào Ngân Hàng Vũ Trụ.');
+  },
+  'rut-nh': function () {
+    var e = document.getElementById('nh-rut');
+    lam('rutNH', { so: soO2(e) }, 'Đã rút từ Ngân Hàng Vũ Trụ.');
+  },
+  'rut-nh-all': function () {
+    lam('rutNH', { so: U.st().nganHang.soDu }, 'Đã rút toàn bộ số dư ngân hàng.');
+  },
+  'dau-tu-st': function () {
+    var e = document.getElementById('st-von');
+    lam('dauTuST', { so: soO2(e) }, 'Đã đầu tư vào Siêu Thị Thiên Hà.');
+  },
+  'tang-toc': function () {
+    lam('tangTocXay', { pi: U.pi }, 'Đã hoàn thành lô đang xây bằng Uranium.');
+  },
+  'mua-diem': function () {
+    lam('muaDiemNC', { diem: 1 }, 'Đã mua 1 điểm Kỹ Thuật.');
+  },
+  'mua-don': function (el) {
+    var id = el.getAttribute('data-id');
+    var e = document.getElementById('mua-' + id);
+    lam('muaDon', { pi: U.pi, donId: id, so: soO2(e) || 0 });
+  },
+  'huy-don': function (el) {
+    lam('huyDon', { donId: el.getAttribute('data-id') }, 'Đã huỷ đơn và hoàn hàng về kho.');
+  },
+  'dang-ban': function (el) {
+    var loai = el.getAttribute('data-loai'), dl = { pi: U.pi, loai: loai }, co = false;
+    for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
+      var r = G.RES_HANH_TINH[i], v = soO2(document.getElementById('ban-' + r));
+      if (v > 0) { dl.res = r; dl.so = v; co = true; }
+    }
+    if (!co) { U.toast('Nhập số lượng cần bán cho một loại tài nguyên.', 'loi'); return; }
+    if (loai === 'tudo') {
+      var g = document.getElementById('ban-gia');
+      if (!g || !(Number(g.value) > 0)) { U.toast('Nhập giá Galana cho Thị Trường Tự Do.', 'loi'); return; }
+      dl.gia = Number(g.value);
+    }
+    lam('dangBan', dl, 'Đã đăng bán.');
   },
 
   /* ---------- chợ ---------- */

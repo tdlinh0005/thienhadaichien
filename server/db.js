@@ -96,22 +96,6 @@ var SCHEMA = [
   `CREATE TABLE IF NOT EXISTS lm (
      ten TEXT PRIMARY KEY, tag TEXT NOT NULL, chu INTEGER NOT NULL, tao INTEGER NOT NULL, mota TEXT
    )`,
-  `CREATE TABLE IF NOT EXISTS lm_phieu (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     lm TEXT NOT NULL REFERENCES lm(ten) ON DELETE CASCADE,
-     loai TEXT NOT NULL CHECK(loai IN ('tuyenchien','duyet','tuchoi','duoi','bachu')),
-     doiTuong INTEGER,
-     hetHan INTEGER NOT NULL,
-     ketQua TEXT,
-     khi INTEGER NOT NULL
-   )`,
-  "CREATE INDEX IF NOT EXISTS lm_phieu_lm ON lm_phieu(lm,ketQua,hetHan)",
-  `CREATE TABLE IF NOT EXISTS lm_phieu_chi_tiet (
-     phieuId INTEGER NOT NULL REFERENCES lm_phieu(id) ON DELETE CASCADE,
-     tkBau INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
-     giaTri INTEGER NOT NULL CHECK(giaTri IN (0,1)),
-     PRIMARY KEY (phieuId,tkBau)
-   )`,
 
   /* đơn xin gia nhập; chủ liên minh phải duyệt trước khi dq.lm thay đổi */
   `CREATE TABLE IF NOT EXISTS lm_xin (
@@ -182,7 +166,18 @@ var SCHEMA_NANG_CAP = [
      tkBau INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
      giaTri INTEGER NOT NULL CHECK(giaTri IN (0,1)),
      PRIMARY KEY (phieuId,tkBau)
-   )`
+   )`,
+  /* [v7] thị trường chéo đế quốc: đơn bán KL/TA/NL/TP */
+  `CREATE TABLE IF NOT EXISTS cho (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     loai TEXT NOT NULL CHECK(loai IN ('sieuthi','tudo')),
+     tk INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     res TEXT NOT NULL,
+     so INTEGER NOT NULL,
+     gia INTEGER NOT NULL,
+     khi INTEGER NOT NULL
+   )`,
+  "CREATE INDEX IF NOT EXISTS cho_loai_khi ON cho(loai,khi)"
 ];
 function cotCo(db, bang, cot) {
   return db.prepare('PRAGMA table_info(' + bang + ')').all().some(function (c) { return c.name === cot; });
@@ -326,6 +321,14 @@ function Kho(duong) {
     lmThanhVienDiem: d.prepare(`SELECT dq.tk, dq.diem, tk.hienthi FROM dq
                                 JOIN tk ON tk.id=dq.tk WHERE dq.lm=?
                                 ORDER BY dq.diem DESC, dq.tk ASC`),
+    /* [v7] thị trường chéo đế quốc */
+    choThem: d.prepare('INSERT INTO cho(loai,tk,res,so,gia,khi) VALUES(?,?,?,?,?,?)'),
+    choGet: d.prepare('SELECT * FROM cho WHERE id=?'),
+    choCua: d.prepare('SELECT * FROM cho WHERE tk=? ORDER BY id DESC'),
+    choMoLoai: d.prepare(`SELECT c.*, tk.hienthi FROM cho c JOIN tk ON tk.id=c.tk
+                          WHERE c.loai=? AND c.so>0 ORDER BY c.khi DESC LIMIT 60`),
+    choTru: d.prepare('UPDATE cho SET so=so-? WHERE id=?'),
+    choXoaId: d.prepare('DELETE FROM cho WHERE id=?'),
     lmXinGet: d.prepare('SELECT * FROM lm_xin WHERE lm=? AND tk=?'),
     lmXinThem: d.prepare('INSERT INTO lm_xin(lm,tk,khi) VALUES(?,?,?)'),
     lmXinXoa: d.prepare('DELETE FROM lm_xin WHERE lm=? AND tk=?'),
