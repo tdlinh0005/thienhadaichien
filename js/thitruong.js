@@ -51,7 +51,8 @@ G.dangBan = function (st, pi, loai, res, so, gia) {
   if (loai === 'sieuthi') gia = G.giaGoc(res);           // giá gốc là luật của siêu thị
   else {
     if (!isFinite(gia) || gia <= 0) return 'Giá phải là số Galana dương.';
-    if (gia > 1e12) return 'Giá quá lớn.';
+    /* trần giá giữ tổng tiền trong MAX_SAFE_INTEGER kể cả đơn cực lớn */
+    if (gia > 1000000) return 'Giá tối đa 1.000.000 Galana/đơn vị.';
   }
   var don = st.choDon.filter(function (x) { return !x.npc; });
   if (don.length >= G.KINH_TE_V1.donToiDaMo)
