@@ -484,7 +484,12 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
       pa.giaoHang.push({ res: donBan.res, so: so, xongAt: a.st.now + G.KINH_TE_V1.giaoHangGiay });
     }
     this.kho.q.choTru.run(so, choId);
-    if (donBan.soConLai <= 0) this.kho.q.choXoaId.run(choId);
+    if (donBan.soConLai <= 0) {
+      /* đơn cạn: xoá khỏi bảng chung VÀ khỏi projection state người bán */
+      this.kho.q.choXoaId.run(choId);
+      var idx = b.st.choDon.indexOf(donBan);
+      if (idx >= 0) b.st.choDon.splice(idx, 1);
+    }
     G.tin(b.st, 'tiepte', 'Bán được ' + G.so(so) + ' ' + resTen,
       'Nhận ' + G.so(Math.floor(tongGL * (1 - thue))) + ' Galana sau thuế từ ' + a.st.ten + '.');
     G.tin(a.st, 'tiepte', 'Mua ' + G.so(so) + ' ' + resTen + ' từ ' + b.st.ten,
