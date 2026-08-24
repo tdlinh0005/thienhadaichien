@@ -1345,7 +1345,7 @@ U.m_huongdan = function () {
     '<p><b class="cam">1. Chu kỳ bảo trì 6 giờ.</b> Cứ 6 giờ thực, đế quốc bị trừ phí bảo trì bằng <b>Galana</b>, ' +
     'tính theo quy mô hạm đội + phòng thủ + công trình. Phải đủ nguyên khoản; lỡ nhiều kỳ liên tiếp sẽ lần lượt ' +
     'làm nghiên cứu trễ, dân rời đi rồi công trình xuống cấp. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
-    'Bí tiền thì ra <b>Chợ Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại. ' +
+    'Bí tiền thì gửi tiết kiệm sớm ở <b>Ngân Hàng Vũ Trụ</b> (màn Ngân Hàng &amp; Thị Trường) hoặc đăng bán tài nguyên. ' +
     '<i>Trung Tâm Bảo Trì</i> giảm tới 60% khoản phí này.</p>' +
     '<p><b class="cam">2. Nghiên cứu trả dần.</b> Không trừ chi phí lúc xếp đề tài. Toàn bộ Kim Loại, Thạch Anh, ' +
     'Nhiên Liệu, Kỹ Thuật… được chia thành các khoản ở nhịp 6 giờ. Thiếu một loại thì kỳ đó không trừ gì và ' +
@@ -1377,6 +1377,19 @@ U.m_huongdan = function () {
     '<p><b class="cam">4. Đổi mục tiêu giữa đường.</b> Hạm đội đang bay vẫn đổi được đích: vào màn Hạm Đội bấm ' +
     '"Đổi mục tiêu", mất ' + G.so(G.C.DOI_MUC_TIEU_GALANA) + ' Galana cộng nhiên liệu phụ trội, thời gian bay ' +
     'tính lại từ vị trí hiện tại. Dùng để đánh úp, hoặc để né khi đối phương kịp dựng phòng thủ.</p>' +
+    '<p><b class="cam">Kinh tế thật — Ngân Hàng &amp; Thị Trường.</b> Gửi Galana vào <b>Ngân Hàng Vũ Trụ</b> ăn lãi ' +
+    '(dải 0,07–2%/ngày, tiền càng nhiều lãi càng thấp); <b>Siêu Thị Thiên Hà</b> chỉ bán giá gốc KL=1, TA=2, NL=4, ' +
+    'TP=1 Galana và chỉ có hàng khi có người bán vào (thuế 10%); <b>Thị Trường Tự Do</b> tự định giá, thuế 5%, ' +
+    'hàng về sau 6 giờ. Đầu tư vào siêu thị thì khoá 7 ngày không rút giữa kỳ — đúng luật bản gốc.</p>' +
+    '<p><b class="cam">Địa hình tác động trận đất.</b> Tank vô địch Sa Mạc nhưng chìm ở Rừng; Robot luồn lách Rừng; ' +
+    'máy bay thuận gió ẩm Nước mà dễ bị hạ ở Băng; hoả tiễn đạn đạo mạnh Sa Mạc, rừng dày chặn bom. Trận quỹ đạo ' +
+    'không chịu địa hình — chỉ trận mặt đất và trận đổ bộ mới tính.</p>' +
+    '<p><b class="cam">Lương gián điệp.</b> Mỗi Tàu Do Thám tốn Nhiên Liệu mỗi giờ. Thiếu lương qua một kỳ là ' +
+    '<b>gián điệp phản bội</b>: lần do thám tới bị lộ ngược, đối phương nhận báo cáo về đế quốc mình và tàu bị bắt ' +
+    'một nửa. Theo dõi trạng thái lương và trả ngay ở màn tài chính.</p>' +
+    '<p><b class="cam">Ba chính thể liên minh.</b> Lập liên minh chọn <b>Độc Tài</b> (chủ quyết mọi thứ), ' +
+    '<b>Dân Chủ</b> (mọi quyết định lớn qua phiếu toàn thành viên) hay <b>Cộng Hoà</b> (chỉ đại biểu top 5 điểm ' +
+    'được bỏ phiếu). Tuyên chiến của liên minh có phiếu phải đạt đa số trước; phiếu hạn 24 giờ, chủ mới bầu theo kỳ 14 ngày.</p>' +
     '</div></div>';
 
   h += '<div class="panel"><h3>Đánh nhau</h3><div class="noi">' +
