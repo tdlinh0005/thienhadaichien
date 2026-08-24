@@ -298,6 +298,15 @@ TheGioi.prototype.taoPhieu = function (tk, loai, doiTuong) {
   /* mỗi loại chỉ một phiếu đang mở cùng lúc để tránh treo song song */
   if (loai !== 'bachu' && kho.q.phieuDangMoLoai.get(lmTen, loai, now))
     return { loi: 'Đã có một phiếu ' + loai + ' đang mở.' };
+  /* [v7] bầu chủ đúng kỳ: sau một cuộc bầu thành công phải đợi hết 14 ngày */
+  if (loai === 'bachu') {
+    var lmC = kho.q.lmGet.get(lmTen);
+    var bacCu = Math.floor(Number(lmC && lmC.bacCuAt) || 0);
+    if (now < bacCu)
+      return { loi: 'Kỳ bầu chủ kế tiếp mở sau ' + G.tg(bacCu - now) + '.' };
+    if (!this.duocBauKhong(lmTen, doiTuong))
+      return { loi: 'Ứng viên chủ mới phải là thành viên có quyền bỏ phiếu.' };
+  }
   var info = kho.q.phieuThem.run(lmTen, loai, doiTuong, now + PHIEU_HAN, now);
   return { id: Number(info.lastInsertRowid) };
 };
@@ -361,6 +370,8 @@ TheGioi.prototype.thucThiPhieu = function (p) {
       var thanhVien = this.kho.q.dqGet.get(dt);
       if (thanhVien && thanhVien.lm === p.lm) {
         this.kho.q.lmDoiChu.run(dt, p.lm);
+        /* bầu xong mở kỳ mới: khoá phiếu bầu chủ tiếp theo trong 14 ngày */
+        this.kho.q.lmDatBacCu.run(Math.floor(Date.now() / 1000) + KY_BAU_CHU, p.lm);
         var tkMoi = this.kho.q.tkTheoId.get(dt);
         this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
           'Bầu cử ' + p.lm + ': chủ mới là ' + (tkMoi ? tkMoi.hienthi : '?') + '.');
@@ -1111,7 +1122,8 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
     if (pi < 0) { this.luu(dTk, d.st); return; }
     var dp = d.st.planets[pi];
 
-    var soTau = f.ships.probe || 1;
+    if (!f.ships || !f.ships.probe) return;   // hạm do thám không còn tàu — nothing to spy
+    var soTau = f.ships.probe;
     var chenh = (st.tech.spy || 0) - (d.st.tech.spy || 0);
     var mucDo = Math.max(1, Math.min(5, 1 + Math.floor(chenh / 2) + Math.floor(Math.log(soTau + 1) / Math.log(3))));
 
@@ -1490,7 +1502,7 @@ TheGioi.prototype.tuyenChien = function (tkA, tkD) {
     if (this.coPhieu(a.lm)) {
       var phieuTC = this.kho.q.phieuDangMoLoai.get(a.lm, 'tuyenchien', now);
       return 'Liên minh ' + (lm.chinhThe === 'congHoa' ? 'Cộng hoà' : 'Dân chủ') +
-        ' phải biểu quyết tuyên chiến trước (mở phiếu ở màn Liên Minh).' + (phieuTC ? '' : '');
+        ' phải biểu quyết tuyên chiến trước (mở phiếu ở màn Liên Minh).';
     }
     if (!lm || lm.chu !== tkA) return 'Chỉ chủ liên minh mới được đặt lệnh chiến tranh.';
     if (kho.q.chienGetLM.get(a.lm, tkD)) return 'Liên minh đã tuyên chiến với chỉ huy này.';

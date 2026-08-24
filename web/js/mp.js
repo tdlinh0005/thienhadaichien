@@ -54,7 +54,7 @@
       window.ST = goi.st;
       if (U.pi >= goi.st.planets.length) U.pi = 0;
     }
-    if (goi.toi) MP.ten = goi.toi.ten;
+    if (goi.toi) { MP.ten = goi.toi.ten; MP.tk = goi.toi.tk; }
   }
 
   /* -------------------------------------------------- APP interface ---- */
@@ -116,14 +116,14 @@
     choDonNgoai: function (loai) {
       var ds = (MP.cho && MP.cho.don) || [];
       var out = [];
+      var tkTa = MP.tk !== undefined ? MP.tk : null;
       for (var i = 0; i < ds.length; i++) {
         var d = ds[i];
         if (d.loai !== loai) continue;
-        if ((st_choCuaTa(d))) continue;
+        if (tkTa !== null && d.tk === tkTa) continue;   // đơn của ta hiện ở khung riêng
         out.push(d);
       }
       return out;
-      function st_choCuaTa() { return false; }   // đơn của ta đã lọc ở server-side projection
     }
   };
 
@@ -390,8 +390,40 @@
   };
 
   /* -------------------------------------------------- hành động riêng -- */
+  function soO2(e) { return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
   var manCu = APP.ACT.man;
+  /* [v7] MP: ba thao tác chợ phải đi qua /api/cho* để server ghi bảng chung;
+     gọi lam('dangBan'…) sẽ chỉ chạy luật trên state local, đơn vô hình với người khác. */
   APP.themACT({
+    'dang-ban': function (el) {
+      var loai = el.getAttribute('data-loai'), dl = { pi: U.pi, loai: loai }, co = false;
+      for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
+        var r = G.RES_HANH_TINH[i], v = soO2(document.getElementById('ban-' + r));
+        if (v > 0) { dl.res = r; dl.so = v; co = true; }
+      }
+      if (!co) { U.toast('Nhập số lượng cần bán cho một loại tài nguyên.', 'loi'); return; }
+      if (loai === 'tudo') {
+        var g = document.getElementById('ban-gia');
+        if (!g || !(Number(g.value) > 0)) { U.toast('Nhập giá Galana cho Thị Trường Tự Do.', 'loi'); return; }
+        dl.gia = Number(g.value);
+      }
+      api('/api/cho', dl).then(function () {
+        U.toast('Đã đăng bán.', 'ok');
+        return api('/api/cho?loai=' + loai).then(function (r) { MP.cho = r; U.ve(); });
+      }, function (e) { U.toast(e.message, 'loi'); U.ve(); });
+    },
+    'mua-don': function (el) {
+      var id = el.getAttribute('data-id');
+      var e = document.getElementById('mua-' + id);
+      api('/api/cho/mua', { choId: id, so: soO2(e) || 0 }).then(function () {
+        U.toast('Đã mua.', 'ok'); U.ve();
+      }, function (er) { U.toast(er.message, 'loi'); U.ve(); });
+    },
+    'huy-don': function (el) {
+      api('/api/cho/huy', { choId: el.getAttribute('data-id') }).then(function () {
+        U.toast('Đã huỷ đơn.', 'ok'); U.ve();
+      }, function (e) { U.toast(e.message, 'loi'); U.ve(); });
+    },
     man: function (el) {
       var m = el.getAttribute('data-man');
       manCu(el);
