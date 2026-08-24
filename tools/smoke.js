@@ -1198,5 +1198,35 @@ var mayBayOn = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: 
 ktra((mayBayBang.matA.fighterL || 0) > (mayBayOn.matA.fighterL || 0),
   'Máy Bay đổ bộ Băng mất nặng hơn Ôn Hoà (' + (mayBayBang.matA.fighterL || 0) + ' vs ' + (mayBayOn.matA.fighterL || 0) + ')');
 
+/* ---- 21. v7: lương gián điệp — thiếu Nhiên Liệu qua checkpoint thì phản bội ---- */
+function taoDeQuocLuong(ten, seed, deut) {
+  var x = G.moiGame(ten, seed);
+  x.planets[0].ships.probe = 10;                // 30 NL/kỳ
+  if (deut !== undefined) x.planets[0].res.deut = deut;
+  return x;
+}
+var sp = taoDeQuocLuong('Tình Báo', 'THDC-SP');
+var deutTruocL = sp.planets[0].res.deut;
+sp.baoTri.nextAt = sp.now + 100;
+G.tick(sp, sp.now + 101);
+ktra(Math.abs((deutTruocL - 30) - sp.planets[0].res.deut) < 0.5,
+  'checkpoint đủ Nhiên Liệu thì trừ đúng 30 lương gián điệp');
+var noLuong = taoDeQuocLuong('Nợ Lương', 'THDC-SP2', 5);   // cố tình thiếu
+noLuong.baoTri.nextAt = noLuong.now + 100;
+G.tick(noLuong, noLuong.now + 101);
+ktra(noLuong.luongGD.phanBoi === true && Math.abs(noLuong.luongGD.traLuc - 30) < 0.5,
+  'thiếu lương 1 kỳ bật cờ phản bội và ghi nợ đúng 30');
+/* trả lương ngay xoá nợ; một kỳ sạch nữa mới tắt cờ */
+noLuong.planets[0].res.deut = 100000;   // nạp đủ trước khi trả
+ktra(G.chay(noLuong, 'traLuongGD', {}) === null && noLuong.luongGD.traLuc === 0,
+  'trả lương ngay được và xoá nợ');
+noLuong.baoTri.nextAt += G.NHIP_V1.cycleSeconds;
+G.tick(noLuong, noLuong.baoTri.nextAt + 1);
+ktra(noLuong.luongGD.phanBoi === true, 'kỳ đầu trả đủ sau phản bội vẫn giữ cờ để chứng minh');
+noLuong.baoTri.nextAt += G.NHIP_V1.cycleSeconds;
+G.tick(noLuong, noLuong.baoTri.nextAt + 1);
+ktra(noLuong.luongGD.phanBoi === false && noLuong.luongGD.kySanh === 0,
+  'kỳ sạch thứ hai thì tắt cờ phản bội');
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

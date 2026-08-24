@@ -461,6 +461,26 @@ function truyVan(sql, ...args) {
     }
     ktra(stB.msgs.some(m => m.nd && m.nd.indexOf('do thám') >= 0), 'B được cảnh báo là bị do thám');
 
+    /* ---------- 6b. PHẢN BỘI gián điệp khi chủ hạm thiếu lương ---------- */
+    suaState(idA, st => { st.luongGD.phanBoi = true; });   // ép cờ phản bội
+    var g1b = await goi('/api/lam', {
+      ten: 'gui', dl: { pi: 0, ships: { probe: 4 }, den: b.nha, mission: 'spy', cargo: {}, pct: 100 }
+    }, a.token);
+    ktra(!g1b.loi, 'gửi hạm do thám thứ hai (đang phản bội)' + (g1b.loi ? ': ' + g1b.loi : ''));
+    epToiDich(idA);
+    await goi('/api/state', null, a.token);
+    var pbA = docState(idA);
+    var canhPB = pbA.msgs.find(m => m.td && m.td.indexOf('PHẢN BỘI') >= 0);
+    var bcNguoc = docState(idB).msgs.find(m => m.data && m.data.bc && m.data.bc.phanBoi);
+    ktra(!!canhPB, 'chủ hạm phản bội nhận cảnh báo tàu bị bắt');
+    ktra(!!bcNguoc, 'B nhận được báo cáo tình báo NGƯỢC về đế quốc A nhờ gián điệp phản bội');
+    if (bcNguoc) ktra(bcNguoc.data.bc.ships && bcNguoc.data.bc.mucDo >= 2,
+      'báo cáo phản bội có đội hình của A (mức ≥2)');
+    ktra(!pbA.msgs.some(m => m.loai === 'tt' && m.data && m.data.bc && m.data.bc.pvp &&
+      m.t > (bcTT ? bcTT.t : 0)),
+      'lần do thám phản bội KHÔNG trả báo cáo cho chủ hạm');
+    suaState(idA, st => { st.luongGD.phanBoi = false; st.luongGD.traLuc = 0; }); // dọn cờ cho các test sau
+
     /* ---------- 7. TẤN CÔNG người chơi thật ---------- */
     var klB0 = stB.planets[0].res.metal;
     var g2 = await goi('/api/lam', {

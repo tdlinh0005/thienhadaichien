@@ -775,6 +775,29 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
     var chenh = (st.tech.spy || 0) - (d.st.tech.spy || 0);
     var mucDo = Math.max(1, Math.min(5, 1 + Math.floor(chenh / 2) + Math.floor(Math.log(soTau + 1) / Math.log(3))));
 
+    /* [v7] PHẢN BỘI NGƯỢC [XÁC NHẬN "không trả lương thì phản bội"]:
+     * chủ hạm thiếu lương gián điệp thì mạng lưới bán đứng cả hai bên —
+     * đối phương nhận báo cáo tình báo mức 2 về đế quốc attacker, tàu bị bắt một phần. */
+    if (st.luongGD && st.luongGD.phanBoi) {
+      var bat = Math.min(soTau, Math.ceil(soTau * G.KINH_TE_V1.phanBoiBat50));
+      f.ships.probe -= bat;
+      if (f.ships.probe <= 0) delete f.ships.probe;
+      var bcNguoc = {
+        td: dp.c, ten: st.ten, ht: st.planets[0] ? st.planets[0].ten : '?', lm: null,
+        diem: G.diem(st).tong, mucDo: 2, mat: 0, pvp: true, phanBoi: true, t: st.now,
+        res: { metal: Math.floor(st.planets[0].res.metal || 0), crystal: Math.floor(st.planets[0].res.crystal || 0), deut: Math.floor(st.planets[0].res.deut || 0), food: Math.floor(st.planets[0].res.food || 0) },
+        ships: G.clone(st.planets[0].ships)
+      };
+      G.tin(d.st, 'tt', 'GIÁN ĐIỆP PHẢN BỘI — ' + st.ten + ' do thám ' + G.tdStr(dp.c),
+        'Mạng lưới của ' + st.ten + ' không được trả lương và đã bán đứng chủ cũ.\n' +
+        'Báo cáo tình báo về đế quốc ' + st.ten + ' kèm theo tin này.', { bc: bcNguoc });
+      G.tin(st, 'canh', 'GIÁN ĐIỆP PHẢN BỘI tại ' + G.tdStr(dp.c),
+        bat + '/' + soTau + ' tàu do thám bị bắt. Trả lương gián điệp ngay để dừng phản bội!');
+      this.luu(dTk, d.st);
+      this.luu(this.chuStack[0], st);
+      return;
+    }
+
     /* phản tình báo: Trung Tâm Tình Báo của đối phương bắn hạ tàu do thám */
     var banHa = Math.min(0.9, 0.05 * (dp.b.intel || 0) + 0.03 * Math.max(0, -chenh));
     var r = G.rng(G.hash('spy' + f.id + st.now + o.key));
@@ -797,6 +820,12 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
       tech: mucDo >= 4 ? G.clone(d.st.tech) : null,
       ct: mucDo >= 5 ? G.clone(dp.b) : null,
       ctMode: mucDo >= 5 ? 'quantity' : null,
+      /* [v7][XÁC NHẬN báo cáo thấy "mức sản xuất của các mỏ"] mức 5 kèm sản lượng/giờ */
+      sanLuong: mucDo >= 5 ? (function () {
+        var s5 = G.sanLuong(d.st, dp), out5 = {}, k5;
+        for (k5 in s5.r) if (G.RES_HANH_TINH.indexOf(k5) >= 0) out5[k5] = Math.round(s5.r[k5]);
+        return out5;
+      })() : null,
       t: st.now
     };
     G.tin(st, 'tt', 'Báo cáo do thám ' + G.tdStr(f.den) + ' — ' + o.ten, null, { bc: bc });

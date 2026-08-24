@@ -795,6 +795,42 @@ G.baoTri = function (st) {
   }
   var muc = dat ? 0 : Math.min(3, bt.missStreak);
   for (var i = 0; i < st.planets.length; i++) G.nhipDanSu(st, st.planets[i], dat, muc, dong);
+  /* [v7] LƯƠNG GIÁN ĐIỆP [XÁC NHẬN "không trả lương thì phản bội"; mức là TÁI DỰNG]:
+   * mỗi tàu do thám tốn NL/giờ trừ tại checkpoint. Thiếu một kỳ → cờ phản bội;
+   * trả đủ liên tục một kỳ sạch → đối tượng tin lại, cờ tắt. */
+  if (st.luongGD) {
+    var soProbe = 0;
+    for (i = 0; i < st.planets.length; i++) soProbe += Math.max(0, st.planets[i].ships.probe || 0);
+    var luongKy = Math.ceil(soProbe * G.KINH_TE_V1.luongProbeDeutGio * chuKy / 3600);
+    if (luongKy > 0) {
+      var deutCo = 0;
+      for (i = 0; i < st.planets.length; i++) deutCo += Math.max(0, st.planets[i].res.deut || 0);
+      var noLuong = Math.ceil(Number(st.luongGD.traLuc) || 0) + luongKy;
+      if (deutCo >= noLuong) {
+        var canTra = noLuong;
+        for (i = 0; i < st.planets.length && canTra > 0; i++) {
+          var truNL = Math.min(st.planets[i].res.deut || 0, canTra);
+          st.planets[i].res.deut -= truNL; canTra -= truNL;
+        }
+        if (st.luongGD.phanBoi) {
+          /* kỳ đầu TRẢ ĐỦ sau phản bội: giữ cờ thêm một kỳ để chứng minh niềm tin */
+          if (!st.luongGD.kySanh) st.luongGD.kySanh = 1;
+          else { st.luongGD.phanBoi = false; st.luongGD.kySanh = 0; }
+        }
+        dong.push('Lương gián điệp: đã trả ' + G.so(luongKy) + ' Nhiên Liệu cho ' + G.so(soProbe) +
+          ' tàu do thám.');
+      } else {
+        st.luongGD.traLuc = noLuong;
+        if (!st.luongGD.phanBoi) {
+          st.luongGD.phanBoi = true;
+          dong.push('KHÔNG ĐỦ NHIÊN LIỆU TRẢ LƯƠNG GIÁN ĐIỆP — mạng lưới tình báo sẽ PHẢN BỘI!');
+          G.tin(st, 'canh', 'Gián điệp sắp phản bội',
+            'Thiếu ' + G.so(noLuong - deutCo) + ' Nhiên Liệu trả lương. Trả ngay ở màn Tình Báo ' +
+            'nếu không lần do thám tới sẽ bị lộ ngược và tàu bị bắt.');
+        }
+      }
+    }
+  }
   var mocKeTiep = Number(bt.nextAt);
   if (!isFinite(mocKeTiep)) mocKeTiep = st.now;
   bt.nextAt = mocKeTiep + chuKy;       // giữ nguyên pha đồng hồ tài khoản
