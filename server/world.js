@@ -131,9 +131,15 @@ TheGioi.prototype.seed = function () {
 TheGioi.prototype.batDau = function () {
   if (!this.ctx) this.ctx = {
     npc: new Map(), npcBan: new Set(), pl: new Map(), plBan: new Set(),
-    states: new Map(), dirty: new Map(), bangTin: [], tran: [], huy: false
+    states: new Map(), dirty: new Map(), bangTin: [], tran: [], huy: false,
+    choLenh: []          // [v7] hàng đợi lệnh INSERT/UPDATE/DELETE bảng `cho`, COMMIT cùng transaction
   };
   this.sau++;
+};
+/* Ghi lệnh chợ qua ctx để rollback được cùng state (HIGH review v7). */
+TheGioi.prototype.choChay = function (fn) {
+  if (this.ctx) this.ctx.choLenh.push(fn);
+  else fn();
 };
 TheGioi.prototype.ketThuc = function (thanhCong) {
   if (this.ctx && thanhCong === false) this.ctx.huy = true;
@@ -143,6 +149,9 @@ TheGioi.prototype.ketThuc = function (thanhCong) {
   var kho = this.kho, now = Math.floor(Date.now() / 1000);
   var self = this;
   kho.giaoDich(function () {
+    /* lệnh chợ chạy TRƯỚC ghi state: callback có thể gắn thêm dữ liệu (choId)
+       vào object state rồi mới bị serialize bởi _ghiNhieu */
+    for (var k2 = 0; k2 < c.choLenh.length; k2++) c.choLenh[k2]();
     self._ghiNhieu(Array.from(c.dirty, function (x) { return { tk: x[0], st: x[1] }; }), now);
     c.npcBan.forEach(function (k) {
       var n = c.npc.get(k);
@@ -435,9 +444,12 @@ TheGioi.prototype.choDangBan = function (tk, pi, loai, res, so, gia) {
     var donMoi = d.st.choDon[d.st.choDon.length - 1];
     if (donMoi) {
       donMoi.pi = Math.max(0, Math.floor(+pi || 0));   // nhớ hành tinh để huỷ hoàn đúng kho
-      this.kho.q.choThem.run(loai === 'tudo' ? 'tudo' : 'sieuthi', tk,
-        donMoi.res, donMoi.soConLai, donMoi.gia, d.st.now);
-      donMoi.choId = Number(this.kho.db.prepare('SELECT last_insert_rowid() AS i').get().i);
+      var self1 = this;
+      this.choChay(function () {
+        self1.kho.q.choThem.run(loai === 'tudo' ? 'tudo' : 'sieuthi', tk,
+          donMoi.res, donMoi.soConLai, donMoi.gia, d.st.now);
+        donMoi.choId = Number(self1.kho.db.prepare('SELECT last_insert_rowid() AS i').get().i);
+      });
     }
     this.luu(tk, d.st);
     this.ketThuc();
@@ -493,10 +505,11 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
       pa.giaoHang = pa.giaoHang || [];
       pa.giaoHang.push({ res: donBan.res, so: so, xongAt: a.st.now + G.KINH_TE_V1.giaoHangGiay });
     }
-    this.kho.q.choTru.run(so, choId);
+    var self2 = this;
+    this.choChay(function () { self2.kho.q.choTru.run(so, choId); });
     if (donBan.soConLai <= 0) {
       /* đơn cạn: xoá khỏi bảng chung VÀ khỏi projection state người bán */
-      this.kho.q.choXoaId.run(choId);
+      this.choChay(function () { self2.kho.q.choXoaId.run(choId); });
       var idx = b.st.choDon.indexOf(donBan);
       if (idx >= 0) b.st.choDon.splice(idx, 1);
     }
@@ -538,7 +551,8 @@ TheGioi.prototype.choHuy = function (tk, choId) {
       d.st.choDon.splice(i, 1);
       G.ghi(d.st, 'Huỷ đơn bán ' + G.byId(G.RES, don.res).ten + ', hoàn ' + G.so(don.soConLai) + ' vào kho.');
     }
-    this.kho.q.choXoaId.run(choId);
+    var self3 = this;
+    this.choChay(function () { self3.kho.q.choXoaId.run(choId); });
     this.luu(tk, d.st);
     this.ketThuc();
     return null;
