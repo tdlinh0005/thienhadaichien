@@ -8,16 +8,19 @@ var G = window.G = window.G || {};
 
 G.VONG_XUONG_DAT = 3;
 
-function nhom(id, n, tech, ben, thuDat, nguon) {
+function nhom(id, n, tech, ben, thuDat, nguon, diaHinh) {
   var u = G.UNIT(id);
   var w = 1 + 0.1 * (tech.weapon || 0), s = 1 + 0.1 * (tech.shield || 0), a = 1 + 0.1 * (tech.armor || 0);
   /* Loại hành tinh làm phòng thủ MẶT ĐẤT dày thêm (Băng Hà, Nước – Đầm Lầy) */
   if (u.lop === 'dat' && thuDat) { s *= thuDat; a *= thuDat; }
+  /* [v7] Hệ số địa hình chỉ tác động đơn vị chạm mặt đất (công sự/bộ binh);
+   * chiến tranh quỹ đạo trung hoá — xem bảng G.DIA_HINH trong data.js. */
+  var dh = diaHinh === undefined ? 1 : diaHinh;
   return {
     id: id, ten: u.ten, n: n, n0: n, ben: ben,
-    atk: u.atk * w,
+    atk: u.atk * w * dh,
     shield: u.shield * s,
-    hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a,   // vỏ thép cơ bản × giáp
+    hull: (u.hull) * a * 0.1 + u.hull * 0.9 * a * dh,   // vỏ thép cơ bản × giáp
     hongDu: 0,
     lop: u.lop || 'ham',
     cost: u.cost,
@@ -25,12 +28,15 @@ function nhom(id, n, tech, ben, thuDat, nguon) {
   };
 }
 
-function gomBen(ships, def, tech, ben, thuDat, bo, nguon) {
+function gomBen(ships, def, tech, ben, thuDat, bo, nguon, loaiHT) {
   var out = [];
   var id;
-  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id)) out.push(nhom(id, ships[id], tech, ben, 1, nguon));
-  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1));
-  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1));
+  /* Công sự và bộ binh luôn nhận hệ số địa hình. Tàu chỉ nhận khi `loaiHT`
+   * được truyền vào — tức trận đổ bộ nơi tàu bay đã chạm khí quyển. */
+  if (ships) for (id in ships) if (ships[id] > 0 && G.S(id))
+    out.push(nhom(id, ships[id], tech, ben, 1, nguon, loaiHT ? G.hsDiaHinh(id, loaiHT) : 1));
+  if (def) for (id in def) if (def[id] > 0 && G.D(id)) out.push(nhom(id, def[id], tech, ben, thuDat, -1, G.hsDiaHinh(id, loaiHT)));
+  if (bo) for (id in bo) if (bo[id] > 0 && G.BB(id)) out.push(nhom(id, bo[id], tech, ben, thuDat, -1, G.hsDiaHinh(id, loaiHT)));
   return out;
 }
 
@@ -103,7 +109,12 @@ function tinhLuc(gs) {
 G.danhTran = function (A, D, seed) {
   var rnd = G.rng(seed || (Date.now() >>> 0));
   var doBo = !!A.doBo;                 /* trận đổ bộ: không chia lớp, đánh hết từ vòng 1 */
-  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1);
+  /* [v7] Trận ĐỔ BỘ: tàu của bên công hạ độ cao chạm khí quyển/mặt đất nên
+   * máy bay & hoả tiễn mang theo chịu hệ số địa hình (tư liệu: "máy bay dễ
+   * bị tiêu diệt ở Băng", "bom yếu đi ở Rừng"). Trận quỹ đạo thuần túy thì không. */
+  var atk = gomBen(A.ships, null, A.tech || {}, 'A', 1, A.bo, -1,
+    doBo ? (D.loaiHT || null) : null);
+  var loaiHT = D.loaiHT || null;
   var nhomTau = Array.isArray(D.nhomTau) && D.nhomTau.length
     ? D.nhomTau
     : [{ ships: D.ships || {}, tech: D.tech || {} }];
@@ -113,7 +124,7 @@ G.danhTran = function (A, D, seed) {
     for (var ig = 0; ig < them.length; ig++) defAll.push(them[ig]);
   }
   /* Công sự và bộ binh luôn thuộc hành tinh, không thuộc một nhóm tàu. */
-  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1);
+  them = gomBen(null, D.def, D.tech || {}, 'D', D.thuDat || 1, D.bo, -1, loaiHT);
   for (var idf = 0; idf < them.length; idf++) defAll.push(them[idf]);
 
   var quyDao = [], mDat = [];

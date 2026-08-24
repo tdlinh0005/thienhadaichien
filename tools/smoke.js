@@ -1167,5 +1167,36 @@ ktra(typeof G.chay(tm, 'ban', { pi: 0, res: 'metal', n: 1 }) === 'string' &&
   typeof G.chay(tm, 'mua', { pi: 0, res: 'metal', n: 1 }) === 'string',
   'chợ cũ đã đóng thành alias hướng dẫn');
 
+/* ---- 20. v7: địa hình tác động trận MẶT ĐẤT, quỹ đạo trung hoà ---- */
+function tranBo(loaiHT, seed) {
+  /* 200 robot công 100 tank thủ: cùng tech, chỉ khác loại hành tinh */
+  return G.danhTran(
+    { ten: 'Công', tech: {}, ships: {}, bo: { robot: 200 } },
+    { ten: 'Thủ', tech: {}, ships: {}, def: {}, bo: { tank: 60 }, thuDat: 1, loaiHT: loaiHT }, seed);
+}
+var saMac = tranBo('samac', 777), onHoa = tranBo('onhoa', 777), rung = tranBo('runggia', 777);
+ktra(saMac.matA.robot > onHoa.matA.robot && saMac.matD.tank < onHoa.matD.tank,
+  'Tank thủ Sa Mạc mạnh nhất: diệt Robot công nhiều hơn và mất ít hơn Ôn Hoà');
+ktra(rung.matA.robot < onHoa.matA.robot && rung.matD.tank > onHoa.matD.tank,
+  'Tank thủ Rừng yếu nhất: diệt ít Robot và mất nặng hơn Ôn Hoà');
+/* tàu quỹ đạo không chịu địa hình: cùng hạm đánh cùng phòng thủ quỹ đạo */
+function tranHam(loaiHT, seed) {
+  return G.danhTran(
+    { ten: 'A', tech: {}, ships: { fighterL: 300 } },
+    { ten: 'D', tech: {}, ships: { cruiser: 150 }, def: {}, thuDat: 1, loaiHT: loaiHT }, seed);
+}
+var hamSM = tranHam('samac', 555), hamOH = tranHam('onhoa', 555);
+ktra(JSON.stringify(hamSM.matA) === JSON.stringify(hamOH.matA) &&
+  JSON.stringify(hamSM.matD) === JSON.stringify(hamOH.matD),
+  'trận thuần quỹ đạo cho kết quả như nhau mọi loại hành tinh');
+/* máy bay trong trận ĐỔ BỘ ở Băng (×0.75) yếu hơn ở Ôn Hoà (×1.1):
+ * giáp tàu bị nhân hệ số nên cùng đội hình mất nặng hơn */
+var mayBayBang = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: true, bo: {} },
+  { ten: 'D', tech: {}, ships: { cruiser: 20 }, def: { missileLauncher: 10 }, bo: {}, thuDat: 1, loaiHT: 'banghai' }, 333);
+var mayBayOn = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: true, bo: {} },
+  { ten: 'D', tech: {}, ships: { cruiser: 20 }, def: { missileLauncher: 10 }, bo: {}, thuDat: 1, loaiHT: 'onhoa' }, 333);
+ktra((mayBayBang.matA.fighterL || 0) > (mayBayOn.matA.fighterL || 0),
+  'Máy Bay đổ bộ Băng mất nặng hơn Ôn Hoà (' + (mayBayBang.matA.fighterL || 0) + ' vs ' + (mayBayOn.matA.fighterL || 0) + ')');
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);
