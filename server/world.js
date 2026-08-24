@@ -450,7 +450,8 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
   so = Math.max(1, Math.floor(+so || 0));
   if (so > hang.so) so = hang.so;
 
-  if (this.dangTick.has(hang.tk)) return 'Người bán đang được xử lý, thử lại sau một nhịp.';
+  if (this.dangTick.has(hang.tk) || this.dangTick.has(tkA))
+    return 'Một trong hai đế quốc đang được xử lý, thử lại sau một nhịp.';
   var a = this.nap(tkA), b = this.nap(hang.tk);
   if (!a || !b) return 'Một trong hai đế quốc không còn trong vũ trụ.';
   this.batDau();
