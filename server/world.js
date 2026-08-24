@@ -366,7 +366,11 @@ TheGioi.prototype.lmDuyetVoiQuyen = function (lmTen, ungVien, chapNhan) {
     var don = this.kho.q.lmXinGet.get(lmTen, ungVien);
     if (!don) return 'Đơn xin này không còn tồn tại.';
     var kq = this.hanhDong(ungVien, 'lmvao', { ten: lmTen });
-    if (!kq.st || kq.loi) return kq.loi || 'Không thể cập nhật đế quốc của người xin vào.';
+    if (!kq.st || kq.loi) {
+      /* ứng viên đã vào LM khác trong lúc phiếu mở: dọn đơn để phiếu 'dat' không ma */
+      this.kho.q.lmXinXoa.run(lmTen, ungVien);
+      return kq.loi || 'Không thể cập nhật đế quốc của người xin vào.';
+    }
     this.kho.q.lmXinXoaCua.run(ungVien);
     var tk2 = this.kho.q.tkTheoId.get(ungVien);
     this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
