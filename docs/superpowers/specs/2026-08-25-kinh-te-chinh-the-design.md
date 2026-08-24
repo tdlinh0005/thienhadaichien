@@ -133,6 +133,7 @@ hành tinh (`thuDat`) hiện có giữ nguyên, cộng thêm với bảng trên.
 [XÁC NHẬN tên ba chính thể từ GVN; toàn bộ cơ chế phiếu là TÁI DỰNG vì nguồn không mô tả]
 
 `lm.chinhThe ∈ docTai | danChu | congHoa`, chọn lúc lập LM; LM cũ migrate về `docTai`.
+(Tên giá trị giữ camelCase ngắn cho khớp phong cách id hiện có trong code.)
 
 - **Độc tài**: hành vi hiện tại giữ nguyên — chủ duyệt/loại/tuyên chiến/chuyển quyền trực tiếp.
 - **Dân chủ**: đa số đơn giản toàn thành viên, hạn phiếu 24 giờ. Có phiếu: tuyên chiến,
