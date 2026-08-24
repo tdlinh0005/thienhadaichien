@@ -398,6 +398,8 @@ function nangV6LenV7(st) {
     st.dauTuST = { von: 0, ketThucAt: 0 };
   if (!isFinite(Number(st.uranium))) st.uranium = 0;
   if (!st.luongGD) st.luongGD = { muc: 0, traLuc: 0, phanBoi: false };
+  /* đơn chợ là projection: thiếu thì coi như không có đơn nào đang mở */
+  if (!Array.isArray(st.choDon)) st.choDon = [];
   st.moHinhKT = G.KINH_TE_V1.marker;
   st.v = 7;
 }
