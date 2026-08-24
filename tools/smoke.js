@@ -2,7 +2,7 @@
 global.window = global;
 var fs = require('fs'), path = require('path');
 var goc = path.join(__dirname, '..', 'js');
-['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions'].forEach(function (f) {
+['data', 'util', 'galaxy', 'combat', 'engine', 'thitruong', 'fleet', 'actions'].forEach(function (f) {
   eval(fs.readFileSync(path.join(goc, f + '.js'), 'utf8'));
 });
 var G = window.G;
@@ -30,9 +30,9 @@ pc.qS = [{ id: 'fighterL', n: 7, tEach: 11, tLeft: 9, cost1: { metal: 3000, crys
 var costCu = JSON.stringify(pc.qB.map(function (x) { return x.cost; }));
 var qSCu = JSON.stringify(pc.qS);
 G.nangCapState(cu, cu.now);
-ktra(cu.v === 6 && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
-  cu.moHinhQuyDao === 'giu-quy-dao-v1',
-  'dispatcher nâng tuần tự v3 -> v4 -> v5 -> v6 và gắn đủ model marker');
+ktra(cu.v === 7 && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
+  cu.moHinhQuyDao === 'giu-quy-dao-v1' && cu.moHinhKT === 'kinh-te-that-v1',
+  'dispatcher nâng tuần tự v3 -> … -> v7 và gắn đủ model marker');
 ktra(pc.b.metalMine === G.slTuCap(G.B('metalMine'), 4) && pc.b.shipyard === 3,
   'level cũ đổi thành số lượng theo tổng vốn lũy kế');
 ktra(pc.qB.every(function (x) { return x.n > 0 && x.lv === undefined; }), 'qB sau dispatcher chỉ lưu n, không còn lv');
@@ -45,7 +45,7 @@ ktra(cu.baoTri && cu.baoTri.activatedAt === cu.now &&
   cu.baoTri.nextAt === cu.baoTri.activatedAt + G.C.CHU_KY_BAO_TRI && pc.danSu,
   'dispatcher khởi tạo nhịp v5 và dân sự tại đúng snapshot');
 var motLan = JSON.stringify(cu); G.nangCapState(cu);
-ktra(JSON.stringify(cu) === motLan, 'migration v6 idempotent byte-for-byte');
+ktra(JSON.stringify(cu) === motLan, 'migration idempotent byte-for-byte');
 var tuChoiTuongLai = false;
 try { G.nangCapState({ v: G.STATE_VERSION + 1 }); } catch (errMig) { tuChoiTuongLai = /mới hơn engine/.test(errMig.message); }
 ktra(tuChoiTuongLai, 'migration từ chối state tương lai thay vì âm thầm hạ cấp');
@@ -130,7 +130,7 @@ var taiSanV5Giu = JSON.stringify({ planets: v5Giu.planets, ncQueue: v5Giu.ncQueu
   debris: v5Giu.debris, queues: v5Giu.planets.map(function (x) { return [x.qB, x.qS]; }) });
 G.nangCapState(v5Giu, kichHoatQD);
 var legacyGiu = v5Giu.fleets[0];
-ktra(v5Giu.v === 6 && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
+ktra(v5Giu.v === 7 && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
   legacyGiu.pha === 'giu' && legacyGiu.giuRules === G.QUY_DAO_V1.legacyRules &&
   legacyGiu.giuDen_t === kichHoatQD + 12 * 3600 &&
   legacyGiu.tiepNL_t === kichHoatQD + G.QUY_DAO_V1.segmentSeconds,
@@ -143,7 +143,7 @@ ktra(JSON.stringify({ planets: v5Giu.planets, ncQueue: v5Giu.ncQueue,
   debris: v5Giu.debris, queues: v5Giu.planets.map(function (x) { return [x.qB, x.qS]; }) }) === taiSanV5Giu,
   'v5 -> v6 bảo toàn hành tinh, tài nguyên và mọi hàng đợi');
 var v5GiuMotLan = JSON.stringify(v5Giu); G.nangCapState(v5Giu, kichHoatQD + 999999);
-ktra(JSON.stringify(v5Giu) === v5GiuMotLan, 'v5 -> v6 idempotent byte-for-byte');
+ktra(JSON.stringify(v5Giu) === v5GiuMotLan, 'v5 -> v7 idempotent byte-for-byte');
 var cargoAnHan = legacyGiu.cargo.deut;
 G.tick(v5Giu, legacyGiu.tiepNL_t - 1);
 ktra(legacyGiu.cargo.deut === cargoAnHan && legacyGiu.pha === 'giu',
@@ -1075,6 +1075,97 @@ var kq3 = G.danhTran(
   { ten: 'A', tech: {}, ships: { fighterL: 3 } },
   { ten: 'D', tech: { weapon: 8 }, ships: {}, def: { plasma: 20, orbitalStation: 10 } }, 999);
 ktra(kq3.kq === 'thua', 'hạm đội yếu bị nghiền');
+
+/* ---- 15. v7: hằng số kinh tế & địa hình ---- */
+ktra(G.STATE_VERSION === 7, 'engine là state v7');
+ktra(G.KINH_TE_V1 && G.KINH_TE_V1.giaGoc.metal === 1 && G.KINH_TE_V1.giaGoc.crystal === 2 &&
+  G.KINH_TE_V1.giaGoc.deut === 4 && G.KINH_TE_V1.giaGoc.food === 1,
+  'giá gốc tư liệu KL=1 TA=2 NL=4 TP=1');
+ktra(G.KINH_TE_V1.thueSieuThi === 0.10 && G.KINH_TE_V1.thueTuDo === 0.05 &&
+  G.KINH_TE_V1.giaoHangGiay === 6 * 3600, 'thuế 10%/5% và giao hàng 6h');
+ktra(G.KINH_TE_V1.laiMinNgay < G.KINH_TE_V1.laiMaxNgay && G.KINH_TE_V1.laiMaxNgay <= 0.02,
+  'dải lãi ngân hàng nằm trong [0.07%…2%]/ngày');
+ktra(G.hsDiaHinh('battleship', 'onhoa') === 1, 'TCH ngoài bảng nhận hệ số 1');
+ktra(G.hsDiaHinh('fighterL', 'banghai') === 0.75 && G.hsDiaHinh('fighterL', 'nuoc') === 1.15,
+  'máy bay yếu Băng, mạnh Nước');
+ktra(G.hsDiaHinh('tank', 'samac') === 1.5 && G.hsDiaHinh('robot', 'runggia') === 1.4 &&
+  G.hsDiaHinh('hoaTien', 'samac') === 1.25 && G.hsDiaHinh('hoaTien', 'runggia') === 0.7,
+  'Tank vô địch Sa Mạc, Robot mạnh Rừng, hoả tiễn mạnh Sa Mạc/yếu Rừng');
+
+/* ---- 16. v7: migration v6 -> v7 ---- */
+var s6 = G.moiGame('Save V6', 'THDC-MIGRATE-V6');
+s6.v = 6; delete s6.nganHang; delete s6.dauTuST; delete s6.uranium; delete s6.luongGD; delete s6.moHinhKT;
+G.nangCapState(s6);
+ktra(s6.v === 7 && s6.moHinhKT === 'kinh-te-that-v1', 'dispatcher v6 -> v7 gắn marker kinh tế');
+ktra(s6.nganHang.soDu === 0 && s6.nganHang.laiLuc === 0 && s6.dauTuST.von === 0 &&
+  s6.uranium === 0 && s6.luongGD.muc === 0 && s6.luongGD.phanBoi === false,
+  'v7 gắn default kinh tế an toàn');
+var motLan7 = JSON.stringify(s6); G.nangCapState(s6);
+ktra(JSON.stringify(s6) === motLan7, 'migration v7 idempotent');
+
+/* ---- 17. v7: lãi ngân hàng suy giảm theo số dư ---- */
+ktra(Math.abs(G.laiNganHangNgay(G.KINH_TE_V1.laiK) - 0.01) < 1e-9, 'laiK cho ~1%/ngày');
+ktra(Math.abs(G.laiNganHangNgay(0) - 0.02) < 1e-12, 'số dư 0 nhận trần 2%/ngày');
+ktra(G.laiNganHangNgay(1e15) > G.KINH_TE_V1.laiMinNgay * 0.999 && G.laiNganHangNgay(1e15) < 0.001,
+  'số dư khổng lồ tiến về sàn 0,07%/ngày');
+var sn = G.moiGame('Ngân hàng', 'THDC-NH');
+sn.galana = 0; sn.nganHang.soDu = G.KINH_TE_V1.laiK;
+sn.baoTri.nextAt = sn.now + 100 * 24 * 3600;   // không để checkpoint phá giấc test
+G.tick(sn, sn.now + 3600);
+ktra(sn.nganHang.laiLuc > 0 &&
+  Math.abs(sn.nganHang.laiLuc - G.KINH_TE_V1.laiK * G.laiNganHangNgay(G.KINH_TE_V1.laiK) / 24) < 2,
+  'một giờ tích đúng lãi/giờ');
+
+/* ---- 18. v7: hành động ngân hàng & đầu tư & uranium ---- */
+var tk2 = G.moiGame('Tài chính', 'THDC-TC');
+tk2.galana = 500;
+ktra(G.chay(tk2, 'guiNH', { so: 100 }) === null && tk2.galana === 400 &&
+  tk2.nganHang.soDu === 100, 'gửi ngân hàng trừ Galana đúng');
+ktra(typeof G.chay(tk2, 'guiNH', { so: -5 }) === 'string' &&
+  typeof G.chay(tk2, 'rutNH', { so: 1e15 }) === 'string', 'gửi/rút chặn số xấu và vượt số dư');
+ktra(G.chay(tk2, 'rutNH', { so: 40 }) === null && tk2.galana === 440 &&
+  tk2.nganHang.soDu === 60, 'rút ngân hàng hoàn Galana đúng');
+ktra(G.chay(tk2, 'dauTuST', { so: 50 }) === null && tk2.galana === 390 &&
+  tk2.dauTuST.von === 50 && tk2.dauTuST.ketThucAt > 0,
+  'đầu tư siêu thị khoá vốn có kỳ hạn');
+ktra(typeof G.chay(tk2, 'dauTuST', { so: 10 }) === 'string',
+  'không đầu tư đè khi đang có vốn khoá');
+ktra(typeof G.chay(tk2, 'tangTocXay', { pi: 0 }) === 'string', 'tăng tốc cần lô đang xây');
+tk2.planets[0].qB.push({ id: 'metalMine', n: 5, cost: { metal: 300 }, tg: 36000, xong: tk2.now + 36000 });
+tk2.uranium = 45;
+ktra(G.chay(tk2, 'tangTocXay', { pi: 0 }) === null && tk2.planets[0].b.metalMine >= 5 &&
+  tk2.planets[0].qB.length === 0 && tk2.uranium === 35, 'tăng tốc xây tiêu 10 Uranium hoàn lô ngay');
+ktra(G.chay(tk2, 'muaDiemNC', { diem: 1 }) === null && tk2.techPts >= 1 && tk2.uranium <= 15,
+  'mua điểm Kỹ Thuật bằng Uranium');
+
+/* ---- 19. v7: thị trường siêu thị/tự do/NPC solo ---- */
+var tm = G.moiGame('Thị Trường', 'THDC-TT');
+tm.planets[0].res.metal = 100000; tm.galana = 100000;
+ktra(G.chay(tm, 'dangBan', { pi: 0, loai: 'sieuthi', res: 'metal', so: 40000 }) === null &&
+  tm.planets[0].res.metal === 60000 && tm.choDon.length === 1 &&
+  tm.choDon[0].gia === G.KINH_TE_V1.giaGoc.metal,
+  'đăng bán siêu thị trừ hàng ngay và ép giá gốc');
+/* giá tự đặt bị ép về giá gốc — đơn thứ hai vẫn giá gốc, không phải 99 */
+ktra(G.chay(tm, 'dangBan', { pi: 0, loai: 'sieuthi', res: 'metal', so: 10, gia: 99 }) === null &&
+  tm.choDon[1].gia === G.KINH_TE_V1.giaGoc.metal,
+  'siêu thị ép mọi đơn về giá gốc');
+ktra(typeof G.muaDon(tm, 0, tm.choDon[0], 100) === 'string',
+  'không tự mua đơn của chính mình');
+var npcDon = G.npcCho(tm).filter(function (d) { return d.res === 'deut'; })[0];
+ktra(npcDon && npcDon.soConLai > 0 && npcDon.gia === G.KINH_TE_V1.giaGoc.deut,
+  'NPC solo bán Nhiên Liệu đúng giá gốc');
+var glTruocNPC = tm.galana, deutTruocNPC = tm.planets[0].res.deut || 0;
+ktra(G.chay(tm, 'muaDon', { pi: 0, donId: npcDon.id, so: 1000 }) === null &&
+  tm.planets[0].res.deut === deutTruocNPC + 1000 &&
+  Math.round(tm.galana) === Math.round(glTruocNPC - 1000 * npcDon.gia),
+  'mua đơn NPC giao ngay trừ đúng giá');
+tm.planets[0].giaoHang = [{ res: 'metal', so: 500, xongAt: tm.now - 1 }];
+G.tickCho(tm, tm.now + 1);
+ktra((tm.planets[0].res.metal || 0) >= 500 && tm.planets[0].giaoHang.length === 0,
+  'hàng Tự Do tới hạn nhập kho');
+ktra(typeof G.chay(tm, 'ban', { pi: 0, res: 'metal', n: 1 }) === 'string' &&
+  typeof G.chay(tm, 'mua', { pi: 0, res: 'metal', n: 1 }) === 'string',
+  'chợ cũ đã đóng thành alias hướng dẫn');
 
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

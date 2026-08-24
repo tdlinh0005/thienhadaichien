@@ -3,7 +3,7 @@
 'use strict';
 var fs = require('fs'), path = require('path');
 
-var THU_TU = ['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions'];
+var THU_TU = ['data', 'util', 'galaxy', 'combat', 'engine', 'thitruong', 'fleet', 'actions'];
 
 function nap() {
   if (!global.window) global.window = {};

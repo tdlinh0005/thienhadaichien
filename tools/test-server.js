@@ -1583,10 +1583,11 @@ function truyVan(sql, ...args) {
         'toàn bộ lệnh chiến tranh và mốc tuyên còn nguyên sau khi khởi động lại');
       var rowV6 = truyVan('SELECT * FROM dq WHERE tk=?', idB)[0];
       var stateV6 = JSON.parse(rowV6.state), pV5 = stateV6.planets[0], qV5 = pV5.qB[0];
-      ktra(stateV6.v === 6 && stateV6.moHinhCT === 'so-luong-v1' &&
+      ktra(stateV6.v === 7 && stateV6.moHinhCT === 'so-luong-v1' &&
         stateV6.moHinhNhip === 'bao-tri-dan-su-v1' && stateV6.moHinhQuyDao === 'giu-quy-dao-v1' &&
+        stateV6.moHinhKT === 'kinh-te-that-v1' &&
         stateV6.baoTri.nextAt > stateV6.baoTri.activatedAt,
-        'startup nâng tuần tự state v3 lên v6 trước khi API mở');
+        'startup nâng tuần tự state v3 lên v7 trước khi API mở');
       ktra(pV5.b.metalMine === 8 && pV5.b.robot === 3,
         'cấp công trình v3 được quy đổi theo tổng vốn (Mỏ 4→8, Robot 2→3)');
       ktra(qV5 && qV5.n === 5 && qV5.lv === undefined && qV5.tg === 321 && qV5.xong === mocQueueV3 &&

@@ -4,7 +4,7 @@
  * đúng thứ tự thời gian — nên chơi offline vẫn ra kết quả đúng.            */
 'use strict';
 var G = window.G = window.G || {};
-G.STATE_VERSION = 6;
+G.STATE_VERSION = 7;
 
 /* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
 G.LECH_GIO = 0;
@@ -45,6 +45,13 @@ G.moiGame = function (ten, seedStr, home) {
     nextRaid: now + 3600 * 3,
     soChuKy: 0, noBaoTri: 0,
     lm: null,
+    /* Kinh tế thật v7 [XÁC NHẬN khung; hằng số trong G.KINH_TE_V1] */
+    nganHang: { soDu: 0, laiLuc: 0 },
+    dauTuST: { von: 0, ketThucAt: 0 },
+    uranium: 0,
+    luongGD: { muc: 0, traLuc: 0, phanBoi: false },
+    choDon: [],
+    moHinhKT: G.KINH_TE_V1.marker,
     stats: { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 },
     fleetIdSeq: 1
   };
@@ -378,6 +385,23 @@ function nangV5LenV6(st, activatedAt) {
   st.moHinhQuyDao = qd.marker;
 }
 
+/* STATE V7: KINH TẾ THẬT — thuần additive. Ngân hàng, đầu tư siêu thị, Uranium
+ * và lương gián điệp chỉ được GẮN DEFAULT; tuyệt đối không đụng số liệu cũ.
+ * LM/chính thể không nằm trong state đế quốc nên không thuộc bước này. */
+function nangV6LenV7(st) {
+  if (!st.nganHang) st.nganHang = { soDu: 0, laiLuc: 0 };
+  else {
+    if (!isFinite(Number(st.nganHang.soDu))) st.nganHang.soDu = 0;
+    if (!isFinite(Number(st.nganHang.laiLuc))) st.nganHang.laiLuc = 0;
+  }
+  if (!st.dauTuST || !isFinite(Number(st.dauTuST.ketThucAt)))
+    st.dauTuST = { von: 0, ketThucAt: 0 };
+  if (!isFinite(Number(st.uranium))) st.uranium = 0;
+  if (!st.luongGD) st.luongGD = { muc: 0, traLuc: 0, phanBoi: false };
+  st.moHinhKT = G.KINH_TE_V1.marker;
+  st.v = 7;
+}
+
 /* Nâng tuần tự, không nhảy thẳng: save v3 luôn đi qua đúng phép quy đổi vốn
  * công trình v4, schema nhịp v5 rồi schema quỹ đạo v6. `activatedAt` là
  * wall-clock do loader/server truyền vào; mặc định dùng giờ hiện tại. */
@@ -398,7 +422,8 @@ G.nangCapState = function (st, activatedAt) {
     nangV4LenV5(st, moc);
     phienBan = 5;
   }
-  if (phienBan === 5) nangV5LenV6(st, moc);
+  if (phienBan === 5) { nangV5LenV6(st, moc); phienBan = 6; }
+  if (phienBan === 6) nangV6LenV7(st);
   return st;
 };
 

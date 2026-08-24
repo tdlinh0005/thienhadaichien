@@ -453,8 +453,59 @@ G.MOC_LICH_SU = {
   nhaMay: { soLuong: 1000, nhaXuong: 20, mayBayTangHinhNgay: 10000 },
   mbcdMotTrieu: { soLuong: 1000000, cost: { metal: 10000000000, crystal: 5000000000, galana: 10000000000 } }
 };
+
+/* --- Kinh tế thật [XÁC NHẬN khung từ tư liệu; các hằng tinh chỉnh là TÁI DỰNG] --- */
+G.KINH_TE_V1 = {
+  marker: 'kinh-te-that-v1',
+  /* Giá trao đổi gốc ghi nguyên trong bài giới thiệu GVN năm 2006:
+   * Kim Loại 1 GL · Thạch Anh 2 GL · Nhiên Liệu 4 GL · Thực Phẩm 1 GL. */
+  giaGoc: { metal: 1, crystal: 2, deut: 4, food: 1 },
+  thueSieuThi: 0.10,          // "Thuế mỗi lần buôn bán tại siêu thị thiên hà là 10%"
+  thueTuDo: 0.05,             // thị trường tự do thuế "chỉ 5%"
+  giaoHangGiay: 6 * 3600,     // "hàng hóa sẽ được chuyển đến sau 6 giờ"
+  laiMaxNgay: 0.02,           // Ngân hàng vũ trụ "lãi cỡ 2%/ngày"
+  laiMinNgay: 0.0007,         // dải dưới 0,07%/ngày
+  laiK: 1000000000,           /* [TÁI DỰNG] số dư cỡ này nhận ~1%/ngày;
+                                 tiền lớn khó sinh lời nên lãi suy giảm theo số dư */
+  kyDauTuGiay: 7 * 24 * 3600, // [TÁI DỰNG] kỳ đầu tư Siêu Thị, không rút giữa kỳ
+  donToiDaMo: 20,             // [TÁI DỰNG] chống spam đơn
+  uraniumTangToc: 10,         // [TÁI DỰNG] giá Uranium một lần hoàn thành lô ngay
+  uraniumMotDiem: 20,         // [TÁI DỰNG] giá Uranium mua 1 điểm Kỹ Thuật
+  luongProbeDeutGio: 0.5,     // [TÁI DỰNG] lương Nhiên Liệu mỗi tàu do thám mỗi giờ
+  phanBoiBat50: 0.5           // [TÁI DỰNG] tàu do thám bị bắt khi phản bội
+};
+
+/* --- Chiến đấu theo địa hình ------------------------------------------------
+ * [XÁC NHẬN hướng từng loại từ GameLand "Theo ITD": Tank vô địch Sa Mạc và kém
+ * hiệu quả Rừng; Robot luồn lách Rừng, chìm Nước; máy bay thuận gió ẩm Nước,
+ * dễ bị hạ Băng; hoả tiễn đạn đạo mạnh Sa Mạc, rừng dày chặn bom.
+ * Toàn bộ HỆ SỐ là [TÁI DỰNG] bảo thủ. Chỉ tác động trận MẶT ĐẤT; chiến tranh
+ * quỹ đạo trung bình hoá về 1 vì không chịu địa hình.                        */
+G.DIA_HINH = {
+  tank:     { samac: 1.50, runggia: 0.60, nuoc: 0.80, banghai: 1.00, onhoa: 1.00 },
+  robot:    { samac: 0.90, runggia: 1.40, nuoc: 0.70, banghai: 1.00, onhoa: 1.00 },
+  fighterL: { samac: 1.00, runggia: 0.90, nuoc: 1.15, banghai: 0.75, onhoa: 1.10 },
+  fighterH: { samac: 1.00, runggia: 0.90, nuoc: 1.15, banghai: 0.75, onhoa: 1.10 },
+  hoaTien:  { samac: 1.25, runggia: 0.70, nuoc: 1.00, banghai: 1.00, onhoa: 1.00 },
+  bomber:   { samac: 1.25, runggia: 0.70, nuoc: 1.00, banghai: 1.00, onhoa: 1.00 }
+};
+G.hsDiaHinh = function (id, loaiHTId) {
+  var hang = G.DIA_HINH[id];
+  return hang && hang[loaiHTId] ? hang[loaiHTId] : 1;
+};
 G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
 G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
+
+/* --- Ngân hàng vũ trụ [XÁC NHẬN dải lãi 0,07–2%/ngày] ----------------------
+ * Lãi suy giảm theo số dư: tiền lớn khó sinh lời; laiK là điểm ~1%/ngày.     */
+G.laiNganHangNgay = function (soDu) {
+  var kt = G.KINH_TE_V1;
+  soDu = Math.max(0, Number(soDu) || 0);
+  if (!isFinite(soDu)) soDu = 0;
+  return Math.max(kt.laiMinNgay,
+    Math.min(kt.laiMaxNgay, kt.laiMaxNgay * kt.laiK / (kt.laiK + soDu)));
+};
+G.laiNganHangGio = function (soDu) { return G.laiNganHangNgay(soDu) / 24; };
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };

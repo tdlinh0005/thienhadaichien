@@ -987,6 +987,9 @@ G.tick = function (st, now) {
         G.sanXuat(st, st.planets[i], dt);
         G.chayXuong(st, st.planets[i], dt);
       }
+      /* Lãi ngân hàng tích liên tục theo giây [v7]; kết toán ở checkpoint. */
+      if (st.nganHang && st.nganHang.soDu > 0)
+        st.nganHang.laiLuc += st.nganHang.soDu * G.laiNganHangGio(st.nganHang.soDu) * dt / 3600;
       if (st.ncQueue) st.ncQueue.conLai = Math.max(0, (Number(st.ncQueue.finishAt) || t) - t);
       st.lastTick = t; st.now = t;
     }
@@ -1030,6 +1033,15 @@ G.xuLySuKien = function (st, t) {
    * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   if (nextNhip <= t) G.baoTri(st);
+  /* Kết toán lãi ngân hàng tại checkpoint [v7]: nguyên phần nguyên nhập số dư,
+   * phần lẻ giữ lại để không bốc hơi do làm tròn. */
+  if (st.nganHang && st.nganHang.laiLuc >= 1) {
+    var laiNhap = Math.floor(st.nganHang.laiLuc);
+    st.nganHang.soDu += laiNhap;
+    st.nganHang.laiLuc -= laiNhap;
+    G.ghi(st, 'Ngân hàng vũ trụ: +' + G.so(laiNhap) + ' Galana lãi (số dư ' +
+      G.so(Math.floor(st.nganHang.soDu)) + ').');
+  }
   /* công trình */
   for (i = 0; i < st.planets.length; i++) {
     p = st.planets[i];

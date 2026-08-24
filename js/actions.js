@@ -93,30 +93,107 @@ G.HANHDONG = {
   },
 
   /* --- chợ Thiên Hà --- */
-  ban: function (st, d) {
-    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không bán được loại này.';
-    var n = soDuong(d.n);
-    if (!n) return 'Nhập số lượng cần bán.';
-    if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
-    var g = Math.floor(n / G.C.TY_GIA[r]);
-    if (g <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
-    p.res[r] -= n; st.galana += g;
-    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' lấy ' + G.so(g) + ' Galana.');
+  /* [v7] Bộ đổi vô hạn đã đóng: tư liệu gốc xác nhận siêu thị chỉ có hàng khi
+   * có người bán vào. Hai tên này giữ lại chỉ để client cũ nhận thông báo rõ. */
+  ban: function () {
+    return 'Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường để đăng bán hoặc mua.';
+  },
+  mua: function () {
+    return 'Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường để đăng bán hoặc mua.';
+  },
+
+  /* --- tài chính v7: ngân hàng / đầu tư siêu thị / uranium --------------- */
+  guiNH: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần gửi.';
+    if (st.galana < so) return 'Chỉ có ' + G.so(Math.floor(st.galana)) + ' Galana.';
+    st.galana -= so;
+    st.nganHang.soDu += so;
+    G.ghi(st, 'Gửi Ngân Hàng Vũ Trụ ' + G.so(so) + ' Galana (số dư ' + G.so(Math.floor(st.nganHang.soDu)) + ').');
     return null;
   },
-  mua: function (st, d) {
-    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
-    var n = soDuong(d.n);
-    if (!n) return 'Nhập số lượng cần mua.';
-    var g = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
-    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana.';
-    st.galana -= g; p.res[r] = (p.res[r] || 0) + n;
-    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) + ' Galana.');
+  rutNH: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần rút.';
+    if (st.nganHang.soDu < so) return 'Trong ngân hàng chỉ có ' + G.so(Math.floor(st.nganHang.soDu)) + ' Galana.';
+    st.nganHang.soDu -= so;
+    st.galana += so;
+    /* lãi lũy đang treo thuộc kỳ trước — giữ nguyên, checkpoint sau kết toán */
+    G.ghi(st, 'Rút ' + G.so(so) + ' Galana từ Ngân Hàng Vũ Trụ.');
     return null;
+  },
+  dauTuST: function (st, d) {
+    var so = soDuong(d.so);
+    if (!so) return 'Nhập số Galana cần đầu tư.';
+    if ((Number(st.dauTuST.ketThucAt) || 0) > st.now)
+      return 'Đang có ' + G.so(st.dauTuST.von) + ' Galana trong kỳ đầu tư tới ' +
+        G.gio(st.dauTuST.ketThucAt * 1000) + ' — không rút giữa kỳ được [XÁC NHẬN].';
+    if (st.galana < so) return 'Chỉ có ' + G.so(Math.floor(st.galana)) + ' Galana.';
+    st.galana -= so;
+    st.dauTuST = { von: so, ketThucAt: st.now + G.KINH_TE_V1.kyDauTuGiay };
+    G.ghi(st, 'Đầu tư Siêu Thị Thiên Hà ' + G.so(so) + ' Galana, đáo hạn sau 7 ngày.');
+    return null;
+  },
+  tangTocXay: function (st, d) {
+    var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
+    if (!p.qB.length || !p.qB[0].xong) return 'Không có lô xây dựng nào đang chạy.';
+    var gia = G.KINH_TE_V1.uraniumTangToc;
+    if ((Number(st.uranium) || 0) < gia) return 'Cần ' + gia + ' Uranium để tăng tốc.';
+    st.uranium -= gia;
+    var m = p.qB.shift();
+    G.themCongTrinh(p, m.id, Math.max(1, Math.floor(Number(m.n) || 1)));
+    if (p.qB.length && p.qB[0].tg) p.qB[0].xong = st.now + p.qB[0].tg;
+    G.ghi(st, p.ten + ': tăng tốc hoàn thành ' + G.B(m.id).ten + ' bằng ' + gia + ' Uranium.');
+    return null;
+  },
+  muaDiemNC: function (st, d) {
+    var diem = soDuong(d.diem, 100000);
+    if (!diem) return 'Nhập số điểm Kỹ Thuật cần mua.';
+    var gia = diem * G.KINH_TE_V1.uraniumMotDiem;
+    if ((Number(st.uranium) || 0) < gia) return 'Cần ' + gia + ' Uranium (' + G.KINH_TE_V1.uraniumMotDiem + '/điểm).';
+    st.uranium -= gia;
+    st.techPts += diem;
+    G.ghi(st, 'Mua ' + G.so(diem) + ' điểm Kỹ Thuật bằng ' + gia + ' Uranium.');
+    return null;
+  },
+  traLuongGD: function (st) {
+    /* Trả ngay toàn bộ lương gián điệp treo bằng Nhiên Liệu kho đế quốc. */
+    var can = Math.ceil(Number(st.luongGD.traLuc) || 0);
+    if (can <= 0) return 'Không có lương nào treo.';
+    var co = 0, i;
+    for (i = 0; i < st.planets.length; i++) co += Math.max(0, st.planets[i].res.deut || 0);
+    if (co < can) return 'Thiếu Nhiên Liệu: cần ' + G.so(can) + ', kho có ' + G.so(co) + '.';
+    for (i = 0; i < st.planets.length && can > 0; i++) {
+      var p = st.planets[i], tru = Math.min(p.res.deut || 0, can);
+      p.res.deut -= tru; can -= tru;
+    }
+    st.luongGD.traLuc = 0;
+    G.ghi(st, 'Đã trả lương gián điệp.');
+    return null;
+  },
+
+  /* --- thị trường v7 ------------------------------------------------------ */
+  dangBan: function (st, d) {
+    return G.dangBan(st, Math.floor(+d.pi), d.loai === 'tudo' ? 'tudo' : chuoi(d.loai, 10),
+      chuoi(d.res, 10), d.so, d.gia);
+  },
+  huyDon: function (st, d) {
+    var id = Math.floor(+d.donId);
+    if (!id) return 'Đơn không hợp lệ.';
+    return G.huyDon(st, id);
+  },
+  muaDon: function (st, d) {
+    var don = null, i, id = String(d.donId === undefined ? '' : d.donId);
+    for (i = 0; i < st.choDon.length; i++) {
+      if (String(st.choDon[i].id) === id ||
+          st.choDon[i].id === 'npc-' + id.replace(/^npc-/, '')) { don = st.choDon[i]; break; }
+    }
+    if (!don && st.npcCho) {
+      var dsNpc = G.npcCho(st);
+      for (i = 0; i < dsNpc.length; i++) if (String(dsNpc[i].id) === id) { don = dsNpc[i]; break; }
+    }
+    if (!don) return 'Không có đơn này trên thị trường của ta (đơn đối tác đi qua server).';
+    return G.muaDon(st, Math.floor(+d.pi), don, d.so);
   },
 
   /* --- hạm đội --- */
