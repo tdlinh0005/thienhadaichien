@@ -1791,6 +1791,8 @@ function nangV6LenV7(st) {
     st.dauTuST = { von: 0, ketThucAt: 0 };
   if (!isFinite(Number(st.uranium))) st.uranium = 0;
   if (!st.luongGD) st.luongGD = { muc: 0, traLuc: 0, phanBoi: false };
+  /* đơn chợ là projection: thiếu thì coi như không có đơn nào đang mở */
+  if (!Array.isArray(st.choDon)) st.choDon = [];
   st.moHinhKT = G.KINH_TE_V1.marker;
   st.v = 7;
 }
@@ -2339,6 +2341,11 @@ G.muaDon = function (st, pi, don, so) {
   var thue = don.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
   if (st.galana < tongGL) return 'Cần ' + G.so(tongGL) + ' Galana.';
   st.galana -= tongGL;
+  /* đơn NPC: trừ thẳng vào kho hàng hồi dần của thị trường */
+  if (don.npc && st.npcCho && st.npcCho[don.res]) {
+    st.npcCho[don.res].con = Math.max(0, st.npcCho[don.res].con - so);
+    don.soConLai = Math.floor(st.npcCho[don.res].con);
+  }
   don.daBan = (don.daBan || 0) + so;
   don.thuNhap = (don.thuNhap || 0) + Math.floor(tongGL * (1 - thue));
   if (don.loai === 'sieuthi') {
@@ -3470,6 +3477,8 @@ G.xuLySuKien = function (st, t) {
    * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   if (nextNhip <= t) G.baoTri(st);
+  /* [v7] thị trường: hàng Tự Do tới hạn nhập kho + hồi hàng NPC (mọi nhịp tick) */
+  if (G.tickCho) G.tickCho(st, t);
   /* Kết toán lãi ngân hàng tại checkpoint [v7]: nguyên phần nguyên nhập số dư,
    * phần lẻ giữ lại để không bốc hơi do làm tròn. */
   if (st.nganHang && st.nganHang.laiLuc >= 1) {
@@ -4009,6 +4018,7 @@ G.HANHDONG = {
       if (String(st.choDon[i].id) === id ||
           st.choDon[i].id === 'npc-' + id.replace(/^npc-/, '')) { don = st.choDon[i]; break; }
     }
+    /* solo: đơn NPC sinh lười khi cần — bộ luật chạy cả server nên chỉ tra khi có npcCho */
     if (!don && st.npcCho) {
       var dsNpc = G.npcCho(st);
       for (i = 0; i < dsNpc.length; i++) if (String(dsNpc[i].id) === id) { don = dsNpc[i]; break; }
@@ -5092,8 +5102,15 @@ U.m_taichinh = function () {
     var laiNgay = G.laiNganHangNgay(st.nganHang.soDu);
     h += '<table style="margin-top:8px"><tr><td>Số dư gửi</td><td class="r sz">' + G.so(st.nganHang.soDu) + ' Galana</td></tr>' +
       '<tr><td>Lãi hiện tại</td><td class="r sz luc">' + (laiNgay * 100).toFixed(2) + '%/ngày' +
-      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr></table>';
-    h += '<p class="mo">Lãi suy giảm theo số dư: tiền lớn khó sinh lời — dải tư liệu gốc là 0,07–2%/ngày.</p>';
+      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr>' +
+      '<tr><td>Uranium</td><td class="r sz">' + G.so(st.uranium || 0) + '</td></tr>' +
+      '<tr><td>Lương gián điệp</td><td class="r sz ' +
+      ((Number(st.luongGD.traLuc) || 0) > 0 || st.luongGD.phanBoi ? 'do' : 'luc') + '">' +
+      (st.luongGD.phanBoi ? 'PHẢN BỘI! Nợ ' + G.so(Math.ceil(st.luongGD.traLuc)) + ' NL' :
+        (Number(st.luongGD.traLuc) > 0 ? 'Nợ ' + G.so(Math.ceil(st.luongGD.traLuc)) + ' NL — trả ngay!' : 'Đang trả đúng hạn')) +
+      '</td></tr></table>';
+    if ((Number(st.luongGD.traLuc) || 0) > 0)
+      h += '<button class="nut nho oke" data-act="tra-luong">Trả lương gián điệp ngay</button>';
     h += '<div>Gửi <input id="nh-gui" type="number" min="1" style="width:120px"> Galana ' +
       '<button class="nut nho oke" data-act="gui-nh">Gửi</button> ' +
       '<button class="nut nho" data-act="rut-nh-all">Rút hết</button></div>';
@@ -5869,6 +5886,9 @@ var ACT = {
   },
   'mua-diem': function () {
     lam('muaDiemNC', { diem: 1 }, 'Đã mua 1 điểm Kỹ Thuật.');
+  },
+  'tra-luong': function () {
+    lam('traLuongGD', {}, 'Đã trả lương gián điệp.');
   },
   'mua-don': function (el) {
     var id = el.getAttribute('data-id');

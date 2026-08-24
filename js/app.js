@@ -83,6 +83,9 @@ var ACT = {
   'mua-diem': function () {
     lam('muaDiemNC', { diem: 1 }, 'Đã mua 1 điểm Kỹ Thuật.');
   },
+  'tra-luong': function () {
+    lam('traLuongGD', {}, 'Đã trả lương gián điệp.');
+  },
   'mua-don': function (el) {
     var id = el.getAttribute('data-id');
     var e = document.getElementById('mua-' + id);

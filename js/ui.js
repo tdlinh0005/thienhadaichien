@@ -1000,8 +1000,15 @@ U.m_taichinh = function () {
     var laiNgay = G.laiNganHangNgay(st.nganHang.soDu);
     h += '<table style="margin-top:8px"><tr><td>Số dư gửi</td><td class="r sz">' + G.so(st.nganHang.soDu) + ' Galana</td></tr>' +
       '<tr><td>Lãi hiện tại</td><td class="r sz luc">' + (laiNgay * 100).toFixed(2) + '%/ngày' +
-      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr></table>';
-    h += '<p class="mo">Lãi suy giảm theo số dư: tiền lớn khó sinh lời — dải tư liệu gốc là 0,07–2%/ngày.</p>';
+      (st.nganHang.laiLuc >= 1 ? ' (+' + G.so(Math.floor(st.nganHang.laiLuc)) + ' chờ kết toán)' : '') + '</td></tr>' +
+      '<tr><td>Uranium</td><td class="r sz">' + G.so(st.uranium || 0) + '</td></tr>' +
+      '<tr><td>Lương gián điệp</td><td class="r sz ' +
+      ((Number(st.luongGD.traLuc) || 0) > 0 || st.luongGD.phanBoi ? 'do' : 'luc') + '">' +
+      (st.luongGD.phanBoi ? 'PHẢN BỘI! Nợ ' + G.so(Math.ceil(st.luongGD.traLuc)) + ' NL' :
+        (Number(st.luongGD.traLuc) > 0 ? 'Nợ ' + G.so(Math.ceil(st.luongGD.traLuc)) + ' NL — trả ngay!' : 'Đang trả đúng hạn')) +
+      '</td></tr></table>';
+    if ((Number(st.luongGD.traLuc) || 0) > 0)
+      h += '<button class="nut nho oke" data-act="tra-luong">Trả lương gián điệp ngay</button>';
     h += '<div>Gửi <input id="nh-gui" type="number" min="1" style="width:120px"> Galana ' +
       '<button class="nut nho oke" data-act="gui-nh">Gửi</button> ' +
       '<button class="nut nho" data-act="rut-nh-all">Rút hết</button></div>';
