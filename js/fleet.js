@@ -490,7 +490,7 @@ G.hamToiDich = function (st, f) {
     var kq = G.danhTran(
       { ten: st.ten, tech: st.tech, ships: f.ships },
       { ten: n.ten + ' — ' + n.htTen, tech: n.tech, ships: n.ships, def: n.def,
-        thuDat: Lmuc.thuDat, loaiHT: Lmuc.ten },
+        thuDat: Lmuc.thuDat, loaiHT: Lmuc.id },
       G.hash(f.id + ':' + st.now + ':' + o.key));
 
     f.ships = kq.conShipsA;
@@ -511,7 +511,7 @@ G.hamToiDich = function (st, f) {
     if (kq.kq === 'thang' && f.linh && !G.trong(f.linh)) {
       if (!n.linh) n.linh = { robot: Math.round(n.diem * (n.bo ? 0.6 : 3)), tank: Math.round(n.diem * (n.bo ? 0.08 : 0.4)) };
       var thuDat0 = G.thuMatDat(n.def);
-      doBo = G.doBoXuong(st, f, { ten: n.ten, tech: n.tech, linh: n.linh, def: thuDat0, thuDat: Lmuc.thuDat });
+      doBo = G.doBoXuong(st, f, { ten: n.ten, tech: n.tech, linh: n.linh, def: thuDat0, thuDat: Lmuc.thuDat, loaiHT: Lmuc.id });
       G.gopThuMatDat(n.def, thuDat0);
       if (doBo.thang) {
         /* vét thêm phần kho mà đánh từ quỹ đạo không với tới — CỘNG THÊM vào
@@ -898,7 +898,7 @@ G.dichToi = function (st, w) {
   var kq = G.danhTran(
     { ten: w.ten, tech: w.tech, ships: w.ships },
     { ten: st.ten + ' — ' + p.ten, tech: st.tech, nhomTau: nhomTau, def: p.def,
-      thuDat: Lp.thuDat, loaiHT: Lp.ten },
+      thuDat: Lp.thuDat, loaiHT: Lp.id },
     G.hash('def' + w.id + st.now));
 
   /* Chỉ đếm tàu: matD tổng hợp còn chứa cả công sự, còn các mảng nhóm là
@@ -986,6 +986,13 @@ G.sukienKe = function (st) {
   }
   for (i = 0; i < st.toi.length; i++) t = Math.min(t, st.toi[i].den_t);
   if (st.tenLua) for (i = 0; i < st.tenLua.length; i++) t = Math.min(t, st.tenLua[i].khi);
+  /* [v7] đầu tư siêu thị đáo hạn + hàng chợ Tự Do tới hạn là sự kiện thật */
+  if (st.dauTuST && st.dauTuST.von > 0 && isFinite(Number(st.dauTuST.ketThucAt)))
+    t = Math.min(t, Number(st.dauTuST.ketThucAt));
+  for (i = 0; i < st.planets.length; i++) {
+    var giao = st.planets[i].giaoHang;
+    if (giao) for (var j = 0; j < giao.length; j++) t = Math.min(t, giao[j].xongAt);
+  }
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   t = Math.min(t, nextNhip, st.nextRaid);
   return t;
@@ -1069,6 +1076,21 @@ G.xuLySuKien = function (st, t) {
    * trước installment/hoàn thành nghiên cứu và trước các sự kiện cùng giây. */
   var nextNhip = st.baoTri ? st.baoTri.nextAt : st.nextMaint;
   if (nextNhip <= t) G.baoTri(st);
+  /* [v7] Đầu tư siêu thị đáo hạn: hoàn vốn + phần chia lợi nhuận theo tỉ trọng
+   * góp so với tổng vốn đang được bảo lãnh của Siêu Thị [TÁI DỰNG mức sinh lời].
+   * Lợi nhuận mô hình hoá từ thuế giao dịch đã chảy vào quỹ: mỗi kỳ đầu tư
+   * nhận lại vốn + lãi cố định 5%/kỳ trên vốn, lấy từ nguồn thuế đã thu. */
+  if (st.dauTuST && st.dauTuST.von > 0 && Number(st.dauTuST.ketThucAt) <= t) {
+    var vonGoc = Math.floor(Number(st.dauTuST.von));
+    var loiNhuan = Math.ceil(vonGoc * G.KINH_TE_V1.laiDauTuKy);
+    st.galana += vonGoc + loiNhuan;
+    G.ghi(st, 'Đầu tư Siêu Thị đáo hạn: nhận lại ' + G.so(vonGoc) + ' vốn +' +
+      G.so(loiNhuan) + ' Galana lợi nhuận.');
+    G.tin(st, 'he', 'Đầu tư Siêu Thị Thiên Hà đáo hạn',
+      'Nhận về ' + G.so(vonGoc + loiNhuan) + ' Galana (gốc ' + G.so(vonGoc) +
+      ' + chia ' + G.so(loiNhuan) + ').');
+    st.dauTuST = { von: 0, ketThucAt: 0 };
+  }
   /* [v7] thị trường: hàng Tự Do tới hạn nhập kho + hồi hàng NPC (mọi nhịp tick) */
   if (G.tickCho) G.tickCho(st, t);
   /* Kết toán lãi ngân hàng tại checkpoint [v7]: nguyên phần nguyên nhập số dư,
@@ -1407,8 +1429,8 @@ G.gopThuMatDat = function (def, con) {
 G.doBoXuong = function (st, f, ben) {
   if (!f.linh || G.trong(f.linh)) return null;
   var kq = G.danhTran(
-    { ten: st.ten + ' (quân đổ bộ)', tech: st.tech, bo: f.linh, doBo: true },
-    { ten: ben.ten, tech: ben.tech || {}, bo: ben.linh || {}, def: ben.def || {}, thuDat: ben.thuDat || 1 },
+    { ten: st.ten + ' (quân đổ bộ)', tech: st.tech, ships: f.ships, doBo: true, loaiHT: ben.loaiHT },
+    { ten: ben.ten, tech: ben.tech || {}, bo: ben.linh || {}, def: ben.def || {}, thuDat: ben.thuDat || 1, loaiHT: ben.loaiHT },
     G.hash('dobo' + f.id + ':' + st.now));
   f.linh = kq.conBoA;
   if (ben.linh) { for (var k in ben.linh) delete ben.linh[k]; G.cong(ben.linh, kq.conBoD); }

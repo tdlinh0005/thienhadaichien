@@ -468,6 +468,7 @@ G.KINH_TE_V1 = {
   laiK: 1000000000,           /* [TÁI DỰNG] số dư cỡ này nhận ~1%/ngày;
                                  tiền lớn khó sinh lời nên lãi suy giảm theo số dư */
   kyDauTuGiay: 7 * 24 * 3600, // [TÁI DỰNG] kỳ đầu tư Siêu Thị, không rút giữa kỳ
+  laiDauTuKy: 0.05,           // [TÁI DỰNG] chia lợi nhuận đầu tư 5%/kỳ từ nguồn thuế siêu thị
   donToiDaMo: 20,             // [TÁI DỰNG] chống spam đơn
   uraniumTangToc: 10,         // [TÁI DỰNG] giá Uranium một lần hoàn thành lô ngay
   uraniumMotDiem: 20,         // [TÁI DỰNG] giá Uranium mua 1 điểm Kỹ Thuật

@@ -1198,6 +1198,17 @@ var mayBayOn = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: 
 ktra((mayBayBang.matA.fighterL || 0) > (mayBayOn.matA.fighterL || 0),
   'Máy Bay đổ bộ Băng mất nặng hơn Ôn Hoà (' + (mayBayBang.matA.fighterL || 0) + ' vs ' + (mayBayOn.matA.fighterL || 0) + ')');
 
+/* ---- 20b. v7: đầu tư siêu thị ĐÁO HẠN hoàn vốn + lợi nhuận ---- */
+var dt2 = G.moiGame('Đầu tư', 'THDC-DT');
+dt2.galana = 1000000;
+G.chay(dt2, 'dauTuST', { so: 1000000 });
+var ketThuc = dt2.dauTuST.ketThucAt;
+ktra(ketThuc > dt2.now && G.sukienKe(dt2) <= ketThuc,
+  'đáo hạn đầu tư nằm trong lịch sự kiện');
+G.tick(dt2, ketThuc + 1);
+ktra(dt2.dauTuST.von === 0 && dt2.galana >= 1000000 + Math.ceil(1000000 * 0.05) - 1,
+  'đáo hạn hoàn vốn gốc + 5% lợi nhuận về Galana');
+
 /* ---- 21. v7: lương gián điệp — thiếu Nhiên Liệu qua checkpoint thì phản bội ---- */
 function taoDeQuocLuong(ten, seed, deut) {
   var x = G.moiGame(ten, seed);

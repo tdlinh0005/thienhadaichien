@@ -961,7 +961,7 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
     var kq = G.danhTran(
       { ten: st.ten, tech: st.tech, ships: f.ships },
       { ten: o.ten + ' — ' + dp.ten, tech: d.st.tech, nhomTau: nhomTau, def: dp.def,
-        thuDat: Ld.thuDat, loaiHT: Ld.ten },
+        thuDat: Ld.thuDat, loaiHT: Ld.id },
       G.hash(f.id + ':' + st.now + ':' + o.key));
 
     f.ships = kq.conShipsA;
@@ -990,7 +990,7 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
       var thuDatD = G.thuMatDat(dp.def);
       doBo = G.doBoXuong(st, f, {
         ten: o.ten + ' — ' + dp.ten, tech: d.st.tech, linh: dp.linh,
-        def: thuDatD, thuDat: Ld.thuDat, p: dp
+        def: thuDatD, thuDat: Ld.thuDat, loaiHT: Ld.id, p: dp
       });
       G.gopThuMatDat(dp.def, thuDatD);
       st.stats.doBo = (st.stats.doBo || 0) + 1;
