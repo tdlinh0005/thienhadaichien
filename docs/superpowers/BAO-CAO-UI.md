@@ -30,6 +30,17 @@ Ngày: 2026-08-25 · Trạng thái: đã triển khai xong 5 task, chờ code re
 - smoke 241/241 · server 333/333 · bundle parse OK (323 KB)
 - Render thử `m_tongquan`/`thanhRes` với state thật: không crash, đủ thẻ/chip/data-live
 
+## Code review độc lập (agent) — 2 HIGH + 2 MEDIUM, đã sửa hết
+
+| Mức | Bug | Fix |
+|---|---|---|
+| HIGH | Khối panel "Quản lý" tách dashboard để lại đuôi cũ: 9 hàng số liệu văng khỏi panel, Trận đánh + Quân đổ bộ hiển thị 2 lần, `thue-pct` trùng id khiến đổi thuế ở ô dưới bị nuốt im lặng | Xoá khối treo, gộp về một input duy nhất |
+| HIGH | (cùng gốc trên — sửa một lần được cả hai) | |
+| MEDIUM | Icon nav SVG không có `class="nav-ic"` → CSS 17px không áp dụng, icon phình ~150px phá nav desktop | Thêm class vào chuỗi svg + rule dự phòng `#menu a svg` |
+| MEDIUM | `tr.trong td` `#5b688a` tương phản 3.35:1 < WCAG AA 4.5:1 | Nâng lên `#7e8bab` (~4.9:1) |
+
+Reviewer xác nhận OK: không class nào bị bỏ sót (chỉ `.o` bị thay bởi `.chip` đúng chủ ý); `data-live` đủ 12 key; responsive mobile đầy đủ; prefers-reduced-motion tắt đúng cả 2 animation; badge/class on/data-act giữ nguyên hành vi; contrast mọi cặp màu khác đạt AA.
+
 ## Chỗ anh dễ chỉnh sau này
 | Muốn đổi | Sửa ở |
 |---|---|
