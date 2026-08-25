@@ -240,21 +240,62 @@ U.m_tongquan = function () {
   var st = U.st(), p = U.ht(), s = G.sanLuong(st, p), d = G.diem(st);
   var bt = U.bt(st), ds = U.ds(p);
   var sucChua = G.sucChuaDan ? G.sucChuaDan(p) : 250000 + (p.b.city || 0) * 250000;
+  var Lp = G.loaiHT(st, p);
+  function bar(trong, day) {
+    var pct = Math.max(0, Math.min(100, Math.round(day / Math.max(1, trong) * 100)));
+    return '<span class="bar"><i style="width:' + pct + '%"></i></span>';
+  }
+  function pill(n, vHtml, barHtml) {
+    return '<div class="pill-chiso"><span class="n">' + n + '</span><span>' + vHtml + '</span>' + (barHtml || '') + '</div>';
+  }
   var h = '';
 
-  h += '<div class="panel"><h3>' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + (p.thuDo ? ' — thủ phủ' : '') + '</h3><div class="noi luoi">';
+  /* ---- hàng thẻ số liệu lớn ---- */
+  h += '<div class="luoi" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))">';
+  h += '<div class="dash-the-lon"><span class="n">Điểm đế quốc</span><span class="so sz">' + G.so(d.tong) + '</span>' +
+    '<span class="phu">CT ' + G.so(d.ct) + ' · NC ' + G.so(d.nc) + ' · Hạm ' + G.so(d.ham) + ' · Thủ ' + G.so(d.thu) + '</span></div>';
+  h += '<div class="dash-the-lon sang-glow"><span class="n">Bảo trì sau</span><span class="so sz">' + U.dem(bt.nextAt) + '</span>' +
+    '<span class="phu">chu kỳ #' + (bt.cycle + 1) + ' · mỗi 6 giờ</span></div>';
+  h += '<div class="dash-the-lon"><span class="n">Dân số</span><span class="so sz">' + G.soNgan(ds.population) + '</span>' +
+    '<span class="phu">/ ' + G.so(sucChua) + ' sức chứa' +
+    (ds.foodShortfallCycle > 0 ? ' — <b class="do">đang đói!</b>' : '') + '</span>' +
+    '<span class="bar"><i style="width:' + Math.min(100, Math.round(ds.population / Math.max(1, sucChua) * 100)) + '%"></i></span></div>';
+  h += '</div>';
+
+  /* ---- hàng pill chỉ số ---- */
+  h += '<div class="luoi" style="margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr))">';
+  h += pill('Loại hành tinh', '<b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b> · ' + p.temp + '°C');
+  h += pill('Ô đất', G.oDaDung(p) + ' / ' + G.oToiDa(p),
+    bar(G.oToiDa(p), G.oDaDung(p)));
+  h += pill('Khe hạm đội', st.fleets.length + ' / ' + G.khe(st) +
+    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span>',
+    bar(G.khe(st), st.fleets.length));
+  h += pill('Số hành tinh', st.planets.length + ' / ' + G.maxThuocDia(st));
+  h += pill('Ủng hộ', U.bp(ds.supportBp),
+    '<span class="bar"><i style="width:' + Math.round(ds.supportBp / 200) + '%"></i></span>');
+  h += pill('Thuế', '<input id="thue-pct" type="number" min="0" max="100" step="1" value="' +
+    (ds.taxBp / 100) + '" style="width:64px">% <button class="nut nho" data-act="doithue">Đổi</button>');
+  h += pill('Thực phẩm chu kỳ', ds.foodDemandCycle > 0 ?
+    ('cần ' + G.so(ds.foodDemandCycle) + ', thiếu <span class="' + (ds.foodShortfallCycle > 0 ? 'do' : 'luc') + '">' +
+      G.so(ds.foodShortfallCycle) + '</span>') : '<span class="mo">chưa phát sinh</span>');
+  h += '</div>';
+
+  /* ---- hàng hành động nhanh ---- */
+  h += '<div class="hanhnhanh">' +
+    '<button class="nut" data-act="man" data-man="congtrinh">Xây dựng</button>' +
+    '<button class="nut" data-act="man" data-man="nghiencuu">Nghiên cứu</button>' +
+    '<button class="nut" data-act="man" data-man="xuong">Đóng tàu</button>' +
+    '<button class="nut" data-act="man" data-man="thienha">Thiên Hà</button>' +
+    '</div>';
+
+  /* ---- quản lý hành tinh ---- */
+  h += '<div class="panel"><h3>Quản lý ' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + (p.thuDo ? ' — thủ phủ' : '') + '</h3><div class="noi luoi">';
   h += '<div><b>Chỉ huy</b><br>' + U.esc(st.ten) + (st.lm ? ' <span class="tag-lm">' + U.esc(st.lm.ten) + '</span>' : '') + '</div>';
-  h += '<div><b>Điểm</b><br><span class="sz">' + G.so(d.tong) + '</span> <span class="mo">(CT ' + G.so(d.ct) +
-    ' · NC ' + G.so(d.nc) + ' · Hạm ' + G.so(d.ham) + ' · Thủ ' + G.so(d.thu) + ')</span></div>';
-  h += '<div><b>Hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
+  h += '<div><b>Tên hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
-  var Lp = G.loaiHT(st, p);
-  h += '<div><b>Loại hành tinh</b><br><b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b></div>';
-  h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
-  h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
-  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
-    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span></div>';
-  h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
+  h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
+  h += '<div><b>Quân đổ bộ giữ nhà</b><br>' + U.dsTau(p.linh || {}) + '</div>';
+  h += '</div></div>';
   h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(bt.nextAt) + ' <span class="mo">(#' + (bt.cycle + 1) + ', mỗi 6 giờ)</span></div>';
   h += '<div><b>Dân số</b><br><span class="sz">' + G.so(ds.population) + '</span> / ' + G.so(sucChua) + '</div>';
   h += '<div><b>Ủng hộ</b><br><span class="sz">' + U.bp(ds.supportBp) + '</span></div>';

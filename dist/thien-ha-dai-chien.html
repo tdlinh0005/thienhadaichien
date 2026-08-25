@@ -4326,43 +4326,78 @@ U.dsTau = function (o) {
  * ==================================================================== */
 U.thanhRes = function () {
   var st = U.st(), p = U.ht(), s = G.sanLuong(st, p), cap = G.dungTich(p);
+  function chip(mauDot, ten, vHtml, rHtml, clsThem) {
+    return '<div class="chip' + (clsThem ? ' ' + clsThem : '') + '">' +
+      '<i class="dot" style="background:' + mauDot + ';color:' + mauDot + '"></i>' +
+      '<span class="n">' + ten + '</span>' + vHtml + rHtml + '</div>';
+  }
   var h = '';
   for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
     var id = G.RES_HANH_TINH[i], r = G.byId(G.RES, id);
     var v = p.res[id] || 0, c = cap[id];
-    var mau = v >= c ? 'var(--do)' : r.mau;
-    h += '<div class="o"><span class="n">' + r.ten + '</span>' +
-      '<span class="v sz" style="color:' + mau + '" data-live="res.' + id + '">' + G.soNgan(v) + '</span>' +
-      '<span class="r sz" data-live="rate.' + id + '">' + (s.r[id] >= 0 ? '+' : '') + G.soNgan(s.r[id]) + '/g</span></div>';
+    h += chip(r.mau, r.ky,
+      '<span class="v sz" style="color:' + (v >= c ? 'var(--do)' : 'var(--sang)') + '" data-live="res.' + id + '">' + G.soNgan(v) + '</span>',
+      '<span class="r sz" data-live="rate.' + id + '">' + (s.r[id] >= 0 ? '+' : '') + G.soNgan(s.r[id]) + '/g</span>',
+      v >= c ? 'day' : '');
   }
-  h += '<div class="o"><span class="n">Galana</span><span class="v sz" style="color:' + G.byId(G.RES, 'galana').mau +
-    '" data-live="galana">' + G.soNgan(st.galana) + '</span><span class="r sz" data-live="rate.galana">+' + G.soNgan(s.r.galana) + '/g</span></div>';
-  h += '<div class="o"><span class="n">Kỹ Thuật</span><span class="v sz" style="color:' + G.byId(G.RES, 'tech').mau +
-    '" data-live="tech">' + G.soNgan(st.techPts) + '</span><span class="r sz" data-live="rate.tech">+' + G.soNgan(s.r.tech) + '/g</span></div>';
-  h += '<div class="o"><span class="n">Điện</span><span class="v sz" style="color:' + (s.hs < 1 ? 'var(--do)' : 'var(--luc)') + '">' +
-    G.so(s.dienCo) + ' / ' + G.so(s.dienDung) + '</span><span class="r">hiệu suất ' + Math.round(s.hs * 100) + '%</span></div>';
+  h += chip(G.byId(G.RES, 'galana').mau, 'GL',
+    '<span class="v sz" data-live="galana">' + G.soNgan(st.galana) + '</span>',
+    '<span class="r sz" data-live="rate.galana">+' + G.soNgan(s.r.galana) + '/g</span>');
+  h += chip(G.byId(G.RES, 'tech').mau, 'KT',
+    '<span class="v sz" data-live="tech">' + G.soNgan(st.techPts) + '</span>',
+    '<span class="r sz" data-live="rate.tech">+' + G.soNgan(s.r.tech) + '/g</span>');
+  h += chip(s.hs < 1 ? 'var(--do)' : 'var(--vang)', 'Điện',
+    '<span class="v sz">' + G.so(s.dienCo) + ' / ' + G.so(s.dienDung) + '</span>',
+    '<span class="r">HS ' + Math.round(s.hs * 100) + '%</span>',
+    s.hs < 1 ? 'thieu-dien' : '');
   var bt = U.bt(st);
-  h += '<div class="o"><span class="n">Bảo trì sau</span><span class="v sz">' + U.dem(bt.nextAt) +
-    '</span><span class="r">chu kỳ #' + (bt.cycle + 1) + '</span></div>';
+  h += chip('var(--cam)', 'Bảo trì',
+    '<span class="v sz">' + U.dem(bt.nextAt) + '</span>',
+    '<span class="r">#' + (bt.cycle + 1) + '</span>');
   return h;
 };
 
+/* [v7 UI] icon SVG inline cho nav — stroke currentColor, không thư viện ngoài */
+U.svgIcon = function (id) {
+  var P = {
+    tongquan: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
+    tainguyen: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.8 2M9.5 2.5h5"/>',
+    congtrinh: '<path d="M4 21V10l8-6 8 6v11"/><path d="M4 21h16M9.5 21v-6h5v6M12 4v3"/>',
+    nghiencuu: '<path d="M12 3l2.6 5.4L20 9.2l-4 3.9.9 5.6L12 16l-4.9 2.7.9-5.6-4-3.9 5.4-.8z"/>',
+    xuong: '<path d="M3 21V11l5 3v-3l5 3v-3l8 4v6zM3 21h18"/><circle cx="17.5" cy="17.5" r="1"/>',
+    phongthu: '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"/><path d="M9 11.5l2 2 4-4.5"/>',
+    hamdoi: '<path d="M4 13.5L7 8h10l3 5.5M4 13.5h16M4 13.5V18h16v-4.5"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/>',
+    thienha: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="9.5" ry="3.2" transform="rotate(-22 12 12)"/><circle cx="19.5" cy="6" r="1"/>',
+    lienminh: '<path d="M6 21V4M6 5h11l-2.5 3.5L17 12H6"/>',
+    taichinh: '<path d="M4 10h16M5 10l7-6 7 6M6 10v8M10 10v8M14 10v8M18 10v8M3.5 21h17"/>',
+    xephang: '<path d="M8 21h8M12 15v6M6 3h12v5a6 6 0 01-12 0zM6 5H3.5A3 3 0 006 11M18 5h2.5A3 3 0 0118 11"/>',
+    mophong: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M8 21h8M12 16v5M8 9.5l2 2-2 2M12.5 14h4"/>',
+    tinnhan: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+    huongdan: '<path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5zM4 20.5V5.5M20 18H6.5A2.5 2.5 0 004 20.5"/>',
+    nhatky: '<path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/><path d="M14.5 6.5l3 3"/>',
+    bangtin: '<path d="M3 10v4h4l6 5V5l-6 5zM16.5 9a4.5 4.5 0 010 6M19 6.5a8 8 0 010 11"/>',
+    chat: '<path d="M20 12a8 8 0 01-8 8H4l2-3.5A8 8 0 1120 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (P[id] || P.tongquan) + '</svg>';
+};
+
 U.MAN = [
-  { id: 'tongquan', ten: 'Tổng Quan' },
-  { id: 'tainguyen', ten: 'Tài Nguyên' },
-  { id: 'congtrinh', ten: 'Công Trình' },
-  { id: 'nghiencuu', ten: 'Nghiên Cứu' },
-  { id: 'xuong', ten: 'Xưởng Đóng Tàu' },
-  { id: 'phongthu', ten: 'Phòng Thủ' },
-  { id: 'hamdoi', ten: 'Hạm Đội' },
-  { id: 'thienha', ten: 'Thiên Hà' },
-  { id: 'lienminh', ten: 'Liên Minh' },
-  { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
-  { id: 'xephang', ten: 'Bảng Xếp Hạng' },
-  { id: 'mophong', ten: 'Máy Tính Trận' },
-  { id: 'tinnhan', ten: 'Tin Nhắn' },
-  { id: 'huongdan', ten: 'Hướng Dẫn' },
-  { id: 'nhatky', ten: 'Nhật Ký & Lưu' }
+  { id: 'tongquan', icon: 'tongquan', ten: 'Tổng Quan' },
+  { id: 'tainguyen', icon: 'tainguyen', ten: 'Tài Nguyên' },
+  { id: 'congtrinh', icon: 'congtrinh', ten: 'Công Trình' },
+  { id: 'nghiencuu', icon: 'nghiencuu', ten: 'Nghiên Cứu' },
+  { id: 'xuong', icon: 'xuong', ten: 'Xưởng Đóng Tàu' },
+  { id: 'phongthu', icon: 'phongthu', ten: 'Phòng Thủ' },
+  { id: 'hamdoi', icon: 'hamdoi', ten: 'Hạm Đội' },
+  { id: 'thienha', icon: 'thienha', ten: 'Thiên Hà' },
+  { id: 'lienminh', icon: 'lienminh', ten: 'Liên Minh' },
+  { id: 'taichinh', icon: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
+  { id: 'xephang', icon: 'xephang', ten: 'Bảng Xếp Hạng' },
+  { id: 'mophong', icon: 'mophong', ten: 'Máy Tính Trận' },
+  { id: 'tinnhan', icon: 'tinnhan', ten: 'Tin Nhắn' },
+  { id: 'huongdan', icon: 'huongdan', ten: 'Hướng Dẫn' },
+  { id: 'nhatky', icon: 'nhatky', ten: 'Nhật Ký & Lưu' }
 ];
 
 U.veMenu = function () {
@@ -4374,7 +4409,7 @@ U.veMenu = function () {
     if (m.id === 'tinnhan' && moi) d = '<span class="dem-nho">' + moi + '</span>';
     if (m.id === 'hamdoi' && st.fleets.length) d = '<span class="dem-nho">' + st.fleets.length + '</span>';
     h += '<a class="' + (U.man === m.id ? 'on' : '') + '" data-act="man" data-man="' + m.id + '">' +
-      '<span>' + m.ten + '</span>' + d + '</a>';
+      U.svgIcon(m.icon) + '<span>' + m.ten + '</span>' + d + '</a>';
   }
   document.getElementById('menu').innerHTML = h;
 };
@@ -4434,21 +4469,62 @@ U.m_tongquan = function () {
   var st = U.st(), p = U.ht(), s = G.sanLuong(st, p), d = G.diem(st);
   var bt = U.bt(st), ds = U.ds(p);
   var sucChua = G.sucChuaDan ? G.sucChuaDan(p) : 250000 + (p.b.city || 0) * 250000;
+  var Lp = G.loaiHT(st, p);
+  function bar(trong, day) {
+    var pct = Math.max(0, Math.min(100, Math.round(day / Math.max(1, trong) * 100)));
+    return '<span class="bar"><i style="width:' + pct + '%"></i></span>';
+  }
+  function pill(n, vHtml, barHtml) {
+    return '<div class="pill-chiso"><span class="n">' + n + '</span><span>' + vHtml + '</span>' + (barHtml || '') + '</div>';
+  }
   var h = '';
 
-  h += '<div class="panel"><h3>' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + (p.thuDo ? ' — thủ phủ' : '') + '</h3><div class="noi luoi">';
+  /* ---- hàng thẻ số liệu lớn ---- */
+  h += '<div class="luoi" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr))">';
+  h += '<div class="dash-the-lon"><span class="n">Điểm đế quốc</span><span class="so sz">' + G.so(d.tong) + '</span>' +
+    '<span class="phu">CT ' + G.so(d.ct) + ' · NC ' + G.so(d.nc) + ' · Hạm ' + G.so(d.ham) + ' · Thủ ' + G.so(d.thu) + '</span></div>';
+  h += '<div class="dash-the-lon sang-glow"><span class="n">Bảo trì sau</span><span class="so sz">' + U.dem(bt.nextAt) + '</span>' +
+    '<span class="phu">chu kỳ #' + (bt.cycle + 1) + ' · mỗi 6 giờ</span></div>';
+  h += '<div class="dash-the-lon"><span class="n">Dân số</span><span class="so sz">' + G.soNgan(ds.population) + '</span>' +
+    '<span class="phu">/ ' + G.so(sucChua) + ' sức chứa' +
+    (ds.foodShortfallCycle > 0 ? ' — <b class="do">đang đói!</b>' : '') + '</span>' +
+    '<span class="bar"><i style="width:' + Math.min(100, Math.round(ds.population / Math.max(1, sucChua) * 100)) + '%"></i></span></div>';
+  h += '</div>';
+
+  /* ---- hàng pill chỉ số ---- */
+  h += '<div class="luoi" style="margin-top:10px;grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr))">';
+  h += pill('Loại hành tinh', '<b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b> · ' + p.temp + '°C');
+  h += pill('Ô đất', G.oDaDung(p) + ' / ' + G.oToiDa(p),
+    bar(G.oToiDa(p), G.oDaDung(p)));
+  h += pill('Khe hạm đội', st.fleets.length + ' / ' + G.khe(st) +
+    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span>',
+    bar(G.khe(st), st.fleets.length));
+  h += pill('Số hành tinh', st.planets.length + ' / ' + G.maxThuocDia(st));
+  h += pill('Ủng hộ', U.bp(ds.supportBp),
+    '<span class="bar"><i style="width:' + Math.round(ds.supportBp / 200) + '%"></i></span>');
+  h += pill('Thuế', '<input id="thue-pct" type="number" min="0" max="100" step="1" value="' +
+    (ds.taxBp / 100) + '" style="width:64px">% <button class="nut nho" data-act="doithue">Đổi</button>');
+  h += pill('Thực phẩm chu kỳ', ds.foodDemandCycle > 0 ?
+    ('cần ' + G.so(ds.foodDemandCycle) + ', thiếu <span class="' + (ds.foodShortfallCycle > 0 ? 'do' : 'luc') + '">' +
+      G.so(ds.foodShortfallCycle) + '</span>') : '<span class="mo">chưa phát sinh</span>');
+  h += '</div>';
+
+  /* ---- hàng hành động nhanh ---- */
+  h += '<div class="hanhnhanh">' +
+    '<button class="nut" data-act="man" data-man="congtrinh">Xây dựng</button>' +
+    '<button class="nut" data-act="man" data-man="nghiencuu">Nghiên cứu</button>' +
+    '<button class="nut" data-act="man" data-man="xuong">Đóng tàu</button>' +
+    '<button class="nut" data-act="man" data-man="thienha">Thiên Hà</button>' +
+    '</div>';
+
+  /* ---- quản lý hành tinh ---- */
+  h += '<div class="panel"><h3>Quản lý ' + U.esc(p.ten) + ' ' + G.tdStr(p.c) + (p.thuDo ? ' — thủ phủ' : '') + '</h3><div class="noi luoi">';
   h += '<div><b>Chỉ huy</b><br>' + U.esc(st.ten) + (st.lm ? ' <span class="tag-lm">' + U.esc(st.lm.ten) + '</span>' : '') + '</div>';
-  h += '<div><b>Điểm</b><br><span class="sz">' + G.so(d.tong) + '</span> <span class="mo">(CT ' + G.so(d.ct) +
-    ' · NC ' + G.so(d.nc) + ' · Hạm ' + G.so(d.ham) + ' · Thủ ' + G.so(d.thu) + ')</span></div>';
-  h += '<div><b>Hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
+  h += '<div><b>Tên hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
-  var Lp = G.loaiHT(st, p);
-  h += '<div><b>Loại hành tinh</b><br><b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b></div>';
-  h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
-  h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
-  h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
-    ' <span class="mo">(thám hiểm ' + G.dangThamHiem(st) + '/' + G.kheThamHiem(st) + ')</span></div>';
-  h += '<div><b>Số hành tinh</b><br>' + st.planets.length + ' / ' + G.maxThuocDia(st) + '</div>';
+  h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
+  h += '<div><b>Quân đổ bộ giữ nhà</b><br>' + U.dsTau(p.linh || {}) + '</div>';
+  h += '</div></div>';
   h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(bt.nextAt) + ' <span class="mo">(#' + (bt.cycle + 1) + ', mỗi 6 giờ)</span></div>';
   h += '<div><b>Dân số</b><br><span class="sz">' + G.so(ds.population) + '</span> / ' + G.so(sucChua) + '</div>';
   h += '<div><b>Ủng hộ</b><br><span class="sz">' + U.bp(ds.supportBp) + '</span></div>';
