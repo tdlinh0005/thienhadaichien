@@ -128,22 +128,47 @@ U.thanhRes = function () {
   return h;
 };
 
+/* [v7 UI] icon SVG inline cho nav — stroke currentColor, không thư viện ngoài */
+U.svgIcon = function (id) {
+  var P = {
+    tongquan: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.2 5.2l2.1 2.1M16.7 16.7l2.1 2.1M18.8 5.2l-2.1 2.1M7.3 16.7l-2.1 2.1"/>',
+    tainguyen: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.8 2M9.5 2.5h5"/>',
+    congtrinh: '<path d="M4 21V10l8-6 8 6v11"/><path d="M4 21h16M9.5 21v-6h5v6M12 4v3"/>',
+    nghiencuu: '<path d="M12 3l2.6 5.4L20 9.2l-4 3.9.9 5.6L12 16l-4.9 2.7.9-5.6-4-3.9 5.4-.8z"/>',
+    xuong: '<path d="M3 21V11l5 3v-3l5 3v-3l8 4v6zM3 21h18"/><circle cx="17.5" cy="17.5" r="1"/>',
+    phongthu: '<path d="M12 3l7 3v5c0 4.6-3 8.4-7 10-4-1.6-7-5.4-7-10V6z"/><path d="M9 11.5l2 2 4-4.5"/>',
+    hamdoi: '<path d="M4 13.5L7 8h10l3 5.5M4 13.5h16M4 13.5V18h16v-4.5"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="18" r="1.6"/>',
+    thienha: '<circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="9.5" ry="3.2" transform="rotate(-22 12 12)"/><circle cx="19.5" cy="6" r="1"/>',
+    lienminh: '<path d="M6 21V4M6 5h11l-2.5 3.5L17 12H6"/>',
+    taichinh: '<path d="M4 10h16M5 10l7-6 7 6M6 10v8M10 10v8M14 10v8M18 10v8M3.5 21h17"/>',
+    xephang: '<path d="M8 21h8M12 15v6M6 3h12v5a6 6 0 01-12 0zM6 5H3.5A3 3 0 006 11M18 5h2.5A3 3 0 0118 11"/>',
+    mophong: '<rect x="4" y="5" width="16" height="11" rx="1.5"/><path d="M8 21h8M12 16v5M8 9.5l2 2-2 2M12.5 14h4"/>',
+    tinnhan: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/>',
+    huongdan: '<path d="M4 5.5A2.5 2.5 0 016.5 3H20v15H6.5A2.5 2.5 0 004 20.5zM4 20.5V5.5M20 18H6.5A2.5 2.5 0 004 20.5"/>',
+    nhatky: '<path d="M16.5 4.5l3 3L8 19l-4 1 1-4z"/><path d="M14.5 6.5l3 3"/>',
+    bangtin: '<path d="M3 10v4h4l6 5V5l-6 5zM16.5 9a4.5 4.5 0 010 6M19 6.5a8 8 0 010 11"/>',
+    chat: '<path d="M20 12a8 8 0 01-8 8H4l2-3.5A8 8 0 1120 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    (P[id] || P.tongquan) + '</svg>';
+};
+
 U.MAN = [
-  { id: 'tongquan', ten: 'Tổng Quan' },
-  { id: 'tainguyen', ten: 'Tài Nguyên' },
-  { id: 'congtrinh', ten: 'Công Trình' },
-  { id: 'nghiencuu', ten: 'Nghiên Cứu' },
-  { id: 'xuong', ten: 'Xưởng Đóng Tàu' },
-  { id: 'phongthu', ten: 'Phòng Thủ' },
-  { id: 'hamdoi', ten: 'Hạm Đội' },
-  { id: 'thienha', ten: 'Thiên Hà' },
-  { id: 'lienminh', ten: 'Liên Minh' },
-  { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
-  { id: 'xephang', ten: 'Bảng Xếp Hạng' },
-  { id: 'mophong', ten: 'Máy Tính Trận' },
-  { id: 'tinnhan', ten: 'Tin Nhắn' },
-  { id: 'huongdan', ten: 'Hướng Dẫn' },
-  { id: 'nhatky', ten: 'Nhật Ký & Lưu' }
+  { id: 'tongquan', icon: 'tongquan', ten: 'Tổng Quan' },
+  { id: 'tainguyen', icon: 'tainguyen', ten: 'Tài Nguyên' },
+  { id: 'congtrinh', icon: 'congtrinh', ten: 'Công Trình' },
+  { id: 'nghiencuu', icon: 'nghiencuu', ten: 'Nghiên Cứu' },
+  { id: 'xuong', icon: 'xuong', ten: 'Xưởng Đóng Tàu' },
+  { id: 'phongthu', icon: 'phongthu', ten: 'Phòng Thủ' },
+  { id: 'hamdoi', icon: 'hamdoi', ten: 'Hạm Đội' },
+  { id: 'thienha', icon: 'thienha', ten: 'Thiên Hà' },
+  { id: 'lienminh', icon: 'lienminh', ten: 'Liên Minh' },
+  { id: 'taichinh', icon: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
+  { id: 'xephang', icon: 'xephang', ten: 'Bảng Xếp Hạng' },
+  { id: 'mophong', icon: 'mophong', ten: 'Máy Tính Trận' },
+  { id: 'tinnhan', icon: 'tinnhan', ten: 'Tin Nhắn' },
+  { id: 'huongdan', icon: 'huongdan', ten: 'Hướng Dẫn' },
+  { id: 'nhatky', icon: 'nhatky', ten: 'Nhật Ký & Lưu' }
 ];
 
 U.veMenu = function () {
@@ -155,7 +180,7 @@ U.veMenu = function () {
     if (m.id === 'tinnhan' && moi) d = '<span class="dem-nho">' + moi + '</span>';
     if (m.id === 'hamdoi' && st.fleets.length) d = '<span class="dem-nho">' + st.fleets.length + '</span>';
     h += '<a class="' + (U.man === m.id ? 'on' : '') + '" data-act="man" data-man="' + m.id + '">' +
-      '<span>' + m.ten + '</span>' + d + '</a>';
+      U.svgIcon(m.icon) + '<span>' + m.ten + '</span>' + d + '</a>';
   }
   document.getElementById('menu').innerHTML = h;
 };
