@@ -97,24 +97,34 @@ U.dsTau = function (o) {
  * ==================================================================== */
 U.thanhRes = function () {
   var st = U.st(), p = U.ht(), s = G.sanLuong(st, p), cap = G.dungTich(p);
+  function chip(mauDot, ten, vHtml, rHtml, clsThem) {
+    return '<div class="chip' + (clsThem ? ' ' + clsThem : '') + '">' +
+      '<i class="dot" style="background:' + mauDot + ';color:' + mauDot + '"></i>' +
+      '<span class="n">' + ten + '</span>' + vHtml + rHtml + '</div>';
+  }
   var h = '';
   for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
     var id = G.RES_HANH_TINH[i], r = G.byId(G.RES, id);
     var v = p.res[id] || 0, c = cap[id];
-    var mau = v >= c ? 'var(--do)' : r.mau;
-    h += '<div class="o"><span class="n">' + r.ten + '</span>' +
-      '<span class="v sz" style="color:' + mau + '" data-live="res.' + id + '">' + G.soNgan(v) + '</span>' +
-      '<span class="r sz" data-live="rate.' + id + '">' + (s.r[id] >= 0 ? '+' : '') + G.soNgan(s.r[id]) + '/g</span></div>';
+    h += chip(r.mau, r.ky,
+      '<span class="v sz" style="color:' + (v >= c ? 'var(--do)' : 'var(--sang)') + '" data-live="res.' + id + '">' + G.soNgan(v) + '</span>',
+      '<span class="r sz" data-live="rate.' + id + '">' + (s.r[id] >= 0 ? '+' : '') + G.soNgan(s.r[id]) + '/g</span>',
+      v >= c ? 'day' : '');
   }
-  h += '<div class="o"><span class="n">Galana</span><span class="v sz" style="color:' + G.byId(G.RES, 'galana').mau +
-    '" data-live="galana">' + G.soNgan(st.galana) + '</span><span class="r sz" data-live="rate.galana">+' + G.soNgan(s.r.galana) + '/g</span></div>';
-  h += '<div class="o"><span class="n">Kỹ Thuật</span><span class="v sz" style="color:' + G.byId(G.RES, 'tech').mau +
-    '" data-live="tech">' + G.soNgan(st.techPts) + '</span><span class="r sz" data-live="rate.tech">+' + G.soNgan(s.r.tech) + '/g</span></div>';
-  h += '<div class="o"><span class="n">Điện</span><span class="v sz" style="color:' + (s.hs < 1 ? 'var(--do)' : 'var(--luc)') + '">' +
-    G.so(s.dienCo) + ' / ' + G.so(s.dienDung) + '</span><span class="r">hiệu suất ' + Math.round(s.hs * 100) + '%</span></div>';
+  h += chip(G.byId(G.RES, 'galana').mau, 'GL',
+    '<span class="v sz" data-live="galana">' + G.soNgan(st.galana) + '</span>',
+    '<span class="r sz" data-live="rate.galana">+' + G.soNgan(s.r.galana) + '/g</span>');
+  h += chip(G.byId(G.RES, 'tech').mau, 'KT',
+    '<span class="v sz" data-live="tech">' + G.soNgan(st.techPts) + '</span>',
+    '<span class="r sz" data-live="rate.tech">+' + G.soNgan(s.r.tech) + '/g</span>');
+  h += chip(s.hs < 1 ? 'var(--do)' : 'var(--vang)', 'Điện',
+    '<span class="v sz">' + G.so(s.dienCo) + ' / ' + G.so(s.dienDung) + '</span>',
+    '<span class="r">HS ' + Math.round(s.hs * 100) + '%</span>',
+    s.hs < 1 ? 'thieu-dien' : '');
   var bt = U.bt(st);
-  h += '<div class="o"><span class="n">Bảo trì sau</span><span class="v sz">' + U.dem(bt.nextAt) +
-    '</span><span class="r">chu kỳ #' + (bt.cycle + 1) + '</span></div>';
+  h += chip('var(--cam)', 'Bảo trì',
+    '<span class="v sz">' + U.dem(bt.nextAt) + '</span>',
+    '<span class="r">#' + (bt.cycle + 1) + '</span>');
   return h;
 };
 
