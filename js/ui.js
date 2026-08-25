@@ -149,7 +149,7 @@ U.svgIcon = function (id) {
     bangtin: '<path d="M3 10v4h4l6 5V5l-6 5zM16.5 9a4.5 4.5 0 010 6M19 6.5a8 8 0 010 11"/>',
     chat: '<path d="M20 12a8 8 0 01-8 8H4l2-3.5A8 8 0 1120 12z"/><path d="M8.5 11h.01M12 11h.01M15.5 11h.01"/>'
   };
-  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  return '<svg class="nav-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     (P[id] || P.tongquan) + '</svg>';
 };
 
@@ -293,17 +293,7 @@ U.m_tongquan = function () {
   h += '<div><b>Chỉ huy</b><br>' + U.esc(st.ten) + (st.lm ? ' <span class="tag-lm">' + U.esc(st.lm.ten) + '</span>' : '') + '</div>';
   h += '<div><b>Tên hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
-  h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
-  h += '<div><b>Quân đổ bộ giữ nhà</b><br>' + U.dsTau(p.linh || {}) + '</div>';
-  h += '</div></div>';
-  h += '<div><b>Chu kỳ bảo trì</b><br>' + U.dem(bt.nextAt) + ' <span class="mo">(#' + (bt.cycle + 1) + ', mỗi 6 giờ)</span></div>';
-  h += '<div><b>Dân số</b><br><span class="sz">' + G.so(ds.population) + '</span> / ' + G.so(sucChua) + '</div>';
-  h += '<div><b>Ủng hộ</b><br><span class="sz">' + U.bp(ds.supportBp) + '</span></div>';
-  h += '<div><b>Thuế</b><br><input id="thue-pct" type="number" min="0" max="100" step="1" value="' +
-    (ds.taxBp / 100) + '" style="width:70px">% <button class="nut nho" data-act="doithue">Đổi</button></div>';
-  h += '<div><b>Thực phẩm chu kỳ</b><br>' + (ds.foodDemandCycle > 0 ?
-    ('đã cần ' + G.so(ds.foodDemandCycle) + ', thiếu <span class="' + (ds.foodShortfallCycle > 0 ? 'do' : 'luc') + '">' +
-      G.so(ds.foodShortfallCycle) + '</span>') : '<span class="mo">chưa phát sinh</span>') + '</div>';
+  h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Trận đánh</b><br><span class="luc">' + st.stats.thang + ' thắng</span> / <span class="do">' + st.stats.thua + ' thua</span></div>';
   h += '<div><b>Quân đổ bộ giữ nhà</b><br>' + U.dsTau(p.linh || {}) + '</div>';
   h += '</div></div>';

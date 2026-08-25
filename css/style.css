@@ -227,7 +227,9 @@ td.c,th.c{text-align:center}
 
 /* ---------- thiên hà ---------- */
 .gal-dh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
-tr.trong td{color:#5b688a}
+tr.trong td{color:#7e8bab}   /* ≥4.5:1 trên nền panel — WCAG AA */
+/* dự phòng: mọi svg trong menu không kịp có class thì vẫn đúng kích thước */
+#menu a svg{width:17px;height:17px;flex:none}
 tr.toi td{background:rgba(15,42,28,.55)}
 tr.nguoi td{background:rgba(56,35,8,.55)}
 tr.nguoi:hover>td{background:rgba(72,46,10,.6)}
