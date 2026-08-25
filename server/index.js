@@ -40,11 +40,17 @@ function traFile(res, tep) {
     return res.end('Đường dẫn không hợp lệ.');
   }
   fs.readFile(tep, function (e, d) {
-    if (e) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
+    if (e) {
+      if (e.code === 'ENOENT') { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
+      console.error('[file]', e); res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Lỗi đọc file.');
+    }
     res.writeHead(200, {
       'Content-Type': LOAI[path.extname(tep).toLowerCase()] || 'application/octet-stream',
       'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff'
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'",
+      'X-Frame-Options': 'DENY',
+      'Referrer-Policy': 'no-referrer'
     });
     res.end(d);
   });
@@ -120,8 +126,12 @@ var boDon = setInterval(function () {
 function tat() {
   clearInterval(boDem); clearInterval(boDon);
   try { server.close(); } catch (e) { }
-  try { kho.dong(); } catch (e) { }
-  process.exit(0);
+  var thoat = false;
+  try { kho.dong(); thoat = true; } catch (e) {
+    console.error('[tat] kho.dong() thất bại:', e);
+  }
+  if (thoat) process.exit(0);
+  else process.exit(1);
 }
 process.on('SIGINT', tat);
 process.on('SIGTERM', tat);

@@ -24,12 +24,21 @@ U.toast = function (s, loai) {
   document.getElementById('toast').appendChild(d);
   setTimeout(function () { d.style.opacity = 0; setTimeout(function () { d.remove(); }, 250); }, 3600);
 };
+var _hopEsc;
 U.hop = function (td, html) {
   document.getElementById('ht-td').textContent = td;
   document.getElementById('ht-noi').innerHTML = html;
   document.getElementById('hop-thoai').style.display = 'flex';
+  var first = document.querySelector('#hop-thoai .nut');
+  if (first) first.focus();
+  if (_hopEsc) document.removeEventListener('keydown', _hopEsc);
+  _hopEsc = function (e) { if (e.key === 'Escape') U.dongHop(); };
+  document.addEventListener('keydown', _hopEsc);
 };
-U.dongHop = function () { document.getElementById('hop-thoai').style.display = 'none'; };
+U.dongHop = function () {
+  document.getElementById('hop-thoai').style.display = 'none';
+  if (_hopEsc) { document.removeEventListener('keydown', _hopEsc); _hopEsc = null; }
+};
 
 /* ======================================================================
  * TIỆN ÍCH HIỂN THỊ
@@ -426,20 +435,11 @@ U.m_tainguyen = function () {
   h += '</div></div>';
   h += '</div>';
 
-  /* Chợ Thiên Hà: đổi tài nguyên ra Galana và ngược lại */
-  h += '<div class="panel"><h3>Chợ Thiên Hà — quy đổi Galana</h3><div class="noi">';
-  h += '<p class="mo">Bán tài nguyên lấy Galana để trả phí bảo trì, hoặc mua tài nguyên bằng Galana. ' +
-    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' + G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
-  h += '<div class="hd-luoi">';
-  var tg = G.C.TY_GIA;
-  for (var t in tg) {
-    var rr = G.byId(G.RES, t);
-    h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '</span>' +
-      '<input type="number" min="0" step="1000" id="cho-' + t + '" value="' + (U.cho[t] || 0) + '">' +
-      '<button class="nut nho oke" data-act="ban" data-res="' + t + '">Bán</button>' +
-      '<button class="nut nho" data-act="mua" data-res="' + t + '">Mua</button></div>';
-  }
-  h += '</div></div></div>';
+  /* [v7] Chợ cũ đã đóng — nav tới Ngân Hàng & Thị Trường */
+  h += '<div class="panel"><h3>Ngân Hàng & Thị Trường</h3><div class="noi">';
+  h += '<p class="mo">Chợ Thiên Hà cũ đã đóng từ bản v7. Sử dụng màn <b>Ngân Hàng & Thị Trường</b> để quản lý tài chính, gửi tiết kiệm, và giao dịch trên thị trường.</p>';
+  h += '<button class="nut oke" data-act="man" data-man="taichinh">Mở Ngân Hàng & Thị Trường</button>';
+  h += '</div></div>';
   return h;
 };
 
@@ -1000,7 +1000,7 @@ U.m_lienminh = function () {
           var mo = P.dangMo;
           h += '<tr><td>' + P.loai + ' #' + P.id + (P.doiTuong ? ' → #' + P.doiTuong : '') + '</td>' +
             '<td class="r sz luc">' + P.ung + '</td><td class="r sz do">' + P.chong + '</td>' +
-            '<td class="r sz">' + (mo ? G.tg(P.hetHan - Date.now() / 1000) : (P.ketQua === 'dat' ? 'ĐẠT' : 'Không đạt')) + '</td>' +
+            '<td class="r sz">' + (mo ? G.tg(P.hetHan - U.st().now) : (P.ketQua === 'dat' ? 'ĐẠT' : 'Không đạt')) + '</td>' +
             '<td class="r">' + (mo && U.nguon.duocBau ?
               '<button class="nut nho oke" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="1">Tán thành</button> ' +
               '<button class="nut nho xoa" data-act="bau-phieu" data-id="' + P.id + '" data-giatri="0">Chống</button>' : '') +
@@ -1311,8 +1311,8 @@ U.m_tinnhan = function () {
     '<button class="nut nho xoa" data-act="xoa-tin">Xoá hết tin</button></div></div>';
   if (!st.msgs.length) return h + '<div class="panel"><div class="noi mo">Chưa có tin nào.</div></div>';
   for (var i = 0; i < st.msgs.length; i++) {
-    var m = st.msgs[i], mo = !!U.moTin[i];
-    h += '<div class="tn' + (m.doc ? '' : ' moi') + '"><div class="d" data-act="doc-tin" data-i="' + i + '">' +
+    var m = st.msgs[i], mo = !!U.moTin[m.id];
+    h += '<div class="tn' + (m.doc ? '' : ' moi') + '"><div class="d" data-act="doc-tin" data-id="' + m.id + '">' +
       '<span><span class="hu">' + U.esc(U.HU[m.loai] || m.loai) + '</span> ' + U.esc(m.td) + '</span>' +
       '<span class="mo sz">' + G.gio(m.t * 1000) + '</span></div>';
     if (mo) {
@@ -1425,7 +1425,7 @@ U.m_huongdan = function () {
     'mốc hoàn thành trễ đúng 6 giờ.</p>' +
     '<p><b class="cam">3. Dân số, ủng hộ và thuế.</b> Thành Phố mở sức chứa. Thiếu Thực Phẩm làm giảm ủng hộ và ' +
     'khiến phần dân trên sàn 250.000 rời đi ở checkpoint; thuế cao kiếm Galana nhanh hơn nhưng gây áp lực ủng hộ.</p>' +
-    '<p><b class="cam">3. Phòng thủ hai lớp.</b> Lớp <b>quỹ đạo</b> (vệ tinh, trạm phòng không, khiên) đánh ngay từ ' +
+    '<p><b class="cam">4. Phòng thủ hai lớp.</b> Lớp <b>quỹ đạo</b> (vệ tinh, trạm phòng không, khiên) đánh ngay từ ' +
     'vòng 1. Hạm đội địch chỉ hạ xuống tầng khí quyển và đụng lớp <b>mặt đất</b> (tên lửa, laser, gauss, plasma) ' +
     'từ vòng ' + G.VONG_XUONG_DAT + '. Muốn thủ chắc thì phải có cả hai lớp.</p>' +
     '<p><b class="cam">Tên lửa liên hành tinh.</b> Đóng ở màn Phòng Thủ rồi bắn thẳng sang hành tinh khác trong ' +
@@ -1447,7 +1447,7 @@ U.m_huongdan = function () {
     '<p><b class="cam">Máy tính trận đánh.</b> Trước khi xuất kích, mở màn <b>Máy Tính Trận</b>: nạp đội hình ' +
     'đối phương từ báo cáo do thám rồi chạy thử ' + U.MP_LAN + ' lần để biết tỷ lệ thắng và lãi/lỗ kỳ vọng. ' +
     'Đây là thói quen của mọi người chơi lâu năm thể loại này.</p>' +
-    '<p><b class="cam">4. Đổi mục tiêu giữa đường.</b> Hạm đội đang bay vẫn đổi được đích: vào màn Hạm Đội bấm ' +
+    '<p><b class="cam">5. Đổi mục tiêu giữa đường.</b> Hạm đội đang bay vẫn đổi được đích: vào màn Hạm Đội bấm ' +
     '"Đổi mục tiêu", mất ' + G.so(G.C.DOI_MUC_TIEU_GALANA) + ' Galana cộng nhiên liệu phụ trội, thời gian bay ' +
     'tính lại từ vị trí hiện tại. Dùng để đánh úp, hoặc để né khi đối phương kịp dựng phòng thủ.</p>' +
     '<p><b class="cam">Kinh tế thật — Ngân Hàng &amp; Thị Trường.</b> Gửi Galana vào <b>Ngân Hàng Vũ Trụ</b> ăn lãi ' +

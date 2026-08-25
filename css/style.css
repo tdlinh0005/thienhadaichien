@@ -224,6 +224,16 @@ td.c,th.c{text-align:center}
 .pill-chiso .bar>i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--lam),var(--luc))}
 .hanhnhanh{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .hanhnhanh .nut{flex:1;min-width:130px;text-align:center;padding:9px}
+/* fix review: progress bar trong .dash-the-lon (Tổng Quan) */
+.dash-the-lon .bar{height:4px;border-radius:2px;background:rgba(6,10,22,.9);overflow:hidden;margin-top:3px}
+.dash-the-lon .bar>i{display:block;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--lam),var(--luc))}
+/* fix review: .kq cho máy tính trận độc lập (không cần .bc bao ngoài) */
+.kq{padding:7px 11px;margin:6px 0;border-left:3px solid var(--vien2);border-radius:0 6px 6px 0}
+.kq.thang{border-color:var(--luc);background:rgba(15,42,28,.55)}
+.kq.thua{border-color:var(--do);background:rgba(56,17,28,.55)}
+.kq.hoa{border-color:var(--vang);background:rgba(56,47,15,.5)}
+/* fix review: .chat-nhap cho phòng chat */
+.chat-nhap{border:1px solid rgba(59,84,128,.4);border-radius:6px;padding:8px;background:rgba(9,14,27,.5);color:inherit;font-size:12px}
 
 /* ---------- thiên hà ---------- */
 .gal-dh{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px}

@@ -4,7 +4,7 @@ var G = window.G = window.G || {};
 
 /* --- Số ---------------------------------------------------------------- */
 G.so = function (n) {
-  n = Math.floor(n || 0);
+  n = Math.trunc(n || 0);
   var am = n < 0; n = Math.abs(n);
   var s = String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return (am ? '-' : '') + s;
@@ -23,6 +23,7 @@ G.tocDoText = function (n) { return G.so(Math.round(n)); };
 
 /* --- Thời gian --------------------------------------------------------- */
 G.tg = function (giay) {
+  if (!isFinite(giay)) return '—';
   giay = Math.max(0, Math.round(giay));
   var ng = Math.floor(giay / 86400); giay -= ng * 86400;
   var h = Math.floor(giay / 3600); giay -= h * 3600;

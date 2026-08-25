@@ -374,7 +374,7 @@ Kho.prototype.cauhinh = function (k, v) {
 Kho.prototype.giaoDich = function (f) {
   this.db.exec('BEGIN');
   try { var kq = f(); this.db.exec('COMMIT'); return kq; }
-  catch (e) { try { this.db.exec('ROLLBACK'); } catch (e2) { } throw e; }
+  catch (e) { try { this.db.exec('ROLLBACK'); } catch (e2) { console.error('[db] ROLLBACK cũng thất bại', e2); } throw e; }
 };
 Kho.prototype.dong = function () { try { this.db.close(); } catch (e) { } };
 

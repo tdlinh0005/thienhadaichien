@@ -82,16 +82,24 @@
   };
   APP.hienLai = function () { dongBo(); };
 
+  var demLoiDongBo = 0;
   function dongBo() {
     if (!token) return;
     api('/api/state').then(function (r) {
+      demLoiDongBo = 0;
       apDung(r);
       /* Chỉ vẽ lại khi có gì đó thật sự đổi. Vẽ lại vô điều kiện mỗi 8 giây sẽ
          xoá mất những gì người chơi đang gõ dở trong các ô nhập. */
       if (U.sig() !== U.sigCu) U.ve(); else U.live();
       if (U.man === 'chat') taiChat(false).catch(function () { });
       if (U.man === 'lienminh') taiLienMinh(false).catch(function () { });
-    }, function () { });
+    }, function (e) {
+      if (++demLoiDongBo >= 2) {
+        var tt = document.getElementById('tt-net');
+        if (tt) { tt.textContent = '⚠'; tt.style.color = 'var(--cam)'; }
+        U.toast('Mất kết nối máy chủ, đang thử lại…', 'loi');
+      }
+    });
   }
 
   /* -------------------------------------------------- nguồn dữ liệu ---- */
@@ -141,23 +149,23 @@
 
   /* -------------------------------------------------- menu & màn riêng - */
   U.MAN = [
-    { id: 'tongquan', ten: 'Tổng Quan' },
-    { id: 'tainguyen', ten: 'Tài Nguyên' },
-    { id: 'congtrinh', ten: 'Công Trình' },
-    { id: 'nghiencuu', ten: 'Nghiên Cứu' },
-    { id: 'xuong', ten: 'Xưởng Đóng Tàu' },
-    { id: 'phongthu', ten: 'Phòng Thủ' },
-    { id: 'hamdoi', ten: 'Hạm Đội' },
-    { id: 'thienha', ten: 'Thiên Hà' },
-    { id: 'lienminh', ten: 'Liên Minh' },
-    { id: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
-    { id: 'xephang', ten: 'Bảng Xếp Hạng' },
-    { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
-    { id: 'chat', ten: 'Phòng Chat' },
-    { id: 'mophong', ten: 'Máy Tính Trận' },
-    { id: 'tinnhan', ten: 'Tin Nhắn' },
-    { id: 'huongdan', ten: 'Hướng Dẫn' },
-    { id: 'taikhoan', ten: 'Tài Khoản' }
+    { id: 'tongquan', icon: 'tongquan', ten: 'Tổng Quan' },
+    { id: 'tainguyen', icon: 'tainguyen', ten: 'Tài Nguyên' },
+    { id: 'congtrinh', icon: 'congtrinh', ten: 'Công Trình' },
+    { id: 'nghiencuu', icon: 'nghiencuu', ten: 'Nghiên Cứu' },
+    { id: 'xuong', icon: 'xuong', ten: 'Xưởng Đóng Tàu' },
+    { id: 'phongthu', icon: 'phongthu', ten: 'Phòng Thủ' },
+    { id: 'hamdoi', icon: 'hamdoi', ten: 'Hạm Đội' },
+    { id: 'thienha', icon: 'thienha', ten: 'Thiên Hà' },
+    { id: 'lienminh', icon: 'lienminh', ten: 'Liên Minh' },
+    { id: 'taichinh', icon: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
+    { id: 'xephang', icon: 'xephang', ten: 'Bảng Xếp Hạng' },
+    { id: 'bangtin', icon: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
+    { id: 'chat', icon: 'chat', ten: 'Phòng Chat' },
+    { id: 'mophong', icon: 'mophong', ten: 'Máy Tính Trận' },
+    { id: 'tinnhan', icon: 'tinnhan', ten: 'Tin Nhắn' },
+    { id: 'huongdan', icon: 'huongdan', ten: 'Hướng Dẫn' },
+    { id: 'taikhoan', icon: 'taikhoan', ten: 'Tài Khoản' }
   ];
 
   U.m_bangtin = function () {

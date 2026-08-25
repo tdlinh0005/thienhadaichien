@@ -839,7 +839,8 @@ G.maxThuocDia = function (st) { return 1 + Math.floor((st.tech.astro || 0) / 2) 
  * TIN NHẮN & NHẬT KÝ
  * ===================================================================== */
 G.tin = function (st, loai, tieuDe, noiDung, data) {
-  st.msgs.unshift({ t: st.now, loai: loai, td: tieuDe, nd: noiDung, data: data || null, doc: false });
+  G._msgSeq = (G._msgSeq || 0) + 1;
+  st.msgs.unshift({ id: G._msgSeq, t: st.now, loai: loai, td: tieuDe, nd: noiDung, data: data || null, doc: false });
   if (st.msgs.length > 150) st.msgs.length = 150;
 };
 G.ghi = function (st, s) {

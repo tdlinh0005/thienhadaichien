@@ -57,7 +57,8 @@ var ACT = {
   huydong: function (el) { lam('huydong', { pi: U.pi, i: +el.getAttribute('data-i') }); },
   doithue: function () {
     var e = document.getElementById('thue-pct');
-    lam('doithue', { pi: U.pi, thue: e ? Number(e.value) : NaN }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
+    if (!e || e.value.trim() === '') { U.toast('Nhập mức thuế % muốn đặt.', 'loi'); return; }
+    lam('doithue', { pi: U.pi, thue: Number(e.value) }, 'Đã đổi mức thuế từ chu kỳ hiện tại.');
   },
 
   /* ---------- [v7] tài chính & thị trường ---------- */
@@ -109,16 +110,12 @@ var ACT = {
     lam('dangBan', dl, 'Đã đăng bán.');
   },
 
-  /* ---------- chợ ---------- */
+  /* ---------- [v7] chợ cũ đã đóng ---------- */
   ban: function (el) {
-    var r = el.getAttribute('data-res');
-    U.cho[r] = soO('cho-' + r);
-    lam('ban', { pi: U.pi, res: r, n: U.cho[r] });
+    U.toast('Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường.', 'loi');
   },
   mua: function (el) {
-    var r = el.getAttribute('data-res');
-    U.cho[r] = soO('cho-' + r);
-    lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
+    U.toast('Chợ cũ đã đóng. Dùng màn Ngân Hàng & Thị Trường.', 'loi');
   },
 
   /* ---------- bản đồ thiên hà ---------- */
@@ -252,13 +249,20 @@ var ACT = {
 
   /* ---------- tin nhắn ---------- */
   'doc-tin': function (el) {
-    var i = +el.getAttribute('data-i');
-    U.moTin[i] = !U.moTin[i];
+    var id = +el.getAttribute('data-id');
     var st = U.st();
-    if (st.msgs[i] && !st.msgs[i].doc) { st.msgs[i].doc = true; lam('doctin', { i: i }); }
+    var msg = null;
+    for (var k = 0; k < st.msgs.length; k++) { if (st.msgs[k].id === id) { msg = st.msgs[k]; break; } }
+    if (!msg) { U.ve(); return; }
+    U.moTin[id] = !U.moTin[id];
+    if (!msg.doc) { msg.doc = true; lam('doctin', { i: id }); }
     else U.ve();
   },
-  'doc-het': function () { lam('docHet'); },
+  'doc-het': function () {
+    var st = U.st();
+    st.msgs.forEach(function (m) { if (m.id) { m.doc = true; delete U.moTin[m.id]; } });
+    lam('docHet');
+  },
   'xoa-tin': function () { U.moTin = {}; lam('xoatin'); },
   'xem-tt': function (el) {
     var st = U.st();
@@ -349,11 +353,19 @@ document.addEventListener('change', function (e) {
 APP.batDauNhip = function () {
   setInterval(function () {
     if (!window.ST) return;
-    G.tick(window.ST, G.giay());
-    U.live();
-    if (APP.moiGiay) APP.moiGiay();
+    try {
+      G.tick(window.ST, G.giay());
+      U.live();
+    } catch (e) { console.error('[nhip]', e); U.toast('Lỗi tick: ' + (e && e.message || e), 'loi'); }
+    try { if (APP.moiGiay) APP.moiGiay(); } catch (e) { console.error('[moiGiay]', e); }
   }, 1000);
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && window.ST) { G.tick(window.ST, G.giay()); U.ve(); if (APP.hienLai) APP.hienLai(); }
+    if (!document.hidden && window.ST) {
+      try {
+        G.tick(window.ST, G.giay());
+        U.ve();
+      } catch (e) { console.error('[nhip-visible]', e); }
+      if (APP.hienLai) try { APP.hienLai(); } catch (e) { console.error('[hienLai]', e); }
+    }
   });
 };

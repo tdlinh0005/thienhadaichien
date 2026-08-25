@@ -648,7 +648,7 @@ async function chay() {
   var pSolo = await ctxSolo.newPage();
   theoDoi('một người', pSolo);
   await pSolo.goto(URL + '/motnguoi', { waitUntil: 'domcontentloaded' });
-  await pSolo.waitForFunction('window.G && G.STATE_VERSION === 6', null, { timeout: 20000 });
+  await pSolo.waitForFunction('window.G && G.STATE_VERSION === 7', null, { timeout: 20000 });
   await pSolo.evaluate(function () {
     var s = G.moiGame('Cựu Chỉ Huy', 'THDC-LOCAL-V3');
     s.v = 3; delete s.moHinhCT;
@@ -717,7 +717,7 @@ async function chay() {
   var pFuture = await ctxFuture.newPage();
   theoDoi('save tương lai', pFuture);
   await pFuture.goto(URL + '/motnguoi', { waitUntil: 'domcontentloaded' });
-  await pFuture.waitForFunction('window.G && G.STATE_VERSION === 6', null, { timeout: 20000 });
+  await pFuture.waitForFunction('window.G && G.STATE_VERSION === 7', null, { timeout: 20000 });
   await pFuture.evaluate(function () {
     var s = G.moiGame('Từ Tương Lai', 'THDC-FUTURE');
     s.v = 999; s.moHinhCT = 'future';

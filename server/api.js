@@ -30,7 +30,8 @@ function json(res, ma, o) {
   res.writeHead(ma, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+    'Content-Security-Policy': "default-src 'none'"
   });
   res.end(s);
 }
@@ -203,7 +204,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   if (duong === '/api/lam' && req.method === 'POST') {
     var b3 = await docBodyDaXacThuc();
     var ten3 = chuoi(b3.ten, 24);
-    if (!G.HANHDONG[ten3]) return json(res, 400, { loi: 'Hành động không tồn tại.' });
+    if (!Object.prototype.hasOwnProperty.call(G.HANHDONG, ten3)) return json(res, 400, { loi: 'Hành động không tồn tại.' });
     /* Multiplayer phải qua đơn xin + chủ duyệt; không cho gọi thẳng luật dùng
        chung để lách bộ máy điều hành liên minh. */
     if (ten3 === 'lmvao') return json(res, 400, { loi: 'Hãy gửi đơn xin gia nhập và chờ chủ liên minh duyệt.' });

@@ -446,12 +446,15 @@ TheGioi.prototype.mocHoacGio = function () {
 TheGioi.prototype.choDangBan = function (tk, pi, loai, res, so, gia) {
   var d = this.nap(tk);
   if (!d) return 'Đế quốc không tồn tại.';
+  if (this.dangTick.has(tk))
+    return 'Đế quốc đang được xử lý, thử lại sau một nhịp.';
   this.batDau();
+  this.dangTick.add(tk); this.chuStack.push(tk);
   try {
     G.tick(d.st, this.mocHoacGio());
     var loi = G.dangBan(d.st, Math.max(0, Math.floor(+pi || 0)), loai === 'tudo' ? 'tudo' : 'sieuthi',
       String(res || '').slice(0, 10), so, gia);
-    if (loi) { this.ketThuc(false); return loi; }
+    if (loi) { this.ketThuc(false); this.chuStack.pop(); this.dangTick.delete(tk); return loi; }
     var donMoi = d.st.choDon[d.st.choDon.length - 1];
     if (donMoi) {
       donMoi.pi = Math.max(0, Math.floor(+pi || 0));   // nhớ hành tinh để huỷ hoàn đúng kho
@@ -463,9 +466,10 @@ TheGioi.prototype.choDangBan = function (tk, pi, loai, res, so, gia) {
       });
     }
     this.luu(tk, d.st);
+    this.chuStack.pop(); this.dangTick.delete(tk);
     this.ketThuc();
     return null;
-  } catch (e) { try { this.ketThuc(false); } catch (e2) { } throw e; }
+  } catch (e) { try { this.ketThuc(false); } catch (e2) { } this.chuStack.pop(); this.dangTick.delete(tk); throw e; }
 };
 
 /* Mua đơn của người khác: unit-of-work bọc cả hai đế quốc. */
@@ -664,7 +668,11 @@ TheGioi.prototype.nap = function (tk) {
   var r = this.kho.q.dqGet.get(tk);
   if (!r) return null;
   var st;
-  try { st = JSON.parse(r.state); } catch (e) { return null; }
+  try { st = JSON.parse(r.state); }
+  catch (e) {
+    console.error('[nap] state hỏng cho tk=' + tk + ', độ dài=' + (r.state ? r.state.length : 0), e);
+    return { hong: true, tk: tk };
+  }
   st.npc = {}; st.debris = {};        // hai thứ này là của chung, không giữ trong state
   var out = { row: r, st: st };
   if (this.ctx) this.ctx.states.set(tk, out);
@@ -830,7 +838,7 @@ TheGioi.prototype.tick = function (tk, now, dl) {
   var r = null, thanhCong = false;
   try {
     r = this.nap(tk);
-    if (!r) { thanhCong = true; return null; }
+    if (!r || r.hong) { thanhCong = true; return null; }
     if (dl && dl.truoc) dl.truoc(r.st);
     G.tick(r.st, now);
     if (dl && dl.sau) dl.ketQua = dl.sau(r.st);
@@ -860,7 +868,7 @@ TheGioi.prototype.hanhDong = function (tk, ten, dl) {
   var kq = this.tick(tk, null, {
     sau: function (s) {
       st = s;
-      loi = G.HANHDONG[ten] ? (G.HANHDONG[ten](s, dl || {}) || null) : 'Hành động không tồn tại.';
+      loi = Object.prototype.hasOwnProperty.call(G.HANHDONG, ten) ? (G.HANHDONG[ten](s, dl || {}) || null) : 'Hành động không tồn tại.';
       return loi;
     }
   });
@@ -1205,7 +1213,7 @@ TheGioi.prototype.tangNguoi = function (st, f, o, veNha) {
     veNha(null); return;
   }
   var d = this.nap(dTk);
-  if (!d) { veNha(null); return; }
+  if (!d || d.hong) { G.tin(st, 'ham', 'Tiếp tế thất bại', 'Máy chủ không thể đọc trạng thái của ' + o.ten + '. Thử lại sau.'); veNha(null); return; }
   if (!this.laDongMinh(aTk, dTk)) {
     G.tin(st, 'ham', 'Tiếp tế bị Hội Đồng Bảo An chặn',
       'Chỉ thành viên cùng liên minh mới được chuyển tài nguyên cho nhau. Hàng được mang về.');
@@ -1610,7 +1618,7 @@ TheGioi.prototype.lmTao = function (tk, ten, tag, chinhThe) {
   var dq = this.kho.q.dqGet.get(tk);
   if (!dq) return thatBai('Đế quốc không tồn tại.');
   if (dq.lm) return thatBai('Phải rời liên minh hiện tại trước khi lập liên minh mới.');
-  ten = String(ten || '').trim().slice(0, 32).trim();
+  ten = String(ten || '').replace(/<[^>]*>/g, '').trim().slice(0, 32).replace(/<[^>]*>/g, '').trim();
   tag = String(tag || '').trim().slice(0, 6).toUpperCase();
   chinhThe = CHINH_THE_HOP_LE.indexOf(chinhThe) >= 0 ? chinhThe : 'docTai';   // [v7] mặc định Độc tài
   if (ten.length < 3) return thatBai('Tên liên minh phải từ 3 ký tự.');
@@ -1755,7 +1763,7 @@ TheGioi.prototype.nhip = function (toiDa) {
   var n = 0;
   for (var i = 0; i < ds.length; i++) {
     try { if (this.tick(ds[i].tk, now)) n++; }
-    catch (e) { console.error('[nhip] lỗi khi tua đế quốc', ds[i].tk, e && e.message); }
+    catch (e) { console.error('[nhip] lỗi khi tua đế quốc', ds[i].tk, e); }
   }
   return n;
 };

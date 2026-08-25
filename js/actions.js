@@ -243,8 +243,8 @@ G.HANHDONG = {
 
   /* --- tin nhắn & khác --- */
   doctin: function (st, d) {
-    var i = Math.floor(+d.i);
-    if (st.msgs[i]) st.msgs[i].doc = true;
+    var id = Math.floor(+d.i);
+    for (var i = 0; i < st.msgs.length; i++) { if (st.msgs[i].id === id) { st.msgs[i].doc = true; break; } }
     return null;
   },
   docHet: function (st) { for (var i = 0; i < st.msgs.length; i++) st.msgs[i].doc = true; return null; },
