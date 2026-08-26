@@ -13,8 +13,9 @@ G.giay = function () { return Math.floor(Date.now() / 1000) + G.LECH_GIO; };
 /* =======================================================================
  * KHỞI TẠO
  * ===================================================================== */
-G.moiGame = function (ten, seedStr, home) {
-  var now = G.giay();
+G.moiGame = function (ten, seedStr, home, nowOverride) {
+  var now = nowOverride === undefined ? G.giay() : Number(nowOverride);
+  if (!Number.isSafeInteger(now)) throw new Error('GAME_NOW_INVALID');
   var seed = seedStr || ('THDC-' + Math.floor(Math.random() * 1e9));
   var r = G.rng(G.hash(seed));
   /* home do server chỉ định ở chế độ nhiều người (mỗi người một ô riêng) */
@@ -69,7 +70,13 @@ G.htMoi = function (st, c, ten, thuDo) {
   return {
     c: { g: c.g, h: c.h, p: c.p }, ten: ten || 'Thuộc Địa', thuDo: !!thuDo,
     loai: d.loai, temp: d.temp, oDat: d.oDat,
-    b: {}, res: { metal: thuDo ? 1500 : 500, crystal: thuDo ? 800 : 300, deut: thuDo ? 200 : 100, food: thuDo ? 1200 : 400 },
+    b: {},
+    res: {
+      metal: thuDo ? 1500 : 500,
+      crystal: thuDo ? 800 : 300,
+      deut: thuDo ? 200 : 100,
+      food: thuDo ? 1200 : 400
+    },
     ships: {}, def: {}, mis: {}, linh: {},
     qB: [], qS: [],
     doi: 0,                    // alias cảnh báo đói của state cũ
@@ -383,22 +390,23 @@ function nangV5LenV6(st, activatedAt) {
  * wall-clock do loader/server truyền vào; mặc định dùng giờ hiện tại. */
 G.nangCapState = function (st, activatedAt) {
   if (!st) return st;
-  var phienBan = Number(st.v) || 0;
-  if (phienBan > G.STATE_VERSION)
-    throw new Error('Save state v' + phienBan + ' mới hơn engine v' + G.STATE_VERSION + '; từ chối hạ cấp dữ liệu.');
-  if (phienBan === G.STATE_VERSION) return st; // idempotent byte-for-byte
-  if (phienBan === 4 && st.moHinhCT && st.moHinhCT !== 'so-luong-v1')
+  var stateVersion = Number(st.v) || 0;
+  if (stateVersion > G.STATE_VERSION)
+    throw new Error('Save state v' + stateVersion + ' mới hơn engine v' + G.STATE_VERSION +
+      '; từ chối hạ cấp dữ liệu.');
+  if (stateVersion === G.STATE_VERSION) return st; // idempotent byte-for-byte
+  if (stateVersion === 4 && st.moHinhCT && st.moHinhCT !== 'so-luong-v1')
     throw new Error('Save state v4 không có marker mô hình số lượng hợp lệ.');
   chuanHoaNen(st);
   var moc = activatedAt === undefined || activatedAt === null ? G.giay() : Number(activatedAt);
   if (!isFinite(moc)) moc = G.giay();
   moc = Math.floor(moc);
-  if (phienBan < 4) { nangV3LenV4(st); phienBan = 4; }
-  if (phienBan === 4) {
+  if (stateVersion < 4) { nangV3LenV4(st); stateVersion = 4; }
+  if (stateVersion === 4) {
     nangV4LenV5(st, moc);
-    phienBan = 5;
+    stateVersion = 5;
   }
-  if (phienBan === 5) nangV5LenV6(st, moc);
+  if (stateVersion === 5) nangV5LenV6(st, moc);
   return st;
 };
 
@@ -465,7 +473,11 @@ G.thieuDK = function (st, p, def) {
     var can = G.slYeuCau(k, def.req.b[k]);
     if ((p.b[k] || 0) < can) out.push(G.B(k).ten + ' × ' + can);
   }
-  if (def.req.r) for (k in def.req.r) if ((st.tech[k] || 0) < def.req.r[k]) out.push(G.R(k).ten + ' cấp ' + def.req.r[k]);
+  if (def.req.r) for (k in def.req.r) {
+    if ((st.tech[k] || 0) < def.req.r[k]) {
+      out.push(G.R(k).ten + ' cấp ' + def.req.r[k]);
+    }
+  }
   return out;
 };
 
@@ -798,14 +810,22 @@ G.diem = function (st) {
     for (k in p.ships) d.ham += G.giaTriDiem(G.S(k).cost, p.ships[k]);
     for (k in p.def) d.thu += G.giaTriDiem(G.D(k).cost, p.def[k]);
   }
-  for (i = 0; i < st.fleets.length; i++) for (k in st.fleets[i].ships) d.ham += G.giaTriDiem(G.S(k).cost, st.fleets[i].ships[k]);
+  for (i = 0; i < st.fleets.length; i++) {
+    for (k in st.fleets[i].ships) {
+      d.ham += G.giaTriDiem(G.S(k).cost, st.fleets[i].ships[k]);
+    }
+  }
   for (k in st.tech) for (j = 1; j <= st.tech[k]; j++) d.nc += G.giaTriDiem(G.giaXay(G.R(k), j));
   d.tong = d.ct + d.nc + d.ham + d.thu;
   return d;
 };
 
 G.khe = function (st) { return 1 + (st.tech.computer || 0) + G.tongB(st, 'fleetHQ'); };
-G.tongB = function (st, id) { var n = 0; for (var i = 0; i < st.planets.length; i++) n += (st.planets[i].b[id] || 0); return n; };
+G.tongB = function (st, id) {
+  var n = 0;
+  for (var i = 0; i < st.planets.length; i++) n += (st.planets[i].b[id] || 0);
+  return n;
+};
 G.maxThuocDia = function (st) { return 1 + Math.floor((st.tech.astro || 0) / 2) + 1; };
 
 /* =======================================================================

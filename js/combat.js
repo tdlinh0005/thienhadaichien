@@ -175,7 +175,10 @@ G.danhTran = function (A, D, seed) {
   else kq = 'hoa';
 
   /* --- thiệt hại, phế liệu, phòng thủ tự sửa --- */
-  var matA = {}, matD = {}, matDPha = {}, pl = { metal: 0, crystal: 0 };   /* matDPha: công sự bị phá TRƯỚC khi sửa lại */
+  var matA = {};
+  var matD = {};
+  var matDPha = {};             /* công sự bị phá TRƯỚC khi sửa lại */
+  var pl = { metal: 0, crystal: 0 };
   var conShipsA = {}, conShipsD = {}, conDefD = {}, conBoA = {}, conBoD = {};
   var conNhomD = [], matNhomD = [];
   for (i2 = 0; i2 < nhomTau.length; i2++) { conNhomD.push({}); matNhomD.push({}); }

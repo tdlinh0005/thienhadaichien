@@ -172,7 +172,8 @@ var ACT = {
     U.hop('Đổi mục tiêu hạm đội #' + fid,
       '<p>Hạm đội đang bay tới <b>' + G.tdStr(f.den) + '</b>. Nhập toạ độ mới — thời gian bay được tính lại từ ' +
       'vị trí hiện tại của hạm đội. Phí: <b>' + G.C.DOI_MUC_TIEU_GALANA + ' Galana</b> cộng nhiên liệu phụ trội.</p>' +
-      '<div class="hd-td"><input id="dh-g" type="number" min="1" max="' + G.C.SO_THIEN_HA + '" value="' + f.den.g + '">:' +
+      '<div class="hd-td"><input id="dh-g" type="number" min="1" max="' +
+      G.C.SO_THIEN_HA + '" value="' + f.den.g + '">:' +
       '<input id="dh-h" type="number" min="1" max="' + G.C.SO_HE + '" value="' + f.den.h + '">:' +
       '<input id="dh-p" type="number" min="1" max="' + G.C.SO_HANH_TINH + '" value="' + f.den.p + '">' +
       '<button class="nut oke" data-act="doihuong-ok" data-fid="' + fid + '">Phát lệnh đổi hướng</button></div>');
@@ -297,13 +298,36 @@ document.addEventListener('change', function (e) {
 
 /* ---------- nhịp đập chung: 1 giây một lần ---------- */
 APP.batDauNhip = function () {
+  var dangTiepTucTick = false;
+  function xuLyTick(redraw) {
+    if (!window.ST || dangTiepTucTick) return;
+    var out = G.tick(window.ST, G.giay());
+    if (G.laTickPartial(out)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+    if (G.tickOutcomeNeedsDeferral(out)) {
+      dangTiepTucTick = true;
+      setTimeout(function tiepTuc() {
+        var next = G.tick(window.ST, G.giay());
+        if (G.laTickPartial(next)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+        if (G.tickOutcomeNeedsDeferral(next)) {
+          setTimeout(tiepTuc, 0);
+          return;
+        }
+        dangTiepTucTick = false;
+        if (redraw) redraw();
+      }, 0);
+      return;
+    }
+    if (redraw) redraw();
+  }
   setInterval(function () {
     if (!window.ST) return;
-    G.tick(window.ST, G.giay());
+    xuLyTick(null);
     U.live();
     if (APP.moiGiay) APP.moiGiay();
   }, 1000);
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && window.ST) { G.tick(window.ST, G.giay()); U.ve(); if (APP.hienLai) APP.hienLai(); }
+    if (!document.hidden && window.ST) {
+      xuLyTick(function () { U.ve(); if (APP.hienLai) APP.hienLai(); });
+    }
   });
 };

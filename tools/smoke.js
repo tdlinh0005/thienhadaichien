@@ -1,11 +1,5 @@
 /* Kiểm thử nhanh phần lõi (chạy: node tools/smoke.js) — không cần trình duyệt. */
-global.window = global;
-var fs = require('fs'), path = require('path');
-var goc = path.join(__dirname, '..', 'js');
-['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions'].forEach(function (f) {
-  eval(fs.readFileSync(path.join(goc, f + '.js'), 'utf8'));
-});
-var G = window.G;
+var G = require('../server/rules.js').G;
 
 var loi = 0, ok = 0;
 function ktra(dk, ten) { if (dk) { ok++; } else { loi++; console.log('  ✗ ' + ten); } }
@@ -39,7 +33,10 @@ ktra(pc.qB.every(function (x) { return x.n > 0 && x.lv === undefined; }), 'qB sa
 ktra(pc.qB[0].n === G.slTuCap(G.B('metalMine'), 5) - G.slTuCap(G.B('metalMine'), 4) &&
   pc.qB[1].n === G.slTuCap(G.B('metalMine'), 6) - G.slTuCap(G.B('metalMine'), 5) && pc.qB[2].n === 4,
   'mỗi mục queue giữ đúng phần vốn gia tăng của level cũ');
-ktra(JSON.stringify(pc.qB.map(function (x) { return x.cost; })) === costCu, 'migration giữ nguyên cost đã thanh toán/hoàn');
+ktra(
+  JSON.stringify(pc.qB.map(function (x) { return x.cost; })) === costCu,
+  'migration giữ nguyên cost đã thanh toán/hoàn'
+);
 ktra(JSON.stringify(pc.qS) === qSCu, 'dispatcher giữ nguyên hàng đợi đóng tàu');
 ktra(cu.baoTri && cu.baoTri.activatedAt === cu.now &&
   cu.baoTri.nextAt === cu.baoTri.activatedAt + G.C.CHU_KY_BAO_TRI && pc.danSu,
@@ -47,7 +44,11 @@ ktra(cu.baoTri && cu.baoTri.activatedAt === cu.now &&
 var motLan = JSON.stringify(cu); G.nangCapState(cu);
 ktra(JSON.stringify(cu) === motLan, 'migration v6 idempotent byte-for-byte');
 var tuChoiTuongLai = false;
-try { G.nangCapState({ v: G.STATE_VERSION + 1 }); } catch (errMig) { tuChoiTuongLai = /mới hơn engine/.test(errMig.message); }
+try {
+  G.nangCapState({ v: G.STATE_VERSION + 1 });
+} catch (errMig) {
+  tuChoiTuongLai = /mới hơn engine/.test(errMig.message);
+}
 ktra(tuChoiTuongLai, 'migration từ chối state tương lai thay vì âm thầm hạ cấp');
 
 /* v4 đã là số lượng: tuyệt đối không được chạy lại phép level -> quantity,
@@ -608,12 +609,18 @@ var keHoach = [['metalMine', 10], ['crystalMine', 9], ['deutSyn', 7], ['farm', 8
   ['robot', 4], ['shipyard', 6], ['lab', 6], ['fleetHQ', 1], ['maintDepot', 2], ['intel', 1], ['missileSilo', 2]];
 for (var i = 0; i < keHoach.length; i++) xayDen(keHoach[i][0], keHoach[i][1]);
 
-ktra((p.b.metalMine || 0) >= G.slTuCap(G.B('metalMine'), 5), 'mỏ kim loại xây được theo số lượng (' + p.b.metalMine + ')');
+ktra(
+  (p.b.metalMine || 0) >= G.slTuCap(G.B('metalMine'), 5),
+  'mỏ kim loại xây được theo số lượng (' + p.b.metalMine + ')'
+);
 ktra((p.b.shipyard || 0) >= 1, 'có xưởng đóng tàu');
 var s = G.sanLuong(st, p);
 ktra(s.r.metal > 0, 'sản lượng kim loại dương');
-console.log('  · sản lượng/giờ: KL ' + Math.round(s.r.metal) + ' TA ' + Math.round(s.r.crystal) +
-  ' NL ' + Math.round(s.r.deut) + ' TP ' + Math.round(s.r.food) + ' | điện ' + Math.round(s.dienCo) + '/' + Math.round(s.dienDung));
+console.log(
+  '  · sản lượng/giờ: KL ' + Math.round(s.r.metal) + ' TA ' + Math.round(s.r.crystal) +
+  ' NL ' + Math.round(s.r.deut) + ' TP ' + Math.round(s.r.food) + ' | điện ' +
+  Math.round(s.dienCo) + '/' + Math.round(s.dienDung)
+);
 
 /* ---- 3. nghiên cứu (vốn trả góp theo chu kỳ) ---- */
 var e2 = G.xepNC(st, p, 'energy');
@@ -755,17 +762,26 @@ if (bo) {
 /* ---- 10c. NPC tấn công ngược lại người chơi ---- */
 /* vượt mốc bảo vệ người chơi mới để NPC được phép đánh */
 p.def.plasma = (p.def.plasma || 0) + 80;
-ktra(G.diem(st).tong > G.C.BAO_VE_MOI_DIEM, 'đã vượt mốc bảo vệ người chơi mới (' + Math.round(G.diem(st).tong) + ' điểm)');
+ktra(
+  G.diem(st).tong > G.C.BAO_VE_MOI_DIEM,
+  'đã vượt mốc bảo vệ người chơi mới (' + Math.round(G.diem(st).tong) + ' điểm)'
+);
 var thu = 0;
 while (st.toi.length === 0 && thu++ < 8) { st.nextRaid = st.now + 5; now += 10; G.tick(st, now); }
 ktra(st.toi.length >= 1, 'NPC phát động đợt tấn công (sau ' + thu + ' lần hẹn)');
 var raidCanXuLy = st.toi.map(function (w) { return { id: w.id, den: w.den_t }; });
-var denRaid = st.now; for (var rdx = 0; rdx < raidCanXuLy.length; rdx++) denRaid = Math.max(denRaid, raidCanXuLy[rdx].den);
+var denRaid = st.now;
+for (var rdx = 0; rdx < raidCanXuLy.length; rdx++) {
+  denRaid = Math.max(denRaid, raidCanXuLy[rdx].den);
+}
 now = Math.max(now + 1, denRaid + 1); G.tick(st, now);
 ktra(raidCanXuLy.every(function (r0) {
   return !st.toi.some(function (w0) { return w0.id === r0.id; });
 }), 'đợt tấn công của NPC đã được xử lý');
-ktra(st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }), 'có báo cáo trận phòng thủ');
+ktra(
+  st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }),
+  'có báo cáo trận phòng thủ'
+);
 
 /* ---- 10d. tên lửa liên hành tinh ---- */
 ncDen('impulse', 5);
@@ -845,7 +861,10 @@ if (st.planets.length >= 2) {
   ktra(!eBo, 'bỏ hoang được thuộc địa' + (eBo ? ': ' + eBo : ''));
   ktra(st.planets.length === soTruoc - 1, 'danh sách hành tinh giảm đúng 1');
   ktra(!st.planets.some(function (x) { return G.tdKey(x.c) === G.tdKey(htBo.c); }), 'hành tinh đã biến khỏi đế quốc');
-  ktra(st.fleets.every(function (f) { return f.pi >= 0 && f.pi < st.planets.length; }), 'chỉ số hành tinh của hạm đội vẫn hợp lệ');
+  ktra(
+    st.fleets.every(function (f) { return f.pi >= 0 && f.pi < st.planets.length; }),
+    'chỉ số hành tinh của hạm đội vẫn hợp lệ'
+  );
   now += 12 * 3600; G.tick(st, now);
   ktra(st.fleets.length === 0, 'hạm đội cũ vẫn về được sau khi bỏ hoang (không kẹt)');
   var oCu = G.oHanhTinh(st, htBo.c);
@@ -884,7 +903,10 @@ nk.forEach(function (m) {
 });
 console.log('  · kết quả ' + nk.length + ' chuyến thám hiểm: ' + JSON.stringify(loaiKQ));
 ktra(Object.keys(loaiKQ).length >= 3, 'thám hiểm cho nhiều loại kết quả khác nhau');
-ktra(st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0, 'không còn đoàn nào kẹt ngoài đó');
+ktra(
+  st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0,
+  'không còn đoàn nào kẹt ngoài đó'
+);
 void matHet; void ketQua;
 
 /* ---- 10g. 5 loại hành tinh (tư liệu gốc) ---- */
@@ -977,7 +999,11 @@ ktra(Date.now() - tDB < 5000, 'đóng hàng trăm nghìn quân không làm treo 
 ktra((p.linh.robot || 0) === 120000, 'có 120.000 Robot (' + (p.linh.robot || 0) + ')');
 ktra((p.linh.tank || 0) === 15000, 'có 15.000 Tank');
 ktra(G.sucChoLinh({ destroyer: 200 }) === 200 * G.S('destroyer').choLinh, 'Đại Chiến Hạm chở được quân');
-ktra(!!G.guiHam(st, 0, { cruiser: 1 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'attack', {}, 100, 1, { robot: 100000 }),
+ktra(
+  !!G.guiHam(
+    st, 0, { cruiser: 1 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1),
+    'attack', {}, 100, 1, { robot: 100000 }
+  ),
   'chặn khi hạm đội không đủ chỗ chở quân');
 ktra(!!G.guiHam(st, 0, { destroyer: 50 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'spy', {}, 100, 1, { robot: 100 }),
   'chỉ Tấn Công / Triển Khai / Vận Chuyển mới chở được quân');
@@ -1060,7 +1086,10 @@ for (var q = 0; q < st.planets.length; q++) {
 }
 ktra(st.galana >= 0, 'Galana không âm (' + Math.round(st.galana) + ')');
 var js = JSON.stringify(st);
-ktra(js.length > 100 && JSON.parse(js).planets.length === st.planets.length, 'state lưu/nạp được JSON (' + Math.round(js.length / 1024) + ' KB)');
+ktra(
+  js.length > 100 && JSON.parse(js).planets.length === st.planets.length,
+  'state lưu/nạp được JSON (' + Math.round(js.length / 1024) + ' KB)'
+);
 
 /* ---- 13. bảng xếp hạng ---- */
 var xh = G.xepHang(st);

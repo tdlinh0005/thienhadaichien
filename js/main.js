@@ -57,10 +57,75 @@
   /* ---------------- APP: chạy hành động tại chỗ ---------------- */
   APP.mp = false;
   APP.luu = luu;
-  APP.lam = function (ten, dl, xong) {
-    var err = G.chay(ST, ten, dl);
+  function laPlainObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+      Object.getPrototypeOf(value) === Object.prototype;
+  }
+  function tenHanhDongHopLe(value) {
+    return typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_-]{0,23}$/.test(value);
+  }
+  function goiLai(cb, err) {
+    if (typeof cb === 'function') cb(err || null);
+  }
+  function damBaoStateChoPartial() {
+    if (!ST && window.ST) ST = window.ST;
+    if (!ST && G.moiGame) window.ST = ST = G.moiGame('Chỉ Huy');
+  }
+  function luuPartial() {
+    damBaoStateChoPartial();
+    luu(true);
+  }
+  function tickDenHienTai(xong) {
+    var out = G.tick(ST, G.giay());
+    if (G.laTickPartial(out)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+    if (G.tickOutcomeNeedsDeferral(out)) {
+      luu(true);
+      setTimeout(function () { tickDenHienTai(xong); }, 0);
+      return true;
+    }
+    if (xong) xong();
+    return false;
+  }
+  var hangLam = [];
+  var dangLam = false;
+  function chayHangLam() {
+    if (dangLam || !hangLam.length) return;
+    dangLam = true;
+    chayMotLan(hangLam[0]);
+  }
+  function xongMotLam(item, err) {
+    hangLam.shift();
+    goiLai(item.xong, err);
+    dangLam = false;
+    chayHangLam();
+  }
+  function henTiepLam(item) {
+    luuPartial();
+    setTimeout(function () {
+      item.continuations += 1;
+      chayMotLan(item);
+    }, 0);
+  }
+  function chayMotLan(item) {
+    var err = G.chay(ST, item.ten, item.dl);
+    if (G.laTickPartial(err)) {
+      if (item.continuations >= 1000) {
+        luuPartial();
+        xongMotLam(item, 'Tua thời gian quá dài, hãy thử lại.');
+        return;
+      }
+      henTiepLam(item);
+      return;
+    }
     if (!err) luu(true);
-    if (xong) xong(err);
+    xongMotLam(item, err || null);
+  }
+  APP.lam = function (ten, dl, xong) {
+    if (!tenHanhDongHopLe(ten)) return goiLai(xong, 'Hành động không hợp lệ.');
+    if (dl === undefined || dl === null) dl = {};
+    else if (!laPlainObject(dl)) return goiLai(xong, 'Dữ liệu hành động không hợp lệ.');
+    hangLam.push({ten: ten, dl: dl, xong: xong, continuations: 0});
+    chayHangLam();
   };
   APP.moiGiay = (function () {
     var dem = 0;
@@ -71,8 +136,7 @@
     window.ST = ST = chuanHoa(st);
     document.getElementById('man-khoidong').style.display = 'none';
     document.getElementById('game').style.display = '';
-    G.tick(ST, G.giay());
-    U.ve();
+    if (!tickDenHienTai(function () { U.ve(); })) U.ve();
   }
   window.addEventListener('beforeunload', function () { luu(true); });
 
@@ -81,7 +145,8 @@
     xuat: function () {
       var js = JSON.stringify(ST);
       U.hop('Xuất bàn chơi',
-        '<p class="mo">Sao chép toàn bộ đoạn dưới đây và lưu lại. Dán vào ô "Nạp bàn chơi" ở bất kỳ máy nào để chơi tiếp. ' +
+        '<p class="mo">Sao chép toàn bộ đoạn dưới đây và lưu lại. ' +
+        'Dán vào ô "Nạp bàn chơi" ở bất kỳ máy nào để chơi tiếp. ' +
         (COFILE ? 'Nút "Tải về file" cũng dùng được.' : '') + '</p>' +
         '<textarea id="xuat-js" style="width:100%;height:180px" readonly></textarea>' +
         '<div style="margin-top:8px"><button class="nut oke" data-act="xuat-copy">Sao chép</button>' +
@@ -125,8 +190,12 @@
       try {
         var o = JSON.parse(v);
         o = chuanHoa(o);
-        window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.dongHop(); U.ve();
-        U.toast('Đã nạp bàn chơi.', 'ok');
+        window.ST = ST = o;
+        if (!tickDenHienTai(function () {
+          luu(true); U.dongHop(); U.ve(); U.toast('Đã nạp bàn chơi.', 'ok');
+        })) {
+          luu(true); U.dongHop(); U.ve(); U.toast('Đã nạp bàn chơi.', 'ok');
+        }
       } catch (e) { U.toast('Nạp thất bại: ' + e.message, 'loi'); }
     },
     'nhap-file': function () { document.getElementById('file-nhap').click(); },
@@ -151,8 +220,12 @@
         try {
           var o = JSON.parse(fr.result);
           o = chuanHoa(o);
-          window.ST = ST = o; G.tick(ST, G.giay()); luu(true); U.ve();
-          U.toast('Đã nạp bàn chơi từ file.', 'ok');
+          window.ST = ST = o;
+          if (!tickDenHienTai(function () {
+            luu(true); U.ve(); U.toast('Đã nạp bàn chơi từ file.', 'ok');
+          })) {
+            luu(true); U.ve(); U.toast('Đã nạp bàn chơi từ file.', 'ok');
+          }
         } catch (err) { U.toast('Nạp thất bại: ' + err.message, 'loi'); }
       };
       fr.readAsText(e.target.files[0]);
@@ -160,7 +233,7 @@
   };
 
   /* ---------------- màn khởi động ---------------- */
-  document.getElementById('kd-ver').textContent = G.VERSION;
+  document.getElementById('kd-ver').textContent = G.PHIEN_BAN_LICH_SU;
   var cu = nap();
   if (LOI_NAP) {
     var kd = document.querySelector('.kd-form');

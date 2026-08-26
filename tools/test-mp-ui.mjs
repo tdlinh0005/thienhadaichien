@@ -10,27 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
-
-/* Playwright là công cụ kiểm thử tuỳ chọn, không phải dependency lúc chạy game.
- * Tìm package cục bộ/global trước; CI có thể chỉ rõ file qua THDC_PLAYWRIGHT. */
-async function napChromium() {
-  var ds = [];
-  if (process.env.THDC_PLAYWRIGHT) ds.push(process.env.THDC_PLAYWRIGHT);
-  ds.push('playwright', 'playwright-core');
-  ds.push(path.resolve(path.dirname(process.execPath), '../lib/node_modules/playwright/index.mjs'));
-  ds.push('/opt/node22/lib/node_modules/playwright/index.mjs');
-  var loiCuoi = null;
-  for (var i = 0; i < ds.length; i++) {
-    try {
-      var m = await import(ds[i]);
-      if (m.chromium) return m.chromium;
-      if (m.default && m.default.chromium) return m.default.chromium;
-    } catch (e) { loiCuoi = e; }
-  }
-  throw new Error('Không tìm thấy Playwright. Cài package playwright hoặc đặt THDC_PLAYWRIGHT tới index.mjs.' +
-    (loiCuoi && loiCuoi.code ? ' (' + loiCuoi.code + ')' : ''));
-}
-var chromium = await napChromium();
+import { chromium } from 'playwright';
 
 var THUMUC = path.dirname(fileURLToPath(import.meta.url));
 var GOC = path.join(THUMUC, '..');
@@ -78,7 +58,9 @@ async function nhan(page, sel, cho) {
   await nghi(cho ? 350 : 200);
 }
 async function chuNoiDung(page) {
-  return await page.$eval('#noidung', function (e) { return (e.innerText || e.textContent || '').trim(); });
+  return await page.locator('#noidung').evaluate(function (e) {
+    return (e.innerText || e.textContent || '').trim();
+  });
 }
 async function vaoMan(page, man, cho) {
   await nhan(page, '#menu [data-man="' + man + '"]', cho);
@@ -103,7 +85,11 @@ async function dangKy(page, ten, hienthi, mk) {
   var dap = await cho;
   var o = await dap.json().catch(function () { return {}; });
   await page.waitForSelector('#thanh-tren', { state: 'visible', timeout: 20000 });
-  await page.waitForFunction('window.ST && window.ST.planets && window.ST.planets.length > 0', null, { timeout: 20000 });
+  await page.waitForFunction(
+    'window.ST && window.ST.planets && window.ST.planets.length > 0',
+    null,
+    { timeout: 20000 }
+  );
   await nghi(400);
   return o;
 }
@@ -113,7 +99,11 @@ async function dangNhap(page, ten, mk) {
   await page.fill('#dn-mk', mk);
   await page.click('#nut-dn');
   await page.waitForSelector('#thanh-tren', { state: 'visible', timeout: 20000 });
-  await page.waitForFunction('window.ST && window.ST.planets && window.ST.planets.length > 0', null, { timeout: 20000 });
+  await page.waitForFunction(
+    'window.ST && window.ST.planets && window.ST.planets.length > 0',
+    null,
+    { timeout: 20000 }
+  );
   await nghi(300);
 }
 
@@ -127,7 +117,7 @@ async function diTuiHe(page, g, h) {
   return true;
 }
 function soHang(page) {
-  return page.$$eval('#noidung table tr', function (rs) {
+  return page.locator('#noidung table tr').evaluateAll(function (rs) {
     return rs.filter(function (r) { return r.querySelector('td'); }).length;
   });
 }
@@ -170,7 +160,7 @@ async function chay() {
   var p1 = await moTrang(ctx1, 'người 1');
   var p2 = await moTrang(ctx2, 'người 2');
 
-  var svTxt = await p1.$eval('#kd-sv', function (e) { return e.textContent; });
+  var svTxt = await p1.locator('#kd-sv').evaluate(function (e) { return e.textContent; });
   ktra(/vũ trụ/i.test(svTxt), 'màn khởi động hiện thông tin máy chủ');
   await chup(p1, 'khoidong');
 
@@ -181,11 +171,14 @@ async function chay() {
 
   var nha1 = dk1.nha || await p1.evaluate('window.ST.planets[0].c');
   var nha2 = dk2.nha || await p2.evaluate('window.ST.planets[0].c');
-  log('người 1 ở [' + nha1.g + ':' + nha1.h + ':' + nha1.p + '], người 2 ở [' + nha2.g + ':' + nha2.h + ':' + nha2.p + ']');
+  log(
+    'người 1 ở [' + nha1.g + ':' + nha1.h + ':' + nha1.p + '], người 2 ở [' +
+    nha2.g + ':' + nha2.h + ':' + nha2.p + ']'
+  );
 
   ktra(await p1.isVisible('#thanh-tren'), 'người 1 vào được game (thanh trên hiện ra)');
   ktra(await p1.isHidden('#man-khoidong'), 'màn đăng nhập đã tắt sau khi vào game');
-  var res1 = await p1.$eval('#tt-res', function (e) { return e.textContent; });
+  var res1 = await p1.locator('#tt-res').evaluate(function (e) { return e.textContent; });
   ktra(/Kim Loại/.test(res1) && /Galana/.test(res1), 'thanh tài nguyên hiện đủ các mục');
   var ten1 = await p1.evaluate('window.MP.ten');
   ktra(ten1 === 'Quốc Bình', 'giao diện nhận đúng tên chỉ huy từ máy chủ (' + ten1 + ')');
@@ -199,13 +192,16 @@ async function chay() {
   await chup(p1, 'tongquan');
 
   /* ---------- 3. bấm đủ các mục menu ---------- */
-  var dsMan = await p1.$$eval('#menu [data-man]', function (els) {
+  var dsMan = await p1.locator('#menu [data-man]').evaluateAll(function (els) {
     return els.map(function (e) { return e.getAttribute('data-man'); });
   });
   ktra(dsMan.length === 16, 'menu có đủ 16 mục (' + dsMan.length + ')');
   ktra(dsMan.indexOf('huongdan') >= 0, 'menu có mục Hướng Dẫn');
   ktra(dsMan.indexOf('mophong') >= 0, 'menu có mục Máy Tính Trận');
-  var CHO_API = { thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm', bangtin: '/api/bangtin', chat: '/api/chat' };
+  var CHO_API = {
+    thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm',
+    bangtin: '/api/bangtin', chat: '/api/chat'
+  };
   for (var j = 0; j < dsMan.length; j++) {
     var m = dsMan[j];
     var truoc = soLoi.length;
@@ -253,7 +249,9 @@ async function chay() {
   await vaoMan(p1, 'thienha', '/api/he');
   var n15 = await soHang(p1);
   ktra(n15 === 16, 'bảng thiên hà hiện 15 ô hành tinh + 1 ô không gian sâu (' + n15 + ')');
-  var nhaCuaToi = await p1.$$eval('#noidung table tr.toi td', function (ts) { return ts.map(function (t) { return t.textContent; }); });
+  var nhaCuaToi = await p1.locator('#noidung table tr.toi td').evaluateAll(function (ts) {
+    return ts.map(function (t) { return t.textContent; });
+  });
   ktra(nhaCuaToi.length > 0 && /\(ta\)/.test(nhaCuaToi.join(' ')), 'hàng hành tinh của chính ta được đánh dấu "(ta)"');
   await chup(p1, 'thienha');
 
@@ -265,7 +263,7 @@ async function chay() {
   ktra(gal[0] === nha1.g && gal[1] === nha1.h, 'bản đồ của người 2 đang ở hệ của người 1');
   ktra((await soHang(p2)) === 16, 'bảng thiên hà của người 2 cũng đủ 16 dòng');
 
-  var hangNguoi = await p2.$$eval('#noidung table tr.nguoi', function (rs) {
+  var hangNguoi = await p2.locator('#noidung table tr.nguoi').evaluateAll(function (rs) {
     return rs.map(function (r) {
       return {
         o: (r.querySelector('td') || {}).textContent,
@@ -280,7 +278,10 @@ async function chay() {
   var cua1 = hangNguoi.filter(function (r) { return r.cam.indexOf('Quốc Bình') >= 0; })[0];
   ktra(!!cua1, 'người 2 thấy đúng dòng của người 1 với tên chỉ huy màu cam');
   if (cua1) {
-    ktra(String(cua1.o).trim() === String(nha1.p), 'dòng đó nằm đúng ô ' + nha1.p + ' (thấy ' + String(cua1.o).trim() + ')');
+    ktra(
+      String(cua1.o).trim() === String(nha1.p),
+      'dòng đó nằm đúng ô ' + nha1.p + ' (thấy ' + String(cua1.o).trim() + ')'
+    );
     ktra(!cua1.danh && cua1.tham && cua1.tuyen,
       'chưa tuyên chiến: chỉ có Do thám + Tuyên chiến, chưa lộ nút Tấn công');
   }
@@ -293,7 +294,7 @@ async function chay() {
   var nutTuyen = '[data-act="tuyen-chien"][data-ten="Quốc Bình"]';
   ktra(await p2.isVisible(nutTuyen), 'người 2 có thể mở xác nhận tuyên chiến với đúng chỉ huy');
   await p2.click(nutTuyen);
-  var ndHopChien = await p2.$eval('#ht-noi', function (e) { return e.textContent; });
+  var ndHopChien = await p2.locator('#ht-noi').evaluate(function (e) { return e.textContent; });
   ktra(/đúng 24 giờ/i.test(ndHopChien) && /Quốc Bình/.test(ndHopChien),
     'modal nói rõ mục tiêu và thời gian chờ đúng 24 giờ');
   await nhan(p2, '#ht-noi [data-act="tuyen-chien-ok"]', '/api/tuyenchien');
@@ -324,7 +325,7 @@ async function chay() {
     var r = rs.filter(function (x) { return x.textContent.indexOf('Quốc Bình') >= 0; })[0];
     return !!(r && r.querySelector('[data-act="nv"][data-m="attack"]'));
   }, null, { timeout: 20000 });
-  var danhQuocBinh = await p2.$$eval('#noidung tr.nguoi', function (rs) {
+  var danhQuocBinh = await p2.locator('#noidung tr.nguoi').evaluateAll(function (rs) {
     var r = rs.filter(function (x) { return x.textContent.indexOf('Quốc Bình') >= 0; })[0];
     return !!(r && r.querySelector('[data-act="nv"][data-m="attack"]'));
   });
@@ -344,7 +345,7 @@ async function chay() {
   var TEN_LM = '[DNV] Đại Nam Vệ';
   var ndLM1 = await chuNoiDung(p1);
   ktra(ndLM1.indexOf(TEN_LM) >= 0, 'người 1 lập được liên minh và giao diện hiện tên liên minh');
-  var tv1 = await p1.$$eval('#noidung table tr', function (rs) {
+  var tv1 = await p1.locator('#noidung table tr').evaluateAll(function (rs) {
     return rs.filter(function (r) { return /\(ta\)/.test(r.textContent); }).length;
   });
   ktra(tv1 >= 1, 'bảng thành viên hiện chính ta');
@@ -367,7 +368,11 @@ async function chay() {
   if (nutDuyet) await nhan(p1, '[data-act="lm-duyet"]', '/api/lmduyet');
 
   /* Client người xin tự nhận membership qua nhịp đồng bộ 8 giây. */
-  await p2.waitForFunction('window.ST && window.ST.lm && window.ST.lm.ten === "' + TEN_LM + '"', null, { timeout: 15000 });
+  await p2.waitForFunction(
+    'window.ST && window.ST.lm && window.ST.lm.ten === "' + TEN_LM + '"',
+    null,
+    { timeout: 15000 }
+  );
   var lmCua2 = await p2.evaluate('window.ST.lm ? window.ST.lm.ten : null');
   ktra(lmCua2 === TEN_LM, 'người 2 vào liên minh sau khi chủ duyệt (' + lmCua2 + ')');
   await p2.waitForFunction(function (tenLM) {
@@ -377,7 +382,7 @@ async function chay() {
   ktra(await p2.isHidden('#lm-tag'), 'màn Liên Minh đang mở tự đổi khỏi trạng thái chờ sau khi được duyệt');
 
   /* dữ liệu thành viên cũng được nhịp nền lấy lại từ máy chủ */
-  var tv2 = await p2.$$eval('#noidung table tr', function (rs) {
+  var tv2 = await p2.locator('#noidung table tr').evaluateAll(function (rs) {
     return rs.filter(function (r) { return r.querySelector('td'); }).map(function (r) { return r.textContent; });
   });
   var chuoiTV = tv2.join(' | ');
@@ -509,7 +514,7 @@ async function chay() {
     var n = document.querySelector('#noidung');
     return n && n.textContent.indexOf('Trinh Nghiệm') >= 0;
   }, null, { timeout: 20000 });
-  var dongNgoai = await p2.$$eval('#noidung tr.nguoi', function (rs) {
+  var dongNgoai = await p2.locator('#noidung tr.nguoi').evaluateAll(function (rs) {
     var r = rs.filter(function (x) { return x.textContent.indexOf('Trinh Nghiệm') >= 0; })[0];
     return r ? { chu: r.textContent, tuyen: !!r.querySelector('[data-act="tuyen-chien"]') } : null;
   });
@@ -539,7 +544,7 @@ async function chay() {
   var ndChat2 = await chuNoiDung(p2);
   ktra(ndChat2.indexOf(CHAT_CHUNG) >= 0 && /Quốc Bình/.test(ndChat2),
     'người 2 thấy tin kênh chung của người 1');
-  var chatODay = await p2.$eval('#chat-ds-chung', function (e) {
+  var chatODay = await p2.locator('#chat-ds-chung').evaluate(function (e) {
     return e.scrollHeight > e.clientHeight && e.scrollHeight - e.scrollTop - e.clientHeight < 3;
   });
   ktra(chatODay, 'lần đầu mở phòng chat tự cuộn tới các tin mới nhất');
@@ -590,7 +595,9 @@ async function chay() {
   await nhan(p1, '[data-act="dangxuat"]', '/api/dangxuat');
   var daDonCache = await p1.evaluate('MP.chat === null && MP.lm === null && U.mp === null && U.man === "tongquan" && ' +
     '!document.querySelector("#noidung").textContent && !document.querySelector("#dn-mk").value && ' +
-    '!document.querySelector("#dk-mk").value && getComputedStyle(document.querySelector("#form-dn")).display !== "none"');
+    '!document.querySelector("#dk-mk").value && ' +
+    'getComputedStyle(document.querySelector("#form-dn")).display !== "none"'
+  );
   ktra(daDonCache, 'đăng xuất xoá cache, mật khẩu DOM và reset về form đăng nhập');
   await dangNhap(p1, 'levu', 'matkhau456');
   nhaChatCu();
@@ -630,16 +637,19 @@ async function chay() {
   ktra(await p3.isHidden('#menu'), 'mobile: menu ẩn khi chưa bấm');
   await p3.click('#nut-menu');
   await nghi(250);
-  var moRa = await p3.$eval('#menu', function (e) { return e.classList.contains('mo-ra'); });
+  var moRa = await p3.locator('#menu').evaluate(function (e) { return e.classList.contains('mo-ra'); });
   ktra(moRa, 'mobile: bấm ☰ thì menu nhận class mo-ra');
   ktra(await p3.isVisible('#menu'), 'mobile: menu mở ra và nhìn thấy được');
-  var hopMenu = await p3.$eval('#menu', function (e) { var b = e.getBoundingClientRect(); return [b.width, b.height]; });
+  var hopMenu = await p3.locator('#menu').evaluate(function (e) {
+    var b = e.getBoundingClientRect();
+    return [b.width, b.height];
+  });
   ktra(hopMenu[0] > 100 && hopMenu[1] > 40, 'mobile: menu chiếm chỗ thật trên trang (' +
     Math.round(hopMenu[0]) + '×' + Math.round(hopMenu[1]) + ')');
   await chup(p3, 'mobile-menu');
   await vaoMan(p3, 'tongquan');
   ktra((await chuNoiDung(p3)).length > 40, 'mobile: chọn mục trong menu vẫn vẽ được màn');
-  var conMo = await p3.$eval('#menu', function (e) { return e.classList.contains('mo-ra'); });
+  var conMo = await p3.locator('#menu').evaluate(function (e) { return e.classList.contains('mo-ra'); });
   ktra(!conMo, 'mobile: menu tự đóng sau khi chọn một mục');
   await chup(p3, 'mobile-tongquan');
 

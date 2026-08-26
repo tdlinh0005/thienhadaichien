@@ -1,0 +1,60 @@
+name: quality
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { node: ["22.5.x", "24.x"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}" }
+      - run: npm ci
+      - run: >-
+          node tools/test-ci-contract.js && node tools/test-package-contract.js &&
+          node tools/test-quality-gate.js && node tools/check-syntax.js && npm run lint &&
+          node tools/test-version-contract.js && npm run check:version
+  artifact-and-core:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { node: ["22.5.x", "24.x"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}" }
+      - run: npm ci
+      - run: >-
+          npm run build && node tools/test-artifact.js && npm run check:artifact &&
+          git diff --exit-code -- dist/thien-ha-dai-chien.html dist/artifact.html &&
+          node tools/test-loader.js && npm run test:core
+  server:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { node: ["22.5.x", "24.x"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}" }
+      - run: npm ci
+      - run: >-
+          node tools/test-uow.js && node tools/test-server-factory.js &&
+          node tools/test-server-entrypoint.js && npm run test:server && npm run test:scheduler
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24.x" }
+      - run: npm ci
+      - run: npm run test:load
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "24.x" }
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run test:ui

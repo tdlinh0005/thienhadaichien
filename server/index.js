@@ -1,144 +1,129 @@
-/* THIÊN HÀ ĐẠI CHIẾN — máy chủ nhiều người chơi
- *   node server/index.js            (mặc định cổng 8080, DB server/data/thdc.db)
- *   PORT=3000 THDC_DB=/tmp/a.db node server/index.js
- * Không phụ thuộc gói ngoài: chỉ dùng node:http + node:sqlite.            */
-'use strict';
-var http = require('http');
-var fs = require('fs');
-var path = require('path');
-var url = require('url');
+/* THIÊN HÀ ĐẠI CHIẾN — production entrypoint and lazy legacy facade. */
+"use strict";
 
-var Kho = require('./db.js').Kho;
-var TheGioi = require('./world.js').TheGioi;
-var API = require('./api.js').API;
-var G = require('./rules.js').G;
+const path = require("node:path");
+const {taoUngDung, resolveDbPath} = require("./app.js");
+const schedulerIndex = require("./scheduler/index.js");
 
-var CONG = parseInt(process.env.PORT || '8080', 10);
-var GOC = path.join(__dirname, '..');
+const taoScheduler = schedulerIndex.taoScheduler;
+const validateProductionDatabasePath = schedulerIndex.validateProductionDatabasePath;
 
-var kho = new Kho();
-var tg = new TheGioi(kho);
-var SO_NANG_CAP = tg.nangCapDuLieu();
-var api = new API(kho, tg);
-tg.seed();
+let legacyApp = null;
 
-/* ------------------------------------------------------------ file tĩnh */
-var LOAI = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
-  '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json'
-};
-/* chỉ mở đúng những thư mục cần thiết */
-var CHO_PHEP = ['web', 'js', 'css', 'docs', 'dist'];
-
-function traFile(res, tep) {
-  try {
-    if (typeof tep !== 'string' || tep.indexOf('\0') >= 0) throw new Error('đường dẫn không hợp lệ');
-  } catch (e) {
-    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('Đường dẫn không hợp lệ.');
+function trustedDbAllowlist(env) {
+  if (!env || env.NODE_ENV !== "production") return undefined;
+  if (typeof env.THDC_DB_ALLOWLIST !== "string" || env.THDC_DB_ALLOWLIST.trim() === "") {
+    throw new Error("THDC_DB_ALLOWLIST_REQUIRED");
   }
-  fs.readFile(tep, function (e, d) {
-    if (e) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
-    res.writeHead(200, {
-      'Content-Type': LOAI[path.extname(tep).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
-      'X-Content-Type-Options': 'nosniff'
-    });
-    res.end(d);
+  return env.THDC_DB_ALLOWLIST.split(",").map(function (entry) {
+    const value = entry.trim();
+    if (!path.isAbsolute(value)) throw new Error("THDC_DB_ALLOWLIST_INVALID");
+    return value;
   });
 }
 
-function tinhTep(duong) {
-  if (duong.indexOf('\0') >= 0) return null;
-  if (duong === '/' || duong === '/index.html') return path.join(GOC, 'web', 'index.html');
-  if (duong === '/motnguoi' || duong === '/solo') return path.join(GOC, 'index.html');
-  var sach = path.normalize(duong).replace(/^([/\\])+/, '');
-  if (sach.indexOf('..') >= 0) return null;
-  var goc0 = sach.split(/[/\\]/)[0];
-  if (CHO_PHEP.indexOf(goc0) < 0) return null;
-  return path.join(GOC, sach);
+function selectedDbPath(env, overrides) {
+  const options = overrides || {};
+  const rootDir = options.rootDir || path.join(__dirname, "..");
+  return resolveDbPath(options, env || process.env, rootDir);
 }
 
-/* ---------------------------------------------------------------- server */
-var server = http.createServer(function (req, res) {
-  var u = url.parse(req.url);
-  var duong;
-  try { duong = decodeURIComponent(u.pathname || '/'); }
-  catch (e) {
-    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-    return res.end('Đường dẫn không hợp lệ.');
+function validateEntrypointDbPath(dbPath, env, dbPathAllowlist) {
+  const production = env && env.NODE_ENV === "production";
+  if (!production) return dbPath;
+  if (typeof validateProductionDatabasePath !== "function") {
+    throw new Error("THDC_DB_VALIDATOR_UNAVAILABLE");
   }
-  var tv = new URLSearchParams(u.query || '');
+  return validateProductionDatabasePath(dbPath, {
+    production: true,
+    nodeEnv: env.NODE_ENV,
+    dbPathAllowlist: dbPathAllowlist
+  });
+}
 
-  if (duong.indexOf('/api/') === 0) {
-    Promise.resolve()
-      .then(function () { return api.xuLy(req, res, duong, tv); })
-      .catch(function (e) {
-        var ma = (e && e.ma) || 500;
-        /* lỗi do client gửi sai thì không coi là sự cố server */
-        if (ma >= 500) console.error('[api]', duong, e && e.stack || e);
-        if (!res.headersSent) {
-          res.writeHead(ma, { 'Content-Type': 'application/json; charset=utf-8' });
-          res.end(JSON.stringify({ loi: (e && e.message) || 'Lỗi server.' }));
-        }
+function taoUngDungSanXuat(env, overrides) {
+  env = env || process.env;
+  const options = overrides || {};
+  const dbPathAllowlist = trustedDbAllowlist(env);
+  const dbPath = validateEntrypointDbPath(selectedDbPath(env, options), env, dbPathAllowlist);
+  return taoUngDung(Object.assign({}, options, {
+    env: env,
+    dbPath: dbPath,
+    schedulerFactory: options.schedulerFactory || taoScheduler,
+    dbPathAllowlist: dbPathAllowlist
+  }));
+}
+
+function getLegacyApp() {
+  if (!legacyApp) legacyApp = taoUngDungSanXuat(process.env);
+  return legacyApp;
+}
+
+async function main(env, overrides) {
+  env = env || process.env;
+  const mainOptions = Object.assign({}, overrides || {});
+  if (env.THDC_ENTRYPOINT_PROBE === "1") {
+    mainOptions.logger = {
+      debug: function () {},
+      info: function () {},
+      warn: function () {},
+      error: function () {}
+    };
+    mainOptions.testHooks = Object.assign({}, mainOptions.testHooks || {}, {
+      onRequestTracked: function () {
+        process.stdout.write(JSON.stringify({event: "request-tracked"}) + "\n");
+      }
+    });
+  }
+  const app = taoUngDungSanXuat(env, mainOptions);
+  legacyApp = app;
+  let signalStopping = null;
+
+  function shutdown() {
+    if (!signalStopping) {
+      try {
+        signalStopping = Promise.resolve(app.stop());
+      } catch (error) {
+        signalStopping = Promise.reject(error);
+      }
+      signalStopping = signalStopping.then(function () {
+        process.exitCode = 0;
+      }).catch(function (error) {
+        void error;
+        process.stderr.write("SERVER_STOP_FAILED\n");
+        process.exitCode = 1;
       });
-    return;
+    }
+    return signalStopping;
   }
 
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.writeHead(405); return res.end();
+  process.once("SIGINT", shutdown);
+  process.once("SIGTERM", shutdown);
+  if (app.scheduler && typeof app.scheduler._datSignalHandlerInstalled === "function") {
+    app.scheduler._datSignalHandlerInstalled(true);
   }
-  var tep = tinhTep(duong);
-  if (!tep) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
-  traFile(res, tep);
-});
-
-/* -------------------------------------------------------------- scheduler */
-var NHIP_MS = parseInt(process.env.THDC_NHIP || '3000', 10);
-var dangNhip = false;
-var boDem = setInterval(function () {
-  if (dangNhip) return;
-  dangNhip = true;
-  try {
-    var n = tg.nhip();
-    if (n > 0 && process.env.THDC_AM === '1') console.log('[nhip] đã tua ' + n + ' đế quốc');
-  } catch (e) { console.error('[nhip]', e && e.stack || e); }
-  dangNhip = false;
-}, NHIP_MS);
-
-/* dọn phiên hết hạn mỗi giờ */
-var boDon = setInterval(function () {
-  try {
-    var gio = Math.floor(Date.now() / 1000);
-    kho.q.phienDonRac.run(gio);
-    kho.q.hdDonRac.run(gio - 86400);
-  } catch (e) { }
-}, 3600 * 1000);
-
-function tat() {
-  clearInterval(boDem); clearInterval(boDon);
-  try { server.close(); } catch (e) { }
-  try { kho.dong(); } catch (e) { }
-  process.exit(0);
+  await app.start();
+  if (env.THDC_ENTRYPOINT_PROBE === "1") {
+    process.stdout.write(JSON.stringify({port: app.server.address().port}) + "\n");
+  }
+  return app;
 }
-process.on('SIGINT', tat);
-process.on('SIGTERM', tat);
 
-server.listen(CONG, function () {
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║  THIÊN HÀ ĐẠI CHIẾN — máy chủ nhiều người chơi        ║');
-  console.log('╚══════════════════════════════════════════════════════╝');
-  console.log('  Địa chỉ      : http://localhost:' + CONG + '/');
-  console.log('  Bản một người: http://localhost:' + CONG + '/motnguoi');
-  console.log('  Database     : ' + (process.env.THDC_DB || path.join(__dirname, 'data', 'thdc.db')));
-  console.log('  Hạt giống    : ' + tg.seed());
-  console.log('  Tài khoản    : ' + kho.q.tkDem.get().n + ' · hành tinh đã có chủ: ' + kho.q.htDem.get().n);
-  if (SO_NANG_CAP) console.log('  Migration    : đã nâng ' + SO_NANG_CAP + ' đế quốc lên state v' + G.STATE_VERSION);
-  console.log('  Tốc độ       : sản xuất x' + G.C.TOC_DO_SERVER + ' · bay x' + G.C.TOC_DO_BAY +
-    ' · bảo trì mỗi ' + (G.C.CHU_KY_BAO_TRI / 3600) + ' giờ');
-  console.log('  Nhịp tua     : ' + NHIP_MS + 'ms');
+if (require.main === module) {
+  main(process.env).catch(function () {
+    process.stderr.write("SERVER_START_FAILED\n");
+    process.exitCode = 1;
+  });
+}
+
+module.exports.taoUngDung = taoUngDung;
+module.exports.taoUngDungSanXuat = taoUngDungSanXuat;
+module.exports.main = main;
+module.exports.getLegacyApp = getLegacyApp;
+module.exports.trustedDbAllowlist = trustedDbAllowlist;
+["server", "kho", "tg", "api"].forEach(function (name) {
+  Object.defineProperty(module.exports, name, {
+    enumerable: true,
+    get: function () { return getLegacyApp()[name]; }
+  });
 });
-
-module.exports = { server: server, kho: kho, tg: tg, api: api };

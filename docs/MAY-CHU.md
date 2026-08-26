@@ -838,3 +838,46 @@ có thể đổi.
   `tools/test-server.js` coi việc log có hai tiền tố này là kiểm tra **không đạt**.
 - Số liệu nhanh: `/api/thongtin` trả số tài khoản và số hành tinh đã có chủ; dòng
   `bangtin` mới nhất cho biết vũ trụ có đang sống hay không.
+
+### Chuyển sang durable scheduler và quay lui
+
+Chuyển chế độ là thao tác bảo trì cục bộ, không phải API HTTP và không được tự
+chạy khi server khởi động. Trước khi chuyển, dừng tiến trình ghi vào database và
+tạo bản sao SQLite nhất quán bằng `.backup` (hoặc dừng server rồi copy đủ
+`.db`, `-wal`, `-shm`). Giữ bản sao này cho tới khi đã xác nhận scheduler chạy
+ổn định.
+
+Kiểm tra chế độ hiện tại trước khi thao tác:
+
+```sql
+SELECT value FROM scheduler_meta WHERE key='scheduler_mode';
+```
+
+Chỉ chạy từ máy chủ có quyền đọc/ghi file database:
+
+```bash
+node tools/scheduler-cutover.js --db /duong-dan/thdc.db --action cutover
+node tools/scheduler-cutover.js --db /duong-dan/thdc.db --action rollback
+```
+
+Lệnh cutover chỉ in bản tóm tắt an toàn
+`{"action":"cutover","mode":"durable","imported":N,"recovered":N}`;
+lệnh rollback thành công chỉ in
+`{"action":"rollback","mode":"legacy","restored":true}`. Không đưa
+payload, state tài khoản, token hoặc snapshot vào log/đầu ra. Mã lỗi không-0 là
+mã thao tác an toàn; đặc biệt `CUTOVER_PREFLIGHT_BUDGET_EXHAUSTED` nghĩa là có
+hơn 50.000 primitive đến hạn và database vẫn ở `legacy`, không có cutover audit.
+
+Sau cutover, kiểm tra `scheduler_mode='durable'`, readiness/health của tiến
+trình, log không có lỗi lease, và số liệu scheduler (writer sở hữu lease, queue,
+application, retry/quarantine). Đối chiếu lại sau ít nhất một chu kỳ reconcile.
+Các tương tác đã quá hạn được ghi với kết quả `RECOVERED_LATEST_STATE` /
+`recovered-latest-state`: scheduler lấy canonical state tại lúc cutover và không
+diễn lại lịch sử chiến đấu ở timestamp cũ.
+
+Rollback chỉ được phép trước durable effect đầu tiên: snapshot cutover còn tồn
+tại, không có `durable_first_mutation_at_ms` và chưa có `event_applications`.
+Nó khôi phục nguyên trạng snapshot pre-cutover. Sau bất kỳ command, reconciliation
+ghi dữ liệu, hoặc application nào, rollback bị từ chối với
+`DURABLE_EFFECT_ALREADY_APPLIED`; cách quay lui duy nhất khi đó là dừng server
+và khôi phục bản sao SQLite nhất quán đã tạo trước cutover.

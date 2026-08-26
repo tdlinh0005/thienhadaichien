@@ -2,6 +2,8 @@
  * Không phụ thuộc gói ngoài nào. File dữ liệu: server/data/thdc.db          */
 'use strict';
 var fs = require('fs'), path = require('path');
+var assertSupportedNode = require('./runtime-version.js').assertSupportedNode;
+assertSupportedNode(process.versions.node);
 var sqlite = require('node:sqlite');
 
 var SCHEMA = [
@@ -169,9 +171,21 @@ function moDB(duong) {
 }
 
 /* ---------- lớp truy vấn ---------- */
-function Kho(duong) {
+function Kho(duong, options) {
+  options = options || {};
+  if (duong === ':memory:' && options.allowMemoryDb !== true)
+    throw new Error('allowMemoryDb is test-only');
   this.db = moDB(duong);
   this.duong = duong;
+  this.clock = options.clock;
+  this.logger = options.logger;
+  this.onTransaction = typeof options.onTransaction === 'function' ? options.onTransaction : null;
+  this.onIdleWait = typeof options.onIdleWait === 'function' ? options.onIdleWait : null;
+  this.idleWaiters = [];
+  this.transactionDepth = 0;
+  this.transactionRollbackOnly = false;
+  this.transactionFailure = null;
+  this._schedulerFinalizers = null;
   var d = this.db;
   this.q = {
     cauhinhGet: d.prepare('SELECT v FROM cauhinh WHERE k=?'),
@@ -194,8 +208,14 @@ function Kho(duong) {
     phienDonRac: d.prepare('DELETE FROM phien WHERE hetHan<?'),
 
     dqGet: d.prepare('SELECT * FROM dq WHERE tk=?'),
-    dqThem: d.prepare('INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'),
-    dqLuu: d.prepare('UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'),
+    dqThem: d.prepare(
+      'INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,' +
+      'keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'
+    ),
+    dqLuu: d.prepare(
+      'UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,' +
+      'keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'
+    ),
     dqLuuState: d.prepare('UPDATE dq SET state=?,capNhat=? WHERE tk=?'),
     dqDenHan: d.prepare('SELECT tk FROM dq WHERE keTiep<=? ORDER BY keTiep,tk LIMIT ?'),
     dqXepHang: d.prepare(`SELECT dq.tk, dq.diem, dq.diemCT, dq.diemNC, dq.diemHam, dq.diemThu,
@@ -207,8 +227,14 @@ function Kho(duong) {
     dqTongLM: d.prepare('SELECT lm, COUNT(*) sl, SUM(diem) diem FROM dq WHERE lm IS NOT NULL GROUP BY lm'),
 
     htXoaCua: d.prepare('DELETE FROM ht WHERE tk=?'),
-    htThem: d.prepare('INSERT INTO ht(td,tk,ten,pi,thuDo) VALUES(?,?,?,?,?) ON CONFLICT(td) DO UPDATE SET tk=excluded.tk,ten=excluded.ten,pi=excluded.pi,thuDo=excluded.thuDo'),
-    htGet: d.prepare('SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht JOIN tk ON tk.id=ht.tk JOIN dq ON dq.tk=ht.tk WHERE ht.td=?'),
+    htThem: d.prepare(
+      'INSERT INTO ht(td,tk,ten,pi,thuDo) VALUES(?,?,?,?,?) ON CONFLICT(td) DO UPDATE SET ' +
+      'tk=excluded.tk,ten=excluded.ten,pi=excluded.pi,thuDo=excluded.thuDo'
+    ),
+    htGet: d.prepare(
+      'SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht JOIN tk ON tk.id=ht.tk ' +
+      'JOIN dq ON dq.tk=ht.tk WHERE ht.td=?'
+    ),
     htTrongHe: d.prepare(`SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht
                           JOIN tk ON tk.id=ht.tk JOIN dq ON dq.tk=ht.tk WHERE ht.td LIKE ?`),
     htDem: d.prepare('SELECT COUNT(*) n FROM ht'),
@@ -250,10 +276,16 @@ function Kho(duong) {
                          AND (g.tkA=g.tkD OR (a.lm IS NOT NULL AND a.lm=d0.lm))
                        ORDER BY g.td,g.tkA,g.fid`),
     npcGet: d.prepare('SELECT data FROM npc WHERE key=?'),
-    npcSet: d.prepare('INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,t=excluded.t'),
+    npcSet: d.prepare(
+      'INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET ' +
+      'data=excluded.data,t=excluded.t'
+    ),
 
     plGet: d.prepare('SELECT kl,tt FROM pl WHERE td=?'),
-    plSet: d.prepare('INSERT INTO pl(td,kl,tt) VALUES(?,?,?) ON CONFLICT(td) DO UPDATE SET kl=excluded.kl,tt=excluded.tt'),
+    plSet: d.prepare(
+      'INSERT INTO pl(td,kl,tt) VALUES(?,?,?) ON CONFLICT(td) DO UPDATE SET ' +
+      'kl=excluded.kl,tt=excluded.tt'
+    ),
     plTrongHe: d.prepare('SELECT td,kl,tt FROM pl WHERE td LIKE ? AND (kl>0 OR tt>0)'),
 
     lmDS: d.prepare(`SELECT lm.*, (SELECT COUNT(*) FROM dq WHERE dq.lm=lm.ten) sl,
@@ -292,8 +324,14 @@ function Kho(duong) {
     btDS: d.prepare('SELECT * FROM bangtin ORDER BY khi DESC, id DESC LIMIT ?'),
 
     chatThem: d.prepare('INSERT INTO chat(khi,tk,ten,lm,kenh,noi) VALUES(?,?,?,?,?,?)'),
-    chatChung: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='chung' AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
-    chatLM: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='lienminh' AND lm=? AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
+    chatChung: d.prepare(
+      "SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='chung' AND khi>=? " +
+      "ORDER BY khi DESC,id DESC LIMIT ?"
+    ),
+    chatLM: d.prepare(
+      "SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='lienminh' AND lm=? " +
+      "AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"
+    ),
     chatLMXoa: d.prepare("DELETE FROM chat WHERE kenh='lienminh' AND lm=?"),
     chatDonRac: d.prepare('DELETE FROM chat WHERE khi<?'),
 
@@ -307,10 +345,98 @@ Kho.prototype.cauhinh = function (k, v) {
   this.q.cauhinhSet.run(k, String(v));
   return v;
 };
-Kho.prototype.giaoDich = function (f) {
-  this.db.exec('BEGIN');
-  try { var kq = f(); this.db.exec('COMMIT'); return kq; }
-  catch (e) { try { this.db.exec('ROLLBACK'); } catch (e2) { } throw e; }
+Kho.prototype._baoRanh = function () {
+  if (this.transactionDepth !== 0) return;
+  this.idleWaiters.splice(0).forEach(function (resolve) { resolve(); });
+};
+Kho.prototype.choRanh = function () {
+  var self = this;
+  if (self.onIdleWait) self.onIdleWait(self.transactionDepth);
+  if (self.transactionDepth === 0) return Promise.resolve();
+  return new Promise(function (resolve) { self.idleWaiters.push(resolve); });
+};
+Kho.prototype.trongGiaoDich = function (f, options) {
+  options = options || {};
+  var self = this;
+  function chayDongBo() {
+    var result = f();
+    if (result && typeof result.then === 'function') {
+      var asyncError = new TypeError('UNIT_OF_WORK_ASYNC');
+      asyncError.code = 'UNIT_OF_WORK_ASYNC';
+      throw asyncError;
+    }
+    return result;
+  }
+  if (this.transactionDepth > 0) {
+    this.transactionDepth++;
+    try { return chayDongBo(); }
+    catch (error) {
+      if (!this.transactionRollbackOnly) {
+        this.transactionRollbackOnly = true;
+        this.transactionFailure = error;
+      }
+      throw error;
+    }
+    finally { this.transactionDepth--; }
+  }
+
+  var immediate = options.immediate === true;
+  this.transactionRollbackOnly = false;
+  this.transactionFailure = null;
+  this._schedulerFinalizers = [];
+  this.db.exec(immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+  this.transactionDepth = 1;
+  try {
+    var result;
+    try {
+      if (this.onTransaction) this.onTransaction(immediate ? 'begin-immediate' : 'begin');
+      result = chayDongBo();
+      if (this.transactionRollbackOnly) throw this.transactionFailure;
+      for (var i = 0; i < this._schedulerFinalizers.length; i++) {
+        this._schedulerFinalizers[i]();
+        if (this.transactionRollbackOnly) throw this.transactionFailure;
+      }
+      this.db.exec('COMMIT');
+    } catch (error) {
+      var failure = this.transactionRollbackOnly ? this.transactionFailure : error;
+      try { this.db.exec('ROLLBACK'); } catch (rollbackError) { void rollbackError; }
+      this.transactionDepth = 0;
+      if (this.onTransaction) {
+        try { this.onTransaction('rollback'); } catch (rollbackObserverError) { void rollbackObserverError; }
+      }
+      throw failure;
+    }
+    this.transactionDepth = 0;
+    if (this.onTransaction) this.onTransaction('commit');
+    return result;
+  } finally {
+    self.transactionDepth = 0;
+    self.transactionRollbackOnly = false;
+    self.transactionFailure = null;
+    self._schedulerFinalizers = null;
+    self._baoRanh();
+  }
+};
+Kho.prototype.giaoDich = Kho.prototype.trongGiaoDich;
+Kho.prototype.dangKySchedulerFinalizer = function (fn) {
+  if (typeof fn !== 'function') throw new Error('SCHEDULER_FINALIZER_INVALID');
+  if (this.transactionDepth === 0 || !this._schedulerFinalizers) {
+    throw new Error('SCHEDULER_FINALIZER_TRANSACTION_REQUIRED');
+  }
+  if (this._schedulerFinalizers.indexOf(fn) < 0) this._schedulerFinalizers.push(fn);
+};
+Kho.prototype.schedulerStatements = function () {
+  if (this._schedulerStatements) return this._schedulerStatements;
+  var columns = this.db.prepare('PRAGMA table_info(dq)').all().map(function (row) {
+    return row.name;
+  });
+  if (columns.indexOf('revision') < 0) throw new Error('SCHEDULER_SCHEMA_REQUIRED');
+  this._schedulerStatements = {dqLuu: this.db.prepare(
+    'UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,' +
+    'lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=?,revision=revision+1 WHERE tk=? ' +
+    'RETURNING revision'
+  )};
+  return this._schedulerStatements;
 };
 Kho.prototype.dong = function () { try { this.db.close(); } catch (e) { } };
 

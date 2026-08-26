@@ -1,39 +1,83 @@
 /* Gộp toàn bộ game vào một file HTML duy nhất: node tools/build.js [file-ra] */
-var fs = require('fs'), path = require('path');
-var goc = path.join(__dirname, '..');
-var html = fs.readFileSync(path.join(goc, 'index.html'), 'utf8');
-var css = fs.readFileSync(path.join(goc, 'css', 'style.css'), 'utf8');
-var thuTu = ['data', 'util', 'galaxy', 'combat', 'engine', 'fleet', 'actions', 'ui', 'app', 'main'];
-var artifactSom = process.argv.indexOf('--artifact') >= 0;
-var js = thuTu.map(function (f) {
-  return '/* ===== js/' + f + '.js ===== */\n' + fs.readFileSync(path.join(goc, 'js', f + '.js'), 'utf8');
-}).join('\n');
+const fs = require("node:fs");
+const path = require("node:path");
+const manifest = require("./source-manifest.js");
 
-/* Trong Artifact, trình xem không cấp quyền tải file: bỏ hẳn đoạn tạo blob + link tải */
-if (artifactSom) {
-  js = js.replace(/\/\*\[TAI-FILE-BAT-DAU\][\s\S]*?\[TAI-FILE-KET-THUC\]\*\//,
-    "    'xuat-file': function () { U.toast('Môi trường này không tải file được — hãy dùng nút Sao chép.', 'loi'); },");
+const root = path.join(__dirname, "..");
+
+function styleMarker(file) {
+  return '<style data-source="' + file + '" data-sha256="' +
+    manifest.styleHashes[file] + '">';
 }
 
-/* dùng hàm thay thế: nội dung có ký tự $ sẽ bị hiểu là mẫu $' , $& nếu truyền chuỗi */
-html = html.replace('<link rel="stylesheet" href="css/style.css">', function () { return '<style>\n' + css + '\n</style>'; });
-html = html.replace(/\n?\s*<script src="js\/[a-z]+\.js"><\/script>/g, '');
-html = html.replace('</body>', function () { return '<script>\n' + js + '\n<' + '/script>\n</body>'; });
-html = html.replace('<a href="docs/NGHIEN-CUU.md">phần nghiên cứu</a>',
-  '<a href="https://github.com/tdlinh0005/thienhadaichien/blob/main/docs/NGHIEN-CUU.md" target="_blank" rel="noreferrer">phần nghiên cứu</a>');
-
-/* Chế độ --artifact: bỏ khung <!doctype>/<html>/<head>/<body> để nhúng làm Artifact */
-var artifact = process.argv.indexOf('--artifact') >= 0;
-if (artifact) {
-  var tieuDe = /<title>([^<]*)<\/title>/.exec(html)[1];
-  var style = /<style>[\s\S]*?<\/style>/.exec(html)[0];
-  var than = html.slice(html.indexOf('<body>') + 6, html.lastIndexOf('</body>'));
-  html = '<title>' + tieuDe + '</title>\n' + style + '\n' +
-    '<script>window.THDC_ARTIFACT=true;<' + '/script>\n' + than;
+function scriptMarker(file) {
+  return "/* source: " + file + " sha256:" + manifest.scriptHashes[file] + " */";
 }
 
-var ra = process.argv.filter(function (a) { return a.indexOf('--') !== 0; })[2] ||
-  path.join(goc, 'dist', artifact ? 'artifact.html' : 'thien-ha-dai-chien.html');
-fs.mkdirSync(path.dirname(ra), { recursive: true });
-fs.writeFileSync(ra, html);
-console.log('Đã ghi ' + ra + ' (' + Math.round(html.length / 1024) + ' KB)');
+function inlineStyles(html) {
+  for (const file of manifest.browserStyles) {
+    const tag = '<link rel="stylesheet" href="' + file + '">';
+    if (!html.includes(tag)) throw new Error("Không tìm thấy stylesheet " + file);
+    html = html.replace(tag, () => {
+      return styleMarker(file) + manifest.styleContents[file] + "</style>";
+    });
+  }
+  return html;
+}
+
+function inlineScripts(html) {
+  for (const file of manifest.browserScripts) {
+    const tag = '<script src="' + file + '"></script>';
+    if (!html.includes(tag)) throw new Error("Không tìm thấy script " + file);
+    html = html.replace("\n" + tag, "");
+  }
+  const blocks = manifest.browserScripts.map(file => {
+    return scriptMarker(file) + "\n" + manifest.scriptContents[file];
+  });
+  return html.replace("</body>", () => {
+    return "<script>\n" + blocks.join("\n") + "</script>\n</body>";
+  });
+}
+
+function linkDocumentation(html) {
+  return html.replace(
+    '<a href="docs/NGHIEN-CUU.md">phần nghiên cứu</a>',
+    '<a href="' +
+      'https://github.com/tdlinh0005/thienhadaichien/blob/main/docs/NGHIEN-CUU.md" ' +
+      'target="_blank" rel="noreferrer">phần nghiên cứu</a>'
+  );
+}
+
+function makeEmbeddable(html) {
+  const title = /<title>([^<]*)<\/title>/.exec(html)[1];
+  const style = /<style\b[^>]*>[\s\S]*?<\/style>/.exec(html)[0];
+  const body = html.slice(html.indexOf("<body>") + 6, html.lastIndexOf("</body>"));
+  return "<title>" + title + "</title>\n" + style + "\n" +
+    "<script>window.THDC_ARTIFACT=true;</script>\n" + body;
+}
+
+function build({artifact = false, output} = {}) {
+  let html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  html = inlineStyles(html);
+  html = inlineScripts(html);
+  html = linkDocumentation(html);
+  if (artifact) html = makeEmbeddable(html);
+
+  const relativeOutput = manifest.artifactOutputs[artifact ? 1 : 0];
+  const outputFile = output || path.join(root, relativeOutput);
+  fs.mkdirSync(path.dirname(outputFile), {recursive: true});
+  fs.writeFileSync(outputFile, html);
+  return {outputFile, html};
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const artifact = args.includes("--artifact");
+  const output = args.find(argument => !argument.startsWith("--"));
+  const result = build({artifact, output});
+  console.log("Đã ghi " + result.outputFile + " (" + Math.round(result.html.length / 1024) + " KB)");
+}
+
+if (require.main === module) main();
+
+module.exports = {build};

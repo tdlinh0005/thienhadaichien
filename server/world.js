@@ -7,20 +7,30 @@
  *   - NPC và bãi phế liệu là TÀI SẢN CHUNG của server (bảng npc / pl)      */
 'use strict';
 var G = require('./rules.js').G;
+var taoClock = require('./clock.js').taoClock;
+var schedulerEvents = require('./scheduler/events.js');
 
 var CACH_LAU_MOI_VAO = 7 * 86400;   // quá 7 ngày không vào -> hiện "lâu không vào"
 var ONLINE = 300;                   // 5 phút
 var CHIEN_CHO = 24 * 3600;          // Hội Đồng Bảo An chỉ cho đánh sau 24 giờ
 
-function TheGioi(kho) {
+function TheGioi(kho, options) {
+  options = options || {};
   this.kho = kho;
+  this.clock = options.clock || taoClock();
+  this.gameNow = function () { return Math.floor(this.clock.nowMs() / 1000); };
+  this.scheduler = null;
+  this._scheduler = null;
+  this._advanceService = null;
+  this._schedulerMutation = null;
   this.dangTick = new Set();
   this.chuStack = [];
   this.mocTick = [];                 // horizon cố định của TheGioi.tick ngoài cùng
   this.ctx = null;
   this.sau = 0;
   this._seed = null;
-  G.HOOK = this.veHook();
+  this.rulesHook = this.veHook();
+  if (options.scheduler) this.datScheduler(options.scheduler);
 }
 
 /* Nâng toàn bộ state đã lưu trước khi server bắt đầu nhận request. Mọi bản
@@ -30,7 +40,7 @@ function TheGioi(kho) {
 TheGioi.prototype.nangCapDuLieu = function () {
   var rows = this.kho.db.prepare('SELECT tk,state FROM dq ORDER BY tk').all();
   var tatCa = [], canLuu = new Set(), soNangCap = 0;
-  var now = Math.floor(Date.now() / 1000), i;
+  var now = this.gameNow(), i;
   for (i = 0; i < rows.length; i++) {
     var st;
     try { st = JSON.parse(rows[i].state); }
@@ -115,7 +125,7 @@ TheGioi.prototype.seed = function () {
   if (!s) {
     s = 'THDC-' + Math.floor(Math.random() * 1e9);
     this.kho.cauhinh('seed', s);
-    this.kho.cauhinh('moLuc', String(Math.floor(Date.now() / 1000)));
+    this.kho.cauhinh('moLuc', String(this.gameNow()));
   }
   this._seed = s;
   return s;
@@ -131,7 +141,8 @@ TheGioi.prototype.seed = function () {
 TheGioi.prototype.batDau = function () {
   if (!this.ctx) this.ctx = {
     npc: new Map(), npcBan: new Set(), pl: new Map(), plBan: new Set(),
-    states: new Map(), dirty: new Map(), bangTin: [], tran: [], huy: false
+    states: new Map(), dirty: new Map(), bangTin: [], tran: [], huy: false,
+    schedulerLuu: new Map(), schedulerCreations: new Map()
   };
   this.sau++;
 };
@@ -140,10 +151,15 @@ TheGioi.prototype.ketThuc = function (thanhCong) {
   if (--this.sau > 0) return;
   var c = this.ctx; this.ctx = null;
   if (!c || c.huy) return;
-  var kho = this.kho, now = Math.floor(Date.now() / 1000);
+  var kho = this.kho, mutation = c.schedulerMutation,
+    now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
   var self = this;
-  kho.giaoDich(function () {
-    self._ghiNhieu(Array.from(c.dirty, function (x) { return { tk: x[0], st: x[1] }; }), now);
+  var joined = kho.transactionDepth > 0;
+  kho.trongGiaoDich(function () {
+    var revisions = self._ghiNhieu(Array.from(c.dirty, function (x) { return { tk: x[0], st: x[1] }; }), now,
+      c.schedulerLuu);
+    if (mutation) self._dongBoSchedulerCreations(c, now);
+    if (mutation) self._dongBoSchedulerLuu(c, revisions);
     c.npcBan.forEach(function (k) {
       var n = c.npc.get(k);
       if (n) kho.q.npcSet.run(k, JSON.stringify(n), now);
@@ -154,7 +170,71 @@ TheGioi.prototype.ketThuc = function (thanhCong) {
     });
     for (var i = 0; i < c.tran.length; i++) kho.q.tranThem.run.apply(kho.q.tranThem, c.tran[i]);
     for (var j = 0; j < c.bangTin.length; j++) kho.q.btThem.run.apply(kho.q.btThem, c.bangTin[j]);
-  });
+    if (mutation) {
+      if (joined) kho.dangKySchedulerFinalizer(function () { self._assertSchedulerFinalFence(mutation); });
+      else self._assertSchedulerFinalFence(mutation);
+    }
+  }, {immediate: true});
+  if (!c.schedulerLuu.size && !c.schedulerCreations.size) return;
+  var receipts = new Map();
+  c.schedulerLuu.forEach(function (item, accountId) { receipts.set(accountId, item.receipt); });
+  c.schedulerCreations.forEach(function (item, accountId) { receipts.set(accountId, item.receipt); });
+  return receipts;
+};
+
+function schedulerMutationError(mutation) {
+  if (!mutation || typeof mutation !== 'object' || !mutation.leaseToken) return 'SCHEDULER_MUTATION_TOKEN_REQUIRED';
+  if (!mutation.remainingBudget || typeof mutation.remainingBudget !== 'object' ||
+      !Number.isSafeInteger(mutation.remainingBudget.value) || mutation.remainingBudget.value < 0 ||
+      mutation.remainingBudget.value > 50000 || !Number.isSafeInteger(mutation.effectiveNowMs) ||
+      mutation.effectiveNowMs < 0) return 'SCHEDULER_MUTATION_INVALID';
+  return null;
+}
+TheGioi.prototype.datScheduler = function (store) {
+  var required = ['assertLiveLease','replaceAccountAdvance','listDerivedJobsForAccount','schedule',
+    'invalidateGlobalJob','prepareDeletedAccountJobResolution'];
+  if (!store || required.some(function (name) { return typeof store[name] !== 'function'; })) {
+    throw new Error('SCHEDULER_STORE_INVALID');
+  }
+  if (!this._scheduler) { this._scheduler = this.scheduler = store; return; }
+  if (this._scheduler !== store) throw new Error('SCHEDULER_STORE_ALREADY_INSTALLED');
+};
+TheGioi.prototype.datAdvanceService = function (service) {
+  if (!service || typeof service.advanceTo !== 'function' || service.advanceTo.length !== 4) {
+    throw new Error('SCHEDULER_ADVANCE_SERVICE_INVALID');
+  }
+  if (!this._advanceService) { this._advanceService = service; return; }
+  if (this._advanceService !== service) throw new Error('SCHEDULER_ADVANCE_SERVICE_ALREADY_INSTALLED');
+};
+TheGioi.prototype.trongMutationScheduler = function (mutation, fn) {
+  var error = schedulerMutationError(mutation);
+  if (error) throw new Error(error);
+  if (typeof fn !== 'function') throw new Error('SCHEDULER_MUTATION_INVALID');
+  if (this._schedulerMutation && this._schedulerMutation !== mutation) {
+    throw new Error('SCHEDULER_MUTATION_TOKEN_CONFLICT');
+  }
+  var outer = !this._schedulerMutation;
+  this._schedulerMutation = mutation;
+  try { return fn(); }
+  finally { if (outer) this._schedulerMutation = null; }
+};
+TheGioi.prototype._schedulerActive = function (mutation) {
+  var error = schedulerMutationError(mutation);
+  if (error) throw new Error(error);
+  if (!this._schedulerMutation) throw new Error('SCHEDULER_MUTATION_TOKEN_REQUIRED');
+  if (this._schedulerMutation !== mutation) throw new Error('SCHEDULER_MUTATION_TOKEN_CONFLICT');
+  return mutation;
+};
+TheGioi.prototype.advanceAccountNoiBo = function (mutation, accountId, targetS, saveOptions) {
+  // Scheduler ABI: advanceTo(mutation,accountId,targetS,saveOptions).
+  this._schedulerActive(mutation);
+  if (!this._advanceService) throw new Error('SCHEDULER_ADVANCE_SERVICE_INVALID');
+  return this._advanceService.advanceTo(mutation, accountId, targetS, saveOptions);
+};
+TheGioi.prototype._assertSchedulerFinalFence = function (mutation) {
+  var error = schedulerMutationError(mutation);
+  if (error) throw new Error(error);
+  this._scheduler.assertLiveLease(mutation.leaseToken, mutation.effectiveNowMs);
 };
 
 TheGioi.prototype.ghiBangTin = function () {
@@ -223,6 +303,22 @@ TheGioi.prototype.veHook = function () {
   };
 };
 
+TheGioi.prototype.withRulesHook = function (fn) {
+  var prior = G.HOOK;
+  G.HOOK = this.rulesHook;
+  try {
+    var value = fn();
+    if (value && typeof value.then === 'function') {
+      var error = new TypeError('WORLD_RULES_HOOK_ASYNC');
+      error.code = 'WORLD_RULES_HOOK_ASYNC';
+      throw error;
+    }
+    return value;
+  } finally {
+    G.HOOK = prior;
+  }
+};
+
 /* ----------------------------------------------------- chiến tranh / đồng minh */
 TheGioi.prototype.laDongMinh = function (tkA, tkD) {
   var a = this.kho.q.dqGet.get(tkA), d = this.kho.q.dqGet.get(tkD);
@@ -232,7 +328,7 @@ TheGioi.prototype.laDongMinh = function (tkA, tkD) {
 /* Luật nguồn 2006: lệnh chiến tranh nhắm tới một người chơi; nếu bên tuyên
    đang ở liên minh thì quyền đánh thuộc về liên minh và thành viên hiện tại. */
 TheGioi.prototype.quyenDanh = function (tkA, tkD, now) {
-  now = Math.floor(+now || Date.now() / 1000);
+  now = Math.floor(+now || this.gameNow());
   var a = this.kho.q.dqGet.get(tkA), d = this.kho.q.dqGet.get(tkD);
   if (!a || !d) return { duoc: false, trang: 'khongco', loi: 'Không tìm thấy một trong hai đế quốc.' };
   if (tkA === tkD) return { duoc: false, trang: 'cuaminh', loi: 'Không thể tấn công chính mình.' };
@@ -298,7 +394,7 @@ TheGioi.prototype.oNguoi = function (st, c) {
   var r = this.kho.q.htGet.get(td);
   if (!r) return null;
   if (r.tk === this.chuHienTai()) return null;      // hành tinh của chính mình
-  var now = Math.floor(Date.now() / 1000);
+  var now = this.gameNow();
   return {
     loai: 'nguoi', key: td, c: c, tk: r.tk, pi: r.pi,
     htTen: r.ten, ten: r.hienthi, lm: r.lm || '', diem: r.diem,
@@ -318,6 +414,10 @@ TheGioi.prototype.nap = function (tk) {
   var out = { row: r, st: st };
   if (this.ctx) this.ctx.states.set(tk, out);
   return out;
+};
+TheGioi.prototype.layStateNoiBo = function (tk) {
+  var r = this.nap(tk);
+  return r ? r.st : null;
 };
 
 TheGioi.prototype._chuanBiLuu = function (tk, st, now) {
@@ -364,13 +464,22 @@ TheGioi.prototype._ghiChiMucHam = function (tk, st) {
 
 /* Được gọi bên trong đúng một SQLite transaction. Các phase cố ý tách rời:
    dq -> xoá projection cũ -> toàn bộ ht -> toàn bộ hạm. */
-TheGioi.prototype._ghiNhieu = function (ds, now) {
-  if (!ds || !ds.length) return;
+TheGioi.prototype._ghiNhieu = function (ds, now, schedulerLuu) {
+  if (!ds || !ds.length) return new Map();
   var kho = this.kho, self = this;
+  var revisions = new Map();
   ds.sort(function (a, b) { return a.tk - b.tk; });
   var p = ds.map(function (x) { return self._chuanBiLuu(x.tk, x.st, now); });
   p.forEach(function (x) {
-    kho.q.dqLuu.run(x.js, x.diem, x.ct, x.nc, x.ham, x.thu,
+    var item = schedulerLuu && schedulerLuu.get(x.tk), row;
+    if (item) {
+      row = kho.schedulerStatements().dqLuu.get(x.js, x.diem, x.ct, x.nc, x.ham, x.thu,
+        x.lastTick, x.ke, x.lm, x.soHT, x.now, x.tk);
+      if (!row) throw new Error('SCHEDULER_DQ_SAVE_CONFLICT');
+      var revision = Number(row.revision);
+      if (!Number.isSafeInteger(revision) || revision < 1) throw new Error('SCHEDULER_DQ_REVISION_INVALID');
+      revisions.set(x.tk, revision);
+    } else kho.q.dqLuu.run(x.js, x.diem, x.ct, x.nc, x.ham, x.thu,
       x.lastTick, x.ke, x.lm, x.soHT, x.now, x.tk);
   });
   p.forEach(function (x) {
@@ -383,10 +492,46 @@ TheGioi.prototype._ghiNhieu = function (ds, now) {
     }
   });
   p.forEach(function (x) { self._ghiChiMucHam(x.tk, x.st); });
+  return revisions;
 };
 
-TheGioi.prototype.luu = function (tk, st) {
-  var now = Math.floor(Date.now() / 1000);
+TheGioi.prototype.luu = function (tk, st, options) {
+  options = options || {};
+  var mutation = options.mutation;
+  if (this._scheduler) {
+    this._schedulerActive(mutation);
+    if (!this.ctx) {
+      var self = this, ownBatch = true, value, complete = false;
+      this.batDau();
+      try { value = this.luu(tk, st, options); complete = true; return value; }
+      finally { if (ownBatch) this.ketThuc(complete); }
+    }
+    var old = this.ctx.schedulerLuu.get(tk), supplied = options.protectedRecoveryRootIds;
+    if (supplied !== undefined && !(supplied instanceof Set)) throw new Error('SCHEDULER_PROTECTED_ROOTS_INVALID');
+    if (old && old.mutation !== mutation) throw new Error('SCHEDULER_MUTATION_TOKEN_CONFLICT');
+    if (!old) {
+      old = {tk: tk, st: st, mutation: mutation, receipt: {revision: null, nextLocalAtS: null},
+        options: {currentAccountAdvanceJobId: null, deferAccountWake: false, protectedRecoveryRootIds: new Set()}};
+      this.ctx.schedulerLuu.set(tk, old);
+    } else if (Object.isFrozen(old.receipt)) {
+      old.receipt = {revision: null, nextLocalAtS: null};
+    }
+    if (options.currentAccountAdvanceJobId !== undefined && options.currentAccountAdvanceJobId !== null) {
+      if (old.options.currentAccountAdvanceJobId !== null &&
+        old.options.currentAccountAdvanceJobId !== options.currentAccountAdvanceJobId) {
+        throw new Error('SCHEDULER_ACCOUNT_JOB_CONFLICT');
+      }
+      old.options.currentAccountAdvanceJobId = options.currentAccountAdvanceJobId;
+    }
+    old.options.deferAccountWake = old.options.deferAccountWake || options.deferAccountWake === true;
+    if (supplied) supplied.forEach(function (id) { old.options.protectedRecoveryRootIds.add(id); });
+    old.st = st;
+    this.ctx.dirty.set(tk, st);
+    if (!this.ctx.states.has(tk)) this.ctx.states.set(tk, { row: this.kho.q.dqGet.get(tk), st: st });
+    this.ctx.schedulerMutation = mutation;
+    return old.receipt;
+  }
+  var now = this.gameNow();
   var diem = Math.round(G.diem(st).tong);
   if (this.ctx) {
     this.ctx.dirty.set(tk, st);
@@ -396,6 +541,56 @@ TheGioi.prototype.luu = function (tk, st) {
   var self = this;
   this.kho.giaoDich(function () { self._ghiNhieu([{ tk: tk, st: st }], now); });
   return diem;
+};
+
+TheGioi.prototype._dongBoSchedulerLuu = function (ctx, revisions) {
+  var self = this, store = this._scheduler, mutation = ctx.schedulerMutation;
+  this._schedulerActive(mutation);
+  store.assertLiveLease(mutation.leaseToken, mutation.effectiveNowMs);
+  var all = this.kho.db.prepare('SELECT tk,state FROM dq ORDER BY tk').all(), owners = new Map();
+  all.forEach(function (row) {
+    var state = JSON.parse(row.state);
+    (state.planets || []).forEach(function (planet) { owners.set(G.tdKey(planet.c), Number(row.tk)); });
+  });
+  function ownerFor(key) { return owners.get(key) || null; }
+  ctx.schedulerLuu.forEach(function (item, accountId) {
+    var revision = revisions.get(accountId);
+    if (!Number.isSafeInteger(revision)) throw new Error('SCHEDULER_DQ_SAVE_CONFLICT');
+    var derived = schedulerEvents.deriveExternalJobs(accountId, item.st, ownerFor), live =
+      store.listDerivedJobsForAccount(mutation.leaseToken, accountId, mutation.effectiveNowMs), keys = new Set();
+    var protectedEntities = new Set();
+    live.forEach(function (row) {
+      if (!item.options.protectedRecoveryRootIds.has(row.logical_root_id)) return;
+      var ref = row.canonical_ref || {};
+      protectedEntities.add(String(ref.kind) + ':' + String(ref.fleetId || ref.missileId));
+    });
+    derived.forEach(function (job) {
+      var ref = job.payload && job.payload.ref || {};
+      var entity = String(ref.kind) + ':' + String(ref.fleetId || ref.missileId);
+      if (protectedEntities.has(entity)) return;
+      keys.add(job.idempotencyKey);
+      store.schedule(mutation.leaseToken, job, mutation.effectiveNowMs);
+    });
+    live.forEach(function (row) {
+      if (keys.has(row.logical_key) || item.options.protectedRecoveryRootIds.has(row.logical_root_id)) return;
+      var status = schedulerEvents.canonicalExternalStatus(self.kho, row.canonical_ref);
+      if (status === 'ALREADY_ABSENT' || status === 'REF_MISMATCH') {
+        store.invalidateGlobalJob(mutation.leaseToken, row.logical_root_id, status,
+          Number(row.logical_scheduled_at_s), mutation.effectiveNowMs);
+      }
+    });
+    var next = G.phanLoaiSuKienNoiBoKe(item.st, accountId, ownerFor);
+    var nextAtS = next ? next.atS : null;
+    if (!item.options.currentAccountAdvanceJobId && !item.options.deferAccountWake) {
+      store.replaceAccountAdvance(mutation.leaseToken, accountId, revision, nextAtS, mutation.effectiveNowMs);
+    }
+    if (Object.isFrozen(item.receipt)) {
+      item.receipt = {revision: null, nextLocalAtS: null};
+    }
+    item.receipt.revision = revision;
+    item.receipt.nextLocalAtS = nextAtS;
+  });
+  return ctx.schedulerLuu;
 };
 
 /* Startup luôn dựng lại projection từ JSON canonical, kể cả không có state
@@ -417,6 +612,54 @@ TheGioi.prototype._dongBoChiMucTrongGD = function (states) {
   states.forEach(function (x) { self._ghiChiMucHam(x.tk, x.st); });
 };
 
+TheGioi.prototype._chiMucTuCanonical = function (states) {
+  var accountIds = new Set(states.map(function (entry) { return Number(entry.tk); }));
+  var owners = new Map();
+  var out = {ht: [], hamdang: [], hamgiu: []};
+  var ordered = states.slice().sort(function (a, b) {
+    return Number(a.tk) - Number(b.tk);
+  });
+  ordered.forEach(function (entry) {
+    (entry.st.planets || []).forEach(function (planet, pi) {
+      var td = G.tdKey(planet.c);
+      if (owners.has(td) && owners.get(td) !== Number(entry.tk)) {
+        throw new Error('CANONICAL_TARGET_OWNER_CONFLICT');
+      }
+      owners.set(td, Number(entry.tk));
+      out.ht.push({td: td, tk: Number(entry.tk), ten: planet.ten, pi: pi,
+        thuDo: planet.thuDo ? 1 : 0});
+    });
+  });
+  ordered.forEach(function (entry) {
+    (entry.st.fleets || []).forEach(function (fleet) {
+      var td = G.tdKey(fleet.den);
+      var owner = owners.get(td);
+      if (fleet.pha === 'di' &&
+          ['attack', 'transport', 'hold'].indexOf(fleet.mission) >= 0 &&
+          Number.isSafeInteger(owner) &&
+          (owner !== Number(entry.tk) || fleet.mission === 'hold')) {
+        out.hamdang.push({tkA: Number(entry.tk), fid: Number(fleet.id), tkD: owner,
+          tu: G.tdKey(fleet.tu), den: td, nv: fleet.mission,
+          denT: Math.round(fleet.den_t), tenA: entry.st.ten,
+          lmA: entry.st.lm ? entry.st.lm.ten : null});
+      }
+      if (fleet.mission === 'hold' && fleet.pha === 'giu' &&
+          Number.isSafeInteger(Number(fleet.giuTaiTk)) &&
+          accountIds.has(Number(fleet.giuTaiTk)) &&
+          Number(fleet.giuLuc) >= 0 && Number(fleet.giuDen_t) > Number(fleet.giuLuc)) {
+        out.hamgiu.push({tkA: Number(entry.tk), fid: Number(fleet.id),
+          tkD: Number(fleet.giuTaiTk), tu: G.tdKey(fleet.tu), td: td,
+          giuLuc: Math.floor(fleet.giuLuc), giuDenT: Math.floor(fleet.giuDen_t),
+          tiepNLT: Math.floor(Number(fleet.tiepNL_t) || Number(fleet.giuDen_t))});
+      }
+    });
+  });
+  out.ht.sort(function (a, b) { return a.td.localeCompare(b.td); });
+  out.hamdang.sort(function (a, b) { return a.tkA - b.tkA || a.fid - b.fid; });
+  out.hamgiu.sort(function (a, b) { return a.tkA - b.tkA || a.fid - b.fid; });
+  return out;
+};
+
 TheGioi.prototype.dongBoChiMuc = function (states) {
   var self = this, kho = this.kho;
   if (!states) states = kho.db.prepare('SELECT tk,state FROM dq ORDER BY tk').all().map(function (r) {
@@ -429,7 +672,9 @@ TheGioi.prototype.dongBoChiMuc = function (states) {
 /* Hạm đội của người khác đang bay tới hành tinh của tài khoản này.
    Không lộ đội hình — muốn biết địch mang gì thì phải do thám. */
 TheGioi.prototype.hamDangToi = function (tk) {
-  var now = Math.floor(Date.now() / 1000);
+  var mutation = this._schedulerMutation;
+  var now = this._scheduler && mutation ?
+    Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
   var ds = this.kho.q.hdToi.all(tk, now - 30);
   var out = [];
   for (var i = 0; i < ds.length; i++) {
@@ -446,7 +691,7 @@ TheGioi.prototype.hamDangToi = function (tk) {
    toạ độ và liên minh hiện tại; đội hình không bao giờ xuất hiện ở API công
    khai bản đồ/xếp hạng nên người ngoài không thể dùng nó như báo cáo do thám. */
 TheGioi.prototype.hamGiuTai = function (tk) {
-  var now = Math.floor(Date.now() / 1000);
+  var now = this.gameNow();
   /* Không recursively tick tài khoản đồng minh từ GET của host. Row đã tới
      checkpoint nhiên liệu nhưng scheduler chưa tua owner được ẩn bảo thủ cho
      tới khi projection được refresh; combat luôn nạp/tick nên không dùng gap. */
@@ -468,10 +713,10 @@ TheGioi.prototype.hamGiuTai = function (tk) {
   return out;
 };
 
-/* Tua một đế quốc tới mốc `now` (mặc định: bây giờ) */
-TheGioi.prototype.tick = function (tk, now, dl) {
+/* Tua nội bộ một đế quốc tới mốc `now` (mặc định: bây giờ). */
+TheGioi.prototype._tickNoiBo = function (tk, now, dl) {
   if (this.dangTick.has(tk)) return null;
-  now = now || Math.floor(Date.now() / 1000);
+  now = now || this.gameNow();
   this.dangTick.add(tk);
   this.chuStack.push(tk);
   this.mocTick.push(now);
@@ -505,16 +750,14 @@ TheGioi.prototype.hanhDong = function (tk, ten, dl) {
       return { loi: 'Liên minh này không tồn tại.', st: hienTai ? hienTai.st : null };
     }
   }
-  var loi = null, st = null;
-  var kq = this.tick(tk, null, {
-    sau: function (s) {
-      st = s;
-      loi = G.HANHDONG[ten] ? (G.HANHDONG[ten](s, dl || {}) || null) : 'Hành động không tồn tại.';
-      return loi;
-    }
-  });
-  if (!kq) return { loi: 'Đế quốc đang được xử lý, thử lại sau một nhịp.' };
-  return { loi: loi, st: st };
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  if (!G.HANHDONG[ten]) return {loi: 'Hành động không tồn tại.', st: null};
+  var loaded = this.nap(Number(tk));
+  if (!loaded) return {loi: 'Đế quốc không tồn tại.', st: null};
+  var state = loaded.st;
+  var loi = G.HANHDONG[ten](state, dl || {}) || null;
+  this.luu(Number(tk), state, mutation ? {mutation: mutation} : undefined);
+  return {loi: loi, st: state};
 };
 
 /* ------------------------------------------------------------- PvP: tấn công */
@@ -524,7 +767,7 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
 
   /* Một DB latest-state không thể quay lại snapshot lịch sử. Mọi PvP due trong
      quãng offline được dời tới horizon CỐ ĐỊNH của tick request (không đọc
-     Date.now() ở đây, tránh mốc chạy mãi qua ranh giới giây), rồi chính vòng
+     đồng hồ tường ở đây, tránh mốc chạy mãi qua ranh giới giây), rồi chính vòng
      G.tick hiện tại sẽ gặp lại fleet ở horizon và giải quyết một lần. */
   var horizon = this.mocTick.length ? Math.floor(Number(this.mocTick[this.mocTick.length - 1])) : tTran;
   if (isFinite(horizon) && horizon > tTran) { f.den_t = horizon; return; }
@@ -590,7 +833,12 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
     var pi = -1;
     for (i = 0; i < d.st.planets.length; i++) if (G.tdKey(d.st.planets[i].c) === o.key) pi = i;
     if (pi < 0) {                       /* đối phương đã rời toạ độ này */
-      G.tin(st, 'tt', 'Mục tiêu đã biến mất', G.tdStr(f.den) + ' không còn là hành tinh của ' + o.ten + '. Hạm đội quay về.');
+      G.tin(
+        st,
+        'tt',
+        'Mục tiêu đã biến mất',
+        G.tdStr(f.den) + ' không còn là hành tinh của ' + o.ten + '. Hạm đội quay về.'
+      );
       veNha(null); return;
     }
     var dp = d.st.planets[pi];
@@ -599,9 +847,11 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
     var diemA = G.diem(st).tong, diemD = G.diem(d.st).tong;
     var chan = null;
     if (diemD < G.C.BAO_VE_MOI_DIEM && diemA > diemD * G.C.BAO_VE_MOI_TY_LE)
-      chan = 'Đối phương đang được bảo vệ người chơi mới (' + G.so(diemD) + ' điểm so với ' + G.so(diemA) + ' điểm của ta).';
+      chan = 'Đối phương đang được bảo vệ người chơi mới (' + G.so(diemD) +
+        ' điểm so với ' + G.so(diemA) + ' điểm của ta).';
     else if (diemA < G.C.BAO_VE_MOI_DIEM && diemD > diemA * G.C.BAO_VE_MOI_TY_LE)
-      chan = 'Ta đang trong diện bảo vệ người chơi mới nên không được đánh đối thủ mạnh hơn ' + G.C.BAO_VE_MOI_TY_LE + ' lần.';
+      chan = 'Ta đang trong diện bảo vệ người chơi mới nên không được đánh đối thủ mạnh hơn ' +
+        G.C.BAO_VE_MOI_TY_LE + ' lần.';
     if (chan) {
       G.tin(st, 'he', 'Cuộc tấn công bị chặn', chan + '\nHạm đội quay về.');
       veNha(null); return;
@@ -726,7 +976,12 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
     G.tin(st, 'tran', 'Báo cáo chiến đấu ' + G.tdStr(f.den) + ' — ' + o.ten, null,
       { kq: kq, cuop: cuop, pl: kq.pheLieu, td: f.den, ben: 'ta', pvp: true,
         doiThu: o.ten, doBo: doBo, hoTro: hoTroBC });
-    G.tin(d.st, 'tran', (doBo && doBo.thang ? 'BỊ ĐỔ BỘ tại ' : 'BỊ TẤN CÔNG tại ') + G.tdStr(dp.c) + ' — ' + st.ten, null,
+    G.tin(
+      d.st,
+      'tran',
+      (doBo && doBo.thang ? 'BỊ ĐỔ BỘ tại ' : 'BỊ TẤN CÔNG tại ') +
+        G.tdStr(dp.c) + ' — ' + st.ten,
+      null,
       { kq: kq, cuop: cuop, pl: kq.pheLieu, td: dp.c, ben: 'dich', pvp: true,
         doiThu: st.ten, doBo: doBo, hoTro: hoTroBC });
     for (i = 0; i < hoTroBC.length; i++) {
@@ -737,7 +992,7 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
           doiThu: st.ten, chuNha: o.ten, mat: bcH.mat, doBo: doBo, hoTro: hoTroBC });
     }
 
-    var now = Math.floor(Date.now() / 1000);
+    var now = this.gameNow();
     this.ghiTran(now, aTk || null, dTk, o.key, kq.kq, Math.round(G.tongRes(cuop)), matA, matTauD);
     this.ghiBangTin(now, 'tran',
       st.ten + ' đánh ' + o.ten + ' tại ' + G.tdStr(f.den) + ' — ' +
@@ -748,7 +1003,11 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
 
     benD.forEach(function (n4, tkChu3) { W.luu(tkChu3, n4.st); });
 
-    if (G.trong(f.ships)) { G.ghi(st, 'Hạm đội #' + f.id + ' bị xoá sổ tại ' + G.tdStr(f.den) + '.'); G.xoaHam(st, f); return; }
+    if (G.trong(f.ships)) {
+      G.ghi(st, 'Hạm đội #' + f.id + ' bị xoá sổ tại ' + G.tdStr(f.den) + '.');
+      G.xoaHam(st, f);
+      return;
+    }
     veNha(null);
   } finally {
     for (var lk = daKhoa.length - 1; lk >= 0; lk--) this.dangTick.delete(daKhoa[lk]);
@@ -784,7 +1043,12 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
 
     var bc = {
       td: f.den, ten: o.ten, ht: dp.ten, lm: o.lm, diem: o.diem, bo: o.bo, mucDo: mucDo, mat: mat, pvp: true,
-      res: { metal: Math.floor(dp.res.metal || 0), crystal: Math.floor(dp.res.crystal || 0), deut: Math.floor(dp.res.deut || 0), food: Math.floor(dp.res.food || 0) },
+      res: {
+        metal: Math.floor(dp.res.metal || 0),
+        crystal: Math.floor(dp.res.crystal || 0),
+        deut: Math.floor(dp.res.deut || 0),
+        food: Math.floor(dp.res.food || 0)
+      },
       ships: mucDo >= 2 ? G.clone(dp.ships) : null,
       /* [TÁI DỰNG] Dân số/ủng hộ/thuế là chỉ số do thám có nguồn; chọn mức
          tình báo 2 để báo cáo cấp thấp nhất vẫn không làm lộ chúng. */
@@ -806,7 +1070,10 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
     /* đối phương biết mình bị do thám */
     G.tin(d.st, 'tt', 'Bị do thám tại ' + G.tdStr(dp.c),
       st.ten + ' đã gửi ' + G.so(soTau) + ' tàu do thám tới ' + dp.ten + ' ' + G.tdStr(dp.c) + '.' +
-      (mat > 0 ? '\nTrung Tâm Tình Báo bắn hạ được ' + mat + ' chiếc.' : '\nKhông bắn hạ được chiếc nào — nên nâng Trung Tâm Tình Báo.'));
+      (mat > 0
+        ? '\nTrung Tâm Tình Báo bắn hạ được ' + mat + ' chiếc.'
+        : '\nKhông bắn hạ được chiếc nào — nên nâng Trung Tâm Tình Báo.')
+    );
     this.luu(dTk, d.st);
   } finally {
     this.chuStack.pop();
@@ -838,7 +1105,12 @@ TheGioi.prototype.tangNguoi = function (st, f, o, veNha) {
     var pi = -1, i;
     for (i = 0; i < d.st.planets.length; i++) if (G.tdKey(d.st.planets[i].c) === o.key) pi = i;
     if (pi < 0) {
-      G.tin(st, 'ham', 'Không giao được hàng', G.tdStr(f.den) + ' không còn là hành tinh của ' + o.ten + '. Hàng được mang về.');
+      G.tin(
+        st,
+        'ham',
+        'Không giao được hàng',
+        G.tdStr(f.den) + ' không còn là hành tinh của ' + o.ten + '. Hàng được mang về.'
+      );
       this.luu(dTk, d.st); veNha(null); return;
     }
     var dp = d.st.planets[pi];
@@ -859,7 +1131,7 @@ TheGioi.prototype.tangNguoi = function (st, f, o, veNha) {
         (G.trong(f.cargo) ? '' : '\nPhần kho bên nhận không chứa nổi được mang về.'));
       G.tin(d.st, 'ham', 'Được tiếp tế từ ' + st.ten,
         st.ten + ' vừa chở tới ' + dp.ten + ' ' + G.tdStr(dp.c) + ':\n' + moTaRes(nhan));
-      this.ghiBangTin(Math.floor(Date.now() / 1000), 'tiepte',
+      this.ghiBangTin(this.gameNow(), 'tiepte',
         st.ten + ' tiếp tế ' + G.so(G.tongRes(nhan)) + ' tài nguyên cho ' + o.ten + ' tại ' + G.tdStr(dp.c) + '.');
     }
     this.luu(dTk, d.st);
@@ -908,7 +1180,7 @@ TheGioi.prototype.xemHe = function (tk, g, h) {
   this.batDau();
   var thanhCong = false;
   try {
-    var now = Math.floor(Date.now() / 1000);
+    var now = this.gameNow();
     var lmNguoiXem = r.row.lm ? this.kho.q.lmGet.get(r.row.lm) : null;
     var coQuyenTuyen = !r.row.lm || (!!lmNguoiXem && lmNguoiXem.chu === tk);
     var chuHT = {}, i;
@@ -943,7 +1215,12 @@ TheGioi.prototype.xemHe = function (tk, g, h) {
       out.push(o);
     }
     /* ô 16: vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm */
-    out.push({ loai: 'sau', key: g + ':' + h + ':' + G.C.O_THAM_HIEM, c: G.toaDo(g, h, G.C.O_THAM_HIEM), debris: null });
+    out.push({
+      loai: 'sau',
+      key: g + ':' + h + ':' + G.C.O_THAM_HIEM,
+      c: G.toaDo(g, h, G.C.O_THAM_HIEM),
+      debris: null
+    });
     thanhCong = true;
     return { g: g, h: h, o: out };
   } finally {
@@ -979,28 +1256,80 @@ TheGioi.prototype.timNha = function () {
   return null;
 };
 
-TheGioi.prototype.taoDeQuoc = function (tk, hienthi) {
+TheGioi.prototype.taoDeQuoc = function (tk, hienthi, options) {
+  options = options || {};
+  var mutation = options.mutation || this._schedulerMutation;
+  if (this._scheduler) {
+    this._schedulerActive(mutation);
+    if (!this.ctx) {
+      var self = this, value, complete = false;
+      this.batDau();
+      try { value = this.taoDeQuoc(tk, hienthi, options); complete = true; return value; }
+      finally { self.ketThuc(complete); }
+    }
+  }
   var nha = this.timNha();
   if (!nha) return { loi: 'Vũ trụ đã hết chỗ trống.' };
-  var st = G.moiGame(hienthi, this.seed(), nha);
-  G.tin(st, 'he', 'Vũ trụ này có người thật',
+  var now = this._scheduler ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
+  var st = G.moiGame(hienthi, this.seed(), nha, now);
+  G.tin(
+    st,
+    'he',
+    'Vũ trụ này có người thật',
     'Đây là máy chủ nhiều người chơi: những hành tinh màu cam trên bản đồ là người chơi khác. ' +
-    'Muốn đánh một chỉ huy phải tuyên chiến và chờ Hội Đồng Bảo An 24 giờ; chỉ đồng minh mới tiếp tế cho nhau. Dưới ' + G.so(G.C.BAO_VE_MOI_DIEM) +
+    'Muốn đánh một chỉ huy phải tuyên chiến và chờ Hội Đồng Bảo An 24 giờ; ' +
+    'chỉ đồng minh mới tiếp tế cho nhau. Dưới ' + G.so(G.C.BAO_VE_MOI_DIEM) +
     ' điểm thì ta được bảo vệ người chơi mới.\n\n' +
-    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
-  var now = Math.floor(Date.now() / 1000);
+    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.'
+  );
   var kho = this.kho;
   var dd0 = G.diem(st);
   var ke = G.sukienKe(st);
   if (!isFinite(ke)) ke = now + 3600;
+  if (this._scheduler) {
+    var receipt = {revision: null, nextLocalAtS: null};
+    this.ctx.schedulerCreations.set(tk, {tk: tk, st: st, hienthi: hienthi, nha: nha,
+      receipt: receipt, mutation: mutation, diem: dd0, ke: ke});
+    this.ctx.schedulerMutation = mutation;
+    this.ctx.bangTin.push([Math.floor(mutation.effectiveNowMs / 1000), 'tk',
+      hienthi + ' vừa nhận quyền chỉ huy hành tinh tại ' + G.tdStr(nha) + '.']);
+    return {st: st, nha: nha, receipt: receipt};
+  }
   kho.giaoDich(function () {
     kho.q.dqThem.run(tk, JSON.stringify(st), Math.round(dd0.tong), Math.round(dd0.ct), Math.round(dd0.nc),
-      Math.round(dd0.ham), Math.round(dd0.thu), st.lastTick, Math.round(Math.min(ke, now + 3600)), null, st.planets.length, now);
+      Math.round(dd0.ham), Math.round(dd0.thu), st.lastTick,
+      Math.round(Math.min(ke, now + 3600)), null, st.planets.length, now
+    );
     for (var i = 0; i < st.planets.length; i++)
       kho.q.htThem.run(G.tdKey(st.planets[i].c), tk, st.planets[i].ten, i, st.planets[i].thuDo ? 1 : 0);
     kho.q.btThem.run(now, 'tk', hienthi + ' vừa nhận quyền chỉ huy hành tinh tại ' + G.tdStr(nha) + '.');
   });
   return { st: st, nha: nha };
+};
+
+TheGioi.prototype._dongBoSchedulerCreations = function (ctx, now) {
+  var self = this, kho = this.kho, mutation = ctx.schedulerMutation;
+  ctx.schedulerCreations.forEach(function (item, accountId) {
+    var dd = item.diem, st = item.st, ke = item.ke;
+    kho.q.dqThem.run(accountId, JSON.stringify(st), Math.round(dd.tong), Math.round(dd.ct), Math.round(dd.nc),
+      Math.round(dd.ham), Math.round(dd.thu), st.lastTick, Math.round(Math.min(ke, now + 3600)),
+      null, st.planets.length, now);
+    for (var i = 0; i < st.planets.length; i++) {
+      kho.q.htThem.run(G.tdKey(st.planets[i].c), accountId, st.planets[i].ten, i, st.planets[i].thuDo ? 1 : 0);
+    }
+  });
+  var owners = new Map();
+  kho.db.prepare('SELECT tk,state FROM dq ORDER BY tk').all().forEach(function (row) {
+    JSON.parse(row.state).planets.forEach(function (planet) { owners.set(G.tdKey(planet.c), Number(row.tk)); });
+  });
+  ctx.schedulerCreations.forEach(function (item, accountId) {
+    var ownerFor = function (key) { return owners.get(key) || null; };
+    var next = G.phanLoaiSuKienNoiBoKe(item.st, accountId, ownerFor);
+    var atS = next ? next.atS : null;
+    self._scheduler.replaceAccountAdvance(mutation.leaseToken, accountId, 0, atS, mutation.effectiveNowMs);
+    item.receipt.revision = 0;
+    item.receipt.nextLocalAtS = atS;
+  });
 };
 
 /* --------------------------------------------- tên lửa bắn người chơi khác */
@@ -1039,7 +1368,7 @@ TheGioi.prototype.tenLuaNguoi = function (st, tl, o) {
     G.tin(d.st, 'tran', 'BỊ BẮN TÊN LỬA tại ' + G.tdStr(dp.c) + ' — ' + st.ten, null,
       { tl: kq, soBan: tl.n, td: dp.c, ten: st.ten, ben: 'dich', pvp: true });
 
-    var now = Math.floor(Date.now() / 1000);
+    var now = this.gameNow();
     var soPha = 0; for (var k in kq.pha) soPha += kq.pha[k];
     this.ghiBangTin(now, 'tran', st.ten + ' bắn ' + tl.n + ' tên lửa vào ' + o.ten + ' tại ' +
       G.tdStr(tl.den) + ' — chặn được ' + kq.chan + ', phá ' + G.so(soPha) + ' công trình phòng thủ.');
@@ -1051,9 +1380,61 @@ TheGioi.prototype.tenLuaNguoi = function (st, tl, o) {
 };
 
 /* ------------------------------------------------------- xoá tài khoản */
-TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi) {
+TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi, options) {
   if (this.dangTick.has(tk)) return 'Đế quốc đang được xử lý, thử lại sau một nhịp.';
-  var kho = this.kho, now = Math.floor(Date.now() / 1000);
+  options = options || {};
+  if (this._scheduler) {
+    var mutation = this._schedulerActive(options.mutation || this._schedulerMutation),
+      self = this, scheduler = this._scheduler;
+    var joined = this.kho.transactionDepth > 0;
+    function removeInCurrentUow() {
+      var stateRow = self.kho.q.dqGet.get(tk), targetKeys = new Set();
+      if (stateRow) {
+        try { JSON.parse(stateRow.state).planets.forEach(function (planet) { targetKeys.add(G.tdKey(planet.c)); }); }
+        catch (error) { throw new Error('SCHEDULER_DELETE_STATE_INVALID'); }
+      }
+      scheduler.assertLiveLease(mutation.leaseToken, mutation.effectiveNowMs);
+      var resolution = scheduler.prepareDeletedAccountJobResolution(mutation.leaseToken, tk, targetKeys,
+        mutation.effectiveNowMs);
+      var before = resolution.invalidatable.map(function (entry) {
+        return {entry: entry, status: schedulerEvents.canonicalExternalStatus(self.kho, entry.canonicalRef)};
+      });
+      var lmChu = self.kho.q.lmCuaChu.get(tk), lmGiaiTan = null;
+      if (lmChu) {
+        var keNhi = self.kho.q.lmKeNhi.get(lmChu.ten, tk);
+        if (keNhi) {
+          self.kho.q.lmDoiChu.run(keNhi.tk, lmChu.ten);
+          var chuMoi = self.kho.q.tkTheoId.get(keNhi.tk);
+          self.kho.q.btThem.run(Math.floor(mutation.effectiveNowMs / 1000), 'lm',
+            (chuMoi ? chuMoi.hienthi : 'Một thành viên') + ' tiếp quản ' + lmChu.ten + ' sau khi chủ cũ rời vũ trụ.');
+        } else lmGiaiTan = lmChu.ten;
+      }
+      self.kho.q.phienXoaCua.run(tk);
+      self.kho.q.tkXoa.run(tk);
+      if (lmGiaiTan) self.kho.q.chatLMXoa.run(lmGiaiTan);
+      self.kho.q.lmDonRong.run();
+      before.forEach(function (candidate) {
+        var entry = candidate.entry, reason;
+        if (entry.referencedAsTarget && candidate.status === 'EXACT') {
+          scheduler.invalidateGlobalJob(mutation.leaseToken, entry.root.id, 'EXACT', Number(entry.root.scheduled_at_s),
+            mutation.effectiveNowMs, {targetRemovedKey: entry.canonicalRef.targetKey});
+          return;
+        }
+        reason = schedulerEvents.canonicalExternalStatus(self.kho, entry.canonicalRef);
+        if (reason === 'ALREADY_ABSENT' || reason === 'REF_MISMATCH') {
+          scheduler.invalidateGlobalJob(mutation.leaseToken, entry.root.id, reason,
+            Number(entry.root.scheduled_at_s), mutation.effectiveNowMs);
+        }
+      });
+      self.kho.q.btThem.run(Math.floor(mutation.effectiveNowMs / 1000), 'tk',
+        tenHienThi + ' đã rời khỏi vũ trụ, các hành tinh trở về trạng thái trống.');
+      if (joined) self.kho.dangKySchedulerFinalizer(function () { self._assertSchedulerFinalFence(mutation); });
+      else self._assertSchedulerFinalFence(mutation);
+    }
+    this.kho.trongGiaoDich(removeInCurrentUow, {immediate: true});
+    return null;
+  }
+  var kho = this.kho, now = this.gameNow();
   kho.giaoDich(function () {
     /* Chủ liên minh rời game thì chuyển quyền cho thành viên mạnh nhất còn lại,
        tránh để lm.chu trỏ tới một tài khoản đã biến mất. */
@@ -1087,20 +1468,11 @@ TheGioi.prototype.guiThu = function (tkGui, tenGui, denAi, noi) {
   if (!nhan) nhan = this.kho.q.tkTheoHienThi.get(String(denAi || '').trim());
   if (!nhan) return 'Không tìm thấy người chơi này.';
   if (nhan.id === tkGui) return 'Không gửi thư cho chính mình.';
-  if (this.dangTick.has(nhan.id)) return 'Người nhận đang được xử lý, thử lại sau một nhịp.';
-
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
   var d = this.nap(nhan.id);
   if (!d) return 'Người nhận chưa có đế quốc.';
-  this.dangTick.add(nhan.id);
-  this.chuStack.push(nhan.id);
-  try {
-    G.tick(d.st, Math.floor(Date.now() / 1000));
-    G.tin(d.st, 'thu', 'Thư từ ' + tenGui, noi);
-    this.luu(nhan.id, d.st);
-  } finally {
-    this.chuStack.pop();
-    this.dangTick.delete(nhan.id);
-  }
+  G.tin(d.st, 'thu', 'Thư từ ' + tenGui, noi);
+  this.luu(nhan.id, d.st, mutation ? {mutation: mutation} : undefined);
   return null;
 };
 
@@ -1110,11 +1482,12 @@ TheGioi.prototype.tuyenChien = function (tkA, tkD) {
   if (!Number.isSafeInteger(tkD) || tkD < 1) return 'Chỉ huy mục tiêu không hợp lệ.';
   if (tkA === tkD) return 'Không thể tuyên chiến với chính mình.';
   var kho = this.kho;
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
   var a = kho.q.dqGet.get(tkA), d = kho.q.dqGet.get(tkD), tenD = kho.q.tkTheoId.get(tkD);
   if (!a || !d || !tenD) return 'Chỉ huy mục tiêu không còn trong vũ trụ.';
   if (a.lm && d.lm && a.lm === d.lm) return 'Không thể tuyên chiến với thành viên cùng liên minh.';
 
-  var now = Math.floor(Date.now() / 1000), ben;
+  var now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow(), ben;
   if (a.lm) {
     var lm = kho.q.lmGet.get(a.lm);
     if (!lm || lm.chu !== tkA) return 'Chỉ chủ liên minh mới được đặt lệnh chiến tranh.';
@@ -1141,16 +1514,10 @@ TheGioi.prototype.tuyenChien = function (tkA, tkD) {
     try {
       var nd = this.nap(tkD);
       if (nd) {
-        this.dangTick.add(tkD); this.chuStack.push(tkD);
-        try {
-          G.tick(nd.st, now);
-          G.tin(nd.st, 'canh', 'BỊ TUYÊN CHIẾN bởi ' + ben,
-            'Lệnh được đặt lúc ' + G.gio(now * 1000) + '. Sau 24 giờ, ' + ben +
-            ' được phép tấn công các hành tinh của ta.');
-          this.luu(tkD, nd.st);
-        } finally {
-          this.chuStack.pop(); this.dangTick.delete(tkD);
-        }
+        G.tin(nd.st, 'canh', 'BỊ TUYÊN CHIẾN bởi ' + ben,
+          'Lệnh được đặt lúc ' + G.gio(now * 1000) + '. Sau 24 giờ, ' + ben +
+          ' được phép tấn công các hành tinh của ta.');
+        this.luu(tkD, nd.st, mutation ? {mutation: mutation} : undefined);
       }
     } catch (e) { /* bảng chiến + bảng tin chung vẫn là nguồn sự thật */ }
   }
@@ -1158,7 +1525,7 @@ TheGioi.prototype.tuyenChien = function (tkA, tkD) {
 };
 
 TheGioi.prototype.chienCua = function (tk) {
-  var dq = this.kho.q.dqGet.get(tk), now = Math.floor(Date.now() / 1000), self = this;
+  var dq = this.kho.q.dqGet.get(tk), now = this.gameNow(), self = this;
   var ra = dq && dq.lm ? this.kho.q.chienTheoLM.all(dq.lm) : this.kho.q.chienTheoTK.all(tk);
   var di = ra.map(function (r) {
     var q = self.quyenDanh(tk, r.tkD, now);
@@ -1185,12 +1552,10 @@ TheGioi.prototype.chuyenGalana = function (tkA, tkD, so) {
   if (!Number.isSafeInteger(so) || so < 1 || so > 1000000000000)
     return 'Số Galana phải từ 1 tới 1.000.000.000.000.';
   if (!this.laDongMinh(tkA, tkD)) return 'Chỉ được chuyển Galana cho thành viên cùng liên minh.';
-  if (this.dangTick.has(tkA) || this.dangTick.has(tkD)) return 'Một trong hai đế quốc đang được xử lý, thử lại sau một nhịp.';
-
-  var now = Math.floor(Date.now() / 1000);
-  if (!this.tick(tkA, now) || !this.tick(tkD, now)) return 'Không nạp được một trong hai đế quốc.';
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  var now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
   /* Thành viên có thể vừa bị loại/rời trong một request sát cạnh; xác nhận lại
-     sau hai lần tick, ngay trước lúc ghi tiền. */
+     ngay trước lúc ghi tiền. */
   if (!this.laDongMinh(tkA, tkD)) return 'Quan hệ liên minh đã thay đổi; giao dịch bị hủy.';
   var a = this.nap(tkA), d = this.nap(tkD);
   if (!a || !d) return 'Không nạp được một trong hai đế quốc.';
@@ -1201,13 +1566,17 @@ TheGioi.prototype.chuyenGalana = function (tkA, tkD, so) {
     'Đã chuyển ' + G.so(so) + ' Galana trong nội bộ liên minh.');
   G.tin(d.st, 'lm', 'Nhận Galana từ ' + (tenA ? tenA.hienthi : 'đồng minh'),
     'Đã nhận ' + G.so(so) + ' Galana trong nội bộ liên minh.');
-  var kho = this.kho;
-  kho.giaoDich(function () {
-    kho.q.dqLuuState.run(JSON.stringify(a.st), now, tkA);
-    kho.q.dqLuuState.run(JSON.stringify(d.st), now, tkD);
-    kho.q.btThem.run(now, 'tiepte', (tenA ? tenA.hienthi : 'Một chỉ huy') + ' chuyển ' +
+  var opened = !this.ctx, complete = false;
+  if (opened) this.batDau();
+  try {
+    this.luu(tkA, a.st, mutation ? {mutation: mutation} : undefined);
+    this.luu(tkD, d.st, mutation ? {mutation: mutation} : undefined);
+    this.ghiBangTin(now, 'tiepte', (tenA ? tenA.hienthi : 'Một chỉ huy') + ' chuyển ' +
       G.so(so) + ' Galana cho ' + (tenD ? tenD.hienthi : 'một đồng minh') + '.');
-  });
+    complete = true;
+  } finally {
+    if (opened) this.ketThuc(complete);
+  }
   return null;
 };
 
@@ -1232,10 +1601,14 @@ TheGioi.prototype.lmTao = function (tk, ten, tag) {
   /* tránh trùng tên với các liên minh NPC đang hiện trên bản đồ */
   for (var i = 0; i < G.LIEN_MINH.length; i++) {
     if (!G.LIEN_MINH[i]) continue;
-    if (G.LIEN_MINH[i].toLowerCase() === day.toLowerCase()) return thatBai('Tên này đã có liên minh NPC dùng, chọn tên khác.');
-    if (G.LIEN_MINH[i].indexOf('[' + tag + ']') === 0) return thatBai('Thẻ ' + tag + ' đã có liên minh NPC dùng, chọn thẻ khác.');
+    if (G.LIEN_MINH[i].toLowerCase() === day.toLowerCase()) {
+      return thatBai('Tên này đã có liên minh NPC dùng, chọn tên khác.');
+    }
+    if (G.LIEN_MINH[i].indexOf('[' + tag + ']') === 0) {
+      return thatBai('Thẻ ' + tag + ' đã có liên minh NPC dùng, chọn thẻ khác.');
+    }
   }
-  var now = Math.floor(Date.now() / 1000), kho = this.kho;
+  var now = this.gameNow(), kho = this.kho;
   kho.q.lmThem.run(day, tag, tk, now, null);
   /* Dùng chính chuỗi canonical vừa tạo; tuyệt đối không dựng lại từ body API
      vì trim/slice khác thứ tự từng cho phép gia nhập nhầm liên minh có sẵn. */
@@ -1272,7 +1645,7 @@ TheGioi.prototype.lmXin = function (tk, ten) {
   if (dq.lm) return 'Đang ở trong một liên minh khác.';
   if (!this.kho.q.lmGet.get(ten)) return 'Liên minh này không tồn tại.';
   if (this.kho.q.lmXinGet.get(ten, tk)) return 'Đã gửi đơn tới liên minh này rồi.';
-  this.kho.q.lmXinThem.run(ten, tk, Math.floor(Date.now() / 1000));
+  this.kho.q.lmXinThem.run(ten, tk, this.gameNow());
   return null;
 };
 
@@ -1300,7 +1673,7 @@ TheGioi.prototype.lmDuyet = function (chu, ungVien, chapNhan) {
   var kq = this.hanhDong(ungVien, 'lmvao', { ten: lm.ten });
   if (!kq.st || kq.loi) return kq.loi || 'Không thể cập nhật đế quốc của người xin vào.';
   this.kho.q.lmXinXoaCua.run(ungVien);
-  this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm', tk.hienthi + ' được duyệt vào ' + lm.ten + '.');
+  this.kho.q.btThem.run(this.gameNow(), 'lm', tk.hienthi + ' được duyệt vào ' + lm.ten + '.');
   return null;
 };
 
@@ -1315,7 +1688,7 @@ TheGioi.prototype.lmDuoi = function (chu, thanhVien) {
   var tk = this.kho.q.tkTheoId.get(thanhVien);
   var kq = this.hanhDong(thanhVien, 'lmra', {});
   if (!kq.st || kq.loi) return kq.loi || 'Không thể cập nhật thành viên.';
-  this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+  this.kho.q.btThem.run(this.gameNow(), 'lm',
     (tk ? tk.hienthi : 'Một thành viên') + ' bị loại khỏi ' + lm.ten + '.');
   return null;
 };
@@ -1330,7 +1703,7 @@ TheGioi.prototype.lmChuyenChu = function (chu, thanhVien) {
   if (!dq || dq.lm !== lm.ten) return 'Chỉ chuyển quyền cho thành viên cùng liên minh.';
   var tk = this.kho.q.tkTheoId.get(thanhVien);
   this.kho.q.lmDoiChu.run(thanhVien, lm.ten);
-  this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+  this.kho.q.btThem.run(this.gameNow(), 'lm',
     (tk ? tk.hienthi : 'Một thành viên') + ' trở thành chủ mới của ' + lm.ten + '.');
   return null;
 };
@@ -1349,7 +1722,7 @@ TheGioi.prototype.lmRa = function (tk) {
     this.kho.q.lmDonRong.run();
     if (lm) {
       var nguoi = this.kho.q.tkTheoId.get(tk);
-      this.kho.q.btThem.run(Math.floor(Date.now() / 1000), 'lm',
+      this.kho.q.btThem.run(this.gameNow(), 'lm',
         (nguoi ? nguoi.hienthi : 'Một thành viên') + ' rời ' + lm.ten + '.');
     }
   }
@@ -1358,14 +1731,677 @@ TheGioi.prototype.lmRa = function (tk) {
 
 /* --------------------------------------------------------- vòng lặp scheduler */
 TheGioi.prototype.nhip = function (toiDa) {
-  var now = Math.floor(Date.now() / 1000);
+  var now = this.gameNow();
   var ds = this.kho.q.dqDenHan.all(now, toiDa || 60);
   var n = 0;
   for (var i = 0; i < ds.length; i++) {
-    try { if (this.tick(ds[i].tk, now)) n++; }
+    try { if (this._tickNoiBo(ds[i].tk, now)) n++; }
     catch (e) { console.error('[nhip] lỗi khi tua đế quốc', ds[i].tk, e && e.message); }
   }
   return n;
 };
 
-module.exports = { TheGioi: TheGioi, G: G };
+function reducerWorldError(code) {
+  var error = new Error(code);
+  error.code = code;
+  return error;
+}
+
+function reducerWorldContext(world, effectiveAtS, canonicalTarget) {
+  if (!world._schedulerMutation) throw reducerWorldError('SCHEDULER_MUTATION_TOKEN_REQUIRED');
+  if (!canonicalTarget || typeof canonicalTarget !== 'object' ||
+      canonicalTarget.mutation !== world._schedulerMutation ||
+      !Number.isSafeInteger(effectiveAtS) || effectiveAtS < 0 ||
+      canonicalTarget.effectiveAtS !== effectiveAtS ||
+      typeof canonicalTarget.targetKey !== 'string' ||
+      typeof canonicalTarget.logicalRootId !== 'string') {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  world._schedulerActive(canonicalTarget.mutation);
+  return canonicalTarget;
+}
+
+function reducerEntity(world, ref) {
+  var loaded = world.nap(Number(ref && ref.ownerAccountId));
+  var list = ref && ref.kind === 'missile' ? loaded && loaded.st.tenLua : loaded && loaded.st.fleets;
+  var id = ref && ref.kind === 'missile' ? ref.missileId : ref && ref.fleetId;
+  var entity = list && list.find(function (candidate) {
+    return Number(candidate.id) === Number(id);
+  });
+  if (!loaded || !entity) throw reducerWorldError('PAYLOAD_INTEGRITY');
+  var current;
+  try {
+    current = ref.kind === 'missile' ?
+      schedulerEvents.stableMissileRef(Number(ref.ownerAccountId), entity) :
+      schedulerEvents.stableFleetRef(Number(ref.ownerAccountId), entity);
+  } catch (error) { throw reducerWorldError('PAYLOAD_INTEGRITY'); }
+  if (!schedulerEvents.sameExternalRef(current, ref)) throw reducerWorldError('PAYLOAD_INTEGRITY');
+  return {loaded: loaded, entity: entity};
+}
+
+function reducerTarget(world, ref, context) {
+  if (!Number.isSafeInteger(context.accountId) || context.accountId < 1) {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  var loaded = world.nap(context.accountId);
+  var planet = loaded && loaded.st.planets.find(function (candidate) {
+    return G.tdKey(candidate.c) === ref.targetKey;
+  });
+  if (!loaded || !planet || context.accountId === Number(ref.ownerAccountId)) {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  return {loaded: loaded, planet: planet};
+}
+
+function reducerSave(world, context, entries, buildEffect) {
+  var success = false, effect;
+  var protectedRoots = new Set([context.logicalRootId]);
+  world.batDau();
+  try {
+    effect = buildEffect();
+    var seen = new Set();
+    entries.forEach(function (entry) {
+      var accountId = Number(entry.row.tk);
+      if (seen.has(accountId)) return;
+      seen.add(accountId);
+      var receipt = world.luu(accountId, entry.st, {mutation: context.mutation,
+        deferAccountWake: true, protectedRecoveryRootIds: protectedRoots});
+      if (!effect.saveReceipts) effect.saveReceipts = [];
+      effect.saveReceipts.push(receipt);
+    });
+    success = true;
+  } finally {
+    world.ketThuc(success);
+  }
+  return Object.freeze(effect);
+}
+
+function reducerReturnOrRemove(world, ref, effectiveAtS, context) {
+  var source = reducerEntity(world, ref);
+  source.loaded.st.now = effectiveAtS;
+  return reducerSave(world, context, [source.loaded], function () {
+    if (context.neutralization === 'MISSILE_REMOVED') {
+      source.loaded.st.tenLua.splice(source.loaded.st.tenLua.indexOf(source.entity), 1);
+    } else {
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+    }
+    return {applied: true, atS: effectiveAtS, neutralization: context.neutralization};
+  });
+}
+
+function reducerResourceKeys() {
+  return ['metal', 'crystal', 'deut', 'food'];
+}
+
+function reducerCanonicalWorld(world) {
+  var states = new Map(), owners = new Map();
+  world.kho.db.prepare('SELECT tk,state FROM dq ORDER BY tk').all().forEach(function (row) {
+    var accountId = Number(row.tk), state;
+    if (!Number.isSafeInteger(accountId) || accountId < 1) {
+      throw reducerWorldError('PAYLOAD_INTEGRITY');
+    }
+    try { state = JSON.parse(row.state); }
+    catch (error) { throw reducerWorldError('PAYLOAD_INTEGRITY'); }
+    if (!state || !Array.isArray(state.planets) || !Array.isArray(state.fleets) ||
+        !Array.isArray(state.tenLua || [])) throw reducerWorldError('PAYLOAD_INTEGRITY');
+    states.set(accountId, state);
+    state.planets.forEach(function (planet) {
+      var key = G.tdKey(planet && planet.c);
+      if (typeof key !== 'string' || owners.has(key)) {
+        throw reducerWorldError('PAYLOAD_INTEGRITY');
+      }
+      owners.set(key, {accountId: accountId, state: state, planet: planet});
+    });
+  });
+  return {states: states, owners: owners};
+}
+
+function reducerCanonicalContext(world, ref) {
+  var canonical = reducerCanonicalWorld(world);
+  return {states: canonical.states,
+    sourceState: canonical.states.get(Number(ref.ownerAccountId)) || null,
+    target: canonical.owners.get(ref.targetKey) || null};
+}
+
+function reducerAllianceName(state) {
+  var name = state && state.lm && state.lm.ten;
+  return typeof name === 'string' && name ? name : null;
+}
+
+function reducerCanonicalAllies(sourceState, targetState) {
+  var sourceAlliance = reducerAllianceName(sourceState);
+  return !!sourceAlliance && sourceAlliance === reducerAllianceName(targetState);
+}
+
+function reducerCanonicalAttackAllowed(world, sourceAccountId, sourceState,
+  targetAccountId, targetState, effectiveAtS) {
+  if (sourceAccountId === targetAccountId ||
+      reducerCanonicalAllies(sourceState, targetState)) return false;
+  var sourceAlliance = reducerAllianceName(sourceState);
+  var war = sourceAlliance ? world.kho.q.chienGetLM.get(sourceAlliance, targetAccountId) :
+    world.kho.q.chienGetTK.get(sourceAccountId, targetAccountId);
+  return !!war && effectiveAtS >= Number(war.khi) + CHIEN_CHO;
+}
+
+function reducerCanonicalHoldAllowed(sourceAccountId, sourceState, fleet, target) {
+  if (!target || (fleet.giuTaiTk !== null && fleet.giuTaiTk !== undefined &&
+      Number(fleet.giuTaiTk) !== target.accountId)) return false;
+  return sourceAccountId === target.accountId ||
+    reducerCanonicalAllies(sourceState, target.state);
+}
+
+TheGioi.prototype.resolveTransportAt = function (ref, effectiveAtS, canonicalTarget) {
+  var context = reducerWorldContext(this, effectiveAtS, canonicalTarget);
+  if (context.neutralization) return reducerReturnOrRemove(this, ref, effectiveAtS, context);
+  var source = reducerEntity(this, ref);
+  if (source.entity.mission !== 'transport' || source.entity.pha !== 'di') {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  source.loaded.st.now = effectiveAtS;
+  var canonical = reducerCanonicalContext(this, ref), currentTarget = canonical.target;
+  if (!currentTarget || currentTarget.accountId !== context.accountId ||
+      !canonical.sourceState ||
+      !reducerCanonicalAllies(canonical.sourceState, currentTarget.state)) {
+    return reducerSave(this, context, [source.loaded], function () {
+      G.tin(source.loaded.st, 'ham', 'Tiếp tế bị Hội Đồng Bảo An chặn',
+        'Quan hệ liên minh đã thay đổi. Toàn bộ hàng được mang về.');
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+      return {kind: 'transport', applied: true, authorized: false, atS: effectiveAtS,
+        delivered: {metal: 0, crystal: 0, deut: 0, food: 0}};
+    });
+  }
+  var target = reducerTarget(this, ref, context);
+  target.loaded.st.now = effectiveAtS;
+  var world = this;
+  return reducerSave(this, context, [source.loaded, target.loaded], function () {
+    var delivered = {}, capacity = G.dungTich(target.planet);
+    reducerResourceKeys().forEach(function (resource) {
+      var held = Number(source.entity.cargo && source.entity.cargo[resource] || 0);
+      if (!Number.isFinite(held) || held < 0) throw reducerWorldError('PAYLOAD_INTEGRITY');
+      var room = Math.max(0, Math.floor(Number(capacity[resource]) * 1.5 -
+        Number(target.planet.res[resource] || 0)));
+      var moved = Math.min(held, room);
+      target.planet.res[resource] = Number(target.planet.res[resource] || 0) + moved;
+      source.entity.cargo[resource] = held - moved;
+      delivered[resource] = moved;
+    });
+    if (G.tongRes(delivered) > 0) {
+      G.tin(source.loaded.st, 'ham', 'Đã tiếp tế ' + target.loaded.st.ten, null,
+        {res: delivered, t: effectiveAtS});
+      G.tin(target.loaded.st, 'ham', 'Được tiếp tế từ ' + source.loaded.st.ten, null,
+        {res: delivered, t: effectiveAtS});
+      world.ghiBangTin(effectiveAtS, 'tiepte', source.loaded.st.ten + ' tiếp tế ' +
+        G.so(G.tongRes(delivered)) + ' tài nguyên cho ' + target.loaded.st.ten +
+        ' tại ' + G.tdStr(target.planet.c) + '.');
+    } else {
+      G.tin(source.loaded.st, 'ham', 'Kho bên nhận đã đầy',
+        target.loaded.st.ten + ' không còn chỗ chứa. Hàng được mang về.');
+    }
+    G.batDauVe(source.loaded.st, source.entity, true, null);
+    return {kind: 'transport', applied: true, authorized: true,
+      atS: effectiveAtS, delivered: delivered};
+  });
+};
+
+TheGioi.prototype.resolveSpyAt = function (ref, effectiveAtS, canonicalTarget) {
+  var context = reducerWorldContext(this, effectiveAtS, canonicalTarget);
+  if (context.neutralization) return reducerReturnOrRemove(this, ref, effectiveAtS, context);
+  var source = reducerEntity(this, ref), currentTarget =
+    reducerCanonicalContext(this, ref).target;
+  if (source.entity.mission !== 'spy' || source.entity.pha !== 'di') {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  source.loaded.st.now = effectiveAtS;
+  if (!currentTarget || currentTarget.accountId !== context.accountId) {
+    return reducerSave(this, context, [source.loaded], function () {
+      G.tin(source.loaded.st, 'tt', 'Mục tiêu do thám đã đổi chủ',
+        'Hạm đội do thám quay về mà không thu thập dữ liệu.');
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+      return {kind: 'spy', applied: true, authorized: false, atS: effectiveAtS};
+    });
+  }
+  var target = reducerTarget(this, ref, context);
+  var targetIdentity = this.kho.q.tkTheoId.get(currentTarget.accountId);
+  if (!targetIdentity || !Number.isFinite(Number(targetIdentity.vaoCuoi))) {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  target.loaded.st.now = effectiveAtS;
+  return reducerSave(this, context, [source.loaded, target.loaded], function () {
+    var probes = Number(source.entity.ships && source.entity.ships.probe);
+    if (!Number.isSafeInteger(probes) || probes < 1) {
+      throw reducerWorldError('PAYLOAD_INTEGRITY');
+    }
+    var difference = Number(source.loaded.st.tech.spy || 0) -
+      Number(target.loaded.st.tech.spy || 0);
+    var level = Math.max(1, Math.min(5, 1 + Math.floor(difference / 2) +
+      Math.floor(Math.log(probes + 1) / Math.log(3))));
+    var probability = Math.min(0.9,
+      0.05 * Number(target.planet.b && target.planet.b.intel || 0) +
+      0.03 * Math.max(0, -difference));
+    var random = G.rng(G.hash('spy' + source.entity.id + effectiveAtS + ref.targetKey));
+    var lost = 0;
+    for (var i = 0; i < probes; i++) if (random() < probability) lost++;
+    if (lost > 0) {
+      source.entity.ships.probe -= lost;
+      if (!source.entity.ships.probe) delete source.entity.ships.probe;
+    }
+    var report = {td: source.entity.den, ten: targetIdentity.hienthi,
+      ht: target.planet.ten, lm: reducerAllianceName(target.loaded.st) || '',
+      diem: Math.round(G.diem(target.loaded.st).tong),
+      bo: effectiveAtS - Number(targetIdentity.vaoCuoi) > CACH_LAU_MOI_VAO,
+      mucDo: level, t: effectiveAtS, mat: lost, pvp: true,
+      res: reducerResourceKeys().reduce(function (value, resource) {
+        value[resource] = Math.floor(Number(target.planet.res[resource] || 0));
+        return value;
+      }, {}),
+      ships: level >= 2 ? G.clone(target.planet.ships) : null,
+      danSu: level >= 2 && target.planet.danSu ? {
+        population: Math.floor(Number(target.planet.danSu.population || 0)),
+        supportBp: Math.floor(Number(target.planet.danSu.supportBp || 0)),
+        taxBp: Math.floor(Number(target.planet.danSu.taxBp || 0))
+      } : null,
+      def: level >= 3 ? G.clone(target.planet.def) : null,
+      tech: level >= 4 ? G.clone(target.loaded.st.tech) : null,
+      ct: level >= 5 ? G.clone(target.planet.b) : null,
+      ctMode: level >= 5 ? 'quantity' : null};
+    source.loaded.st.spy = source.loaded.st.spy || {};
+    source.loaded.st.spy[ref.targetKey] = report;
+    G.tin(source.loaded.st, 'tt', 'Báo cáo do thám', null, {bc: report});
+    G.tin(target.loaded.st, 'tt', 'Bị do thám tại ' + G.tdStr(target.planet.c),
+      source.loaded.st.ten + ' đã gửi ' + G.so(probes) + ' tàu do thám tới ' +
+      target.planet.ten + ' ' + G.tdStr(target.planet.c) + '.' +
+      (lost > 0 ? '\nTrung Tâm Tình Báo bắn hạ được ' + lost + ' chiếc.' :
+        '\nKhông bắn hạ được chiếc nào — nên nâng Trung Tâm Tình Báo.'));
+    if (reducerUnitCount(source.entity.ships)) {
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+    } else {
+      source.loaded.st.fleets.splice(source.loaded.st.fleets.indexOf(source.entity), 1);
+    }
+    return {kind: 'spy', applied: true, atS: effectiveAtS, report: report};
+  });
+};
+
+TheGioi.prototype.resolveHoldAt = function (ref, effectiveAtS, canonicalTarget) {
+  var context = reducerWorldContext(this, effectiveAtS, canonicalTarget);
+  if (context.neutralization) return reducerReturnOrRemove(this, ref, effectiveAtS, context);
+  var source = reducerEntity(this, ref), canonical = reducerCanonicalContext(this, ref),
+    currentTarget = canonical.target;
+  if (source.entity.mission !== 'hold' || source.entity.pha !== 'di') {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  source.loaded.st.now = effectiveAtS;
+  var canonicalFleet = canonical.sourceState && canonical.sourceState.fleets.find(
+    function (candidate) { return Number(candidate.id) === Number(ref.fleetId); }
+  );
+  var holdAuthorized = currentTarget && currentTarget.accountId === context.accountId &&
+    canonicalFleet && reducerCanonicalHoldAllowed(Number(ref.ownerAccountId),
+      canonical.sourceState,
+      canonicalFleet, currentTarget);
+  if (!holdAuthorized) {
+    return reducerSave(this, context, [source.loaded], function () {
+      G.tin(source.loaded.st, 'ham', 'Giữ quỹ đạo không còn hợp lệ',
+        'Quyền sở hữu hoặc quan hệ liên minh đã thay đổi.');
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+      return {kind: 'hold', applied: true, authorized: false, atS: effectiveAtS,
+      chargedDeut: 0};
+    });
+  }
+  return reducerSave(this, context, [source.loaded], function () {
+    var duration = Math.max(1, Math.floor(Number(source.entity.giu) || 3600));
+    var segment = Math.min(duration, G.QUY_DAO_V1.segmentSeconds);
+    var charge = Math.max(0,
+      Math.floor(G.nhienLieuGiu(source.loaded.st, source.entity.ships, segment)));
+    var available = Number(source.entity.cargo && source.entity.cargo.deut || 0);
+    if (!Number.isFinite(available) || available < charge) {
+      throw reducerWorldError('PAYLOAD_INTEGRITY');
+    }
+    source.entity.cargo.deut = available - charge;
+    if (!source.entity.cargo.deut) delete source.entity.cargo.deut;
+    source.entity.pha = 'giu';
+    source.entity.giuLuc = effectiveAtS;
+    source.entity.giuDen_t = effectiveAtS + duration;
+    source.entity.tiepNL_t = effectiveAtS + segment;
+    source.entity.giuTaiTk = context.accountId;
+    source.entity.giuRules = G.QUY_DAO_V1.holdRules;
+    source.entity.dangGiu = true;
+    return {kind: 'hold', applied: true, authorized: true,
+      atS: effectiveAtS, chargedDeut: charge,
+      holdUntilS: source.entity.giuDen_t, nextFuelAtS: source.entity.tiepNL_t};
+  });
+};
+
+TheGioi.prototype.resolveMissileAt = function (ref, effectiveAtS, canonicalTarget) {
+  var context = reducerWorldContext(this, effectiveAtS, canonicalTarget);
+  if (context.neutralization) return reducerReturnOrRemove(this, ref, effectiveAtS, context);
+  var source = reducerEntity(this, ref);
+  source.loaded.st.now = effectiveAtS;
+  var canonical = reducerCanonicalContext(this, ref), currentTarget = canonical.target;
+  if (!currentTarget || currentTarget.accountId !== context.accountId ||
+      !canonical.sourceState ||
+      !reducerCanonicalAttackAllowed(this, Number(ref.ownerAccountId), canonical.sourceState,
+        currentTarget.accountId, currentTarget.state, effectiveAtS)) {
+    return reducerSave(this, context, [source.loaded], function () {
+      source.loaded.st.tenLua.splice(source.loaded.st.tenLua.indexOf(source.entity), 1);
+      G.tin(source.loaded.st, 'tran', 'Tên lửa bị Hội Đồng Bảo An chặn',
+        'Quyền tấn công không còn hợp lệ khi tên lửa tới mục tiêu.');
+      return {kind: 'missile', applied: true, authorized: false, atS: effectiveAtS};
+    });
+  }
+  var target = reducerTarget(this, ref, context);
+  target.loaded.st.now = effectiveAtS;
+  var world = this;
+  return reducerSave(this, context, [source.loaded, target.loaded], function () {
+    var interceptors = Number(target.planet.mis && target.planet.mis.interceptor || 0);
+    var result = G.noTenLua(source.entity.n, target.planet.def, interceptors,
+      source.loaded.st.tech, target.loaded.st.tech,
+      String(effectiveAtS) + ':' + source.entity.id + ':' + ref.targetKey);
+    target.planet.mis.interceptor = Math.max(0, interceptors - result.chan);
+    source.loaded.st.tenLua.splice(source.loaded.st.tenLua.indexOf(source.entity), 1);
+    G.tin(source.loaded.st, 'tran', 'Kết quả bắn tên lửa', null,
+      {tl: result, t: effectiveAtS});
+    G.tin(target.loaded.st, 'tran', 'BỊ TẤN CÔNG BẰNG TÊN LỬA tại ' +
+      G.tdStr(target.planet.c), null, {tl: result, t: effectiveAtS});
+    world.ghiBangTin(effectiveAtS, 'tran', source.loaded.st.ten + ' bắn ' +
+      source.entity.n + ' tên lửa vào ' + target.loaded.st.ten + ' tại ' +
+      G.tdStr(target.planet.c) + '.');
+    return {kind: 'missile', applied: true, authorized: true,
+      atS: effectiveAtS, result: result};
+  });
+};
+
+function reducerUnitCount(value) {
+  return Object.keys(value || {}).reduce(function (sum, key) {
+    return sum + Math.max(0, Math.floor(Number(value[key]) || 0));
+  }, 0);
+}
+
+function reducerCombatStats(state) {
+  state.stats = state.stats && typeof state.stats === 'object' ? state.stats : {};
+  ['thang', 'thua', 'cuop', 'tauMat', 'tauDietDich', 'chuyenBay'].forEach(function (key) {
+    if (!Number.isFinite(Number(state.stats[key]))) state.stats[key] = 0;
+  });
+  return state.stats;
+}
+
+TheGioi.prototype.resolvePvpAt = function (
+  ref, effectiveAtS, seed, snapshot, canonicalTarget
+) {
+  var context = reducerWorldContext(this, effectiveAtS, canonicalTarget);
+  if (context.neutralization) return reducerReturnOrRemove(this, ref, effectiveAtS, context);
+  if (!snapshot || snapshot.seed !== seed || snapshot.arrivalAtS !== effectiveAtS) {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  var source = reducerEntity(this, ref);
+  if (source.entity.mission !== 'attack' || source.entity.pha !== 'di') {
+    throw reducerWorldError('PAYLOAD_INTEGRITY');
+  }
+  source.loaded.st.now = effectiveAtS;
+  var canonical = reducerCanonicalContext(this, ref), currentTarget = canonical.target;
+  if (!currentTarget || currentTarget.accountId !== context.accountId ||
+      !canonical.sourceState ||
+      !reducerCanonicalAttackAllowed(this, Number(ref.ownerAccountId), canonical.sourceState,
+        currentTarget.accountId, currentTarget.state, effectiveAtS)) {
+    return reducerSave(this, context, [source.loaded], function () {
+      G.tin(source.loaded.st, 'he', 'Cuộc tấn công bị Hội Đồng Bảo An chặn',
+        'Quyền tấn công không còn hợp lệ khi hạm đội tới mục tiêu.');
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+      return {kind: 'pvp', applied: true, authorized: false, protected: false,
+        atS: effectiveAtS};
+    });
+  }
+  var target = reducerTarget(this, ref, context);
+  var attackerPoints = G.diem(canonical.sourceState).tong;
+  var defenderPoints = G.diem(currentTarget.state).tong;
+  var newPlayerProtected =
+    defenderPoints < G.C.BAO_VE_MOI_DIEM &&
+      attackerPoints > defenderPoints * G.C.BAO_VE_MOI_TY_LE ||
+    attackerPoints < G.C.BAO_VE_MOI_DIEM &&
+      defenderPoints > attackerPoints * G.C.BAO_VE_MOI_TY_LE;
+  if (newPlayerProtected) {
+    return reducerSave(this, context, [source.loaded], function () {
+      G.tin(source.loaded.st, 'he', 'Cuộc tấn công bị chặn',
+        'Bảo vệ người chơi mới vẫn còn hiệu lực khi hạm đội tới mục tiêu.');
+      G.batDauVe(source.loaded.st, source.entity, true, null);
+      return {kind: 'pvp', applied: true, authorized: true, protected: true,
+        atS: effectiveAtS};
+    });
+  }
+  var supporterAccounts = new Map();
+  function supporterFleetIndex(state) {
+    if (!state || !Array.isArray(state.fleets)) throw reducerWorldError('PAYLOAD_INTEGRITY');
+    var index = new Map();
+    state.fleets.forEach(function (fleet) {
+      if (!fleet || fleet.mission !== 'hold' || fleet.pha !== 'giu') return;
+      var fleetId = Number(fleet.id);
+      if (!Number.isSafeInteger(fleetId) || fleetId < 1 || index.has(fleetId)) {
+        throw reducerWorldError('PAYLOAD_INTEGRITY');
+      }
+      index.set(fleetId, fleet);
+    });
+    return index;
+  }
+  function cacheSupporterAccount(accountId, loaded, canonicalState) {
+    if (!loaded || !canonicalState) throw reducerWorldError('PAYLOAD_INTEGRITY');
+    var cached = supporterAccounts.get(accountId);
+    if (cached) {
+      if (cached.loaded !== loaded || cached.canonicalState !== canonicalState) {
+        throw reducerWorldError('PAYLOAD_INTEGRITY');
+      }
+      return cached;
+    }
+    cached = {loaded: loaded, canonicalState: canonicalState,
+      fleets: supporterFleetIndex(loaded.st),
+      canonicalFleets: supporterFleetIndex(canonicalState)};
+    supporterAccounts.set(accountId, cached);
+    return cached;
+  }
+  cacheSupporterAccount(Number(ref.ownerAccountId), source.loaded, canonical.sourceState);
+  cacheSupporterAccount(context.accountId, target.loaded, currentTarget.state);
+  var excludedSupporters = [];
+  var supporters = snapshot.supporters.map(function (entry) {
+    var account = supporterAccounts.get(entry.accountId);
+    if (!account) {
+      account = cacheSupporterAccount(entry.accountId, this.nap(entry.accountId),
+        canonical.states.get(entry.accountId));
+    }
+    var loaded = account.loaded, fleet = account.fleets.get(entry.fleetId);
+    if (!loaded || !fleet || Number(loaded.row.revision) !== entry.revision) {
+      throw reducerWorldError('PAYLOAD_INTEGRITY');
+    }
+    var canonicalSupporterState = canonical.states.get(entry.accountId);
+    var canonicalSupporterFleet = account.canonicalFleets.get(entry.fleetId);
+    if (!canonicalSupporterFleet ||
+        !reducerCanonicalHoldAllowed(entry.accountId, canonicalSupporterState,
+          canonicalSupporterFleet, currentTarget)) {
+      G.batDauVe(loaded.st, fleet, true,
+        'Quyền hỗ trợ tại mục tiêu không còn hợp lệ; hạm đội quay về.');
+      excludedSupporters.push({loaded: loaded, fleet: fleet, snapshot: entry});
+      return null;
+    }
+    return {loaded: loaded, fleet: fleet, snapshot: entry};
+  }, this).filter(Boolean);
+  var supportersByAccount = new Map();
+  supporters.forEach(function (supporter) {
+    if (!supportersByAccount.has(supporter.snapshot.accountId)) {
+      supportersByAccount.set(supporter.snapshot.accountId, supporter);
+    }
+  });
+  target.loaded.st.now = effectiveAtS;
+  var world = this;
+  return reducerSave(this, context,
+    [source.loaded, target.loaded].concat(supporters.concat(excludedSupporters)
+      .map(function (item) { return item.loaded; })),
+  function () {
+    var groups = [{ships: snapshot.defender.ships, tech: snapshot.defender.tech}]
+      .concat(supporters.map(function (entry) {
+        return {ships: entry.snapshot.ships, tech: entry.snapshot.tech};
+      }));
+    var result = G.danhTran({ten: source.loaded.st.ten, tech: snapshot.attacker.tech,
+      ships: snapshot.attacker.ships}, {ten: target.loaded.st.ten + ' — ' + target.planet.ten,
+      tech: snapshot.defender.tech, nhomTau: groups, def: snapshot.defender.def,
+      thuDat: snapshot.defender.terrain.thuDat,
+      loaiHT: snapshot.defender.terrain.loaiHT}, String(seed));
+    source.entity.ships = result.conShipsA || {};
+    source.entity.linh = G.clone(snapshot.attacker.linh || {});
+    target.planet.ships = result.conNhomD && result.conNhomD[0] || {};
+    target.planet.def = G.clone(result.conDefD || {});
+    target.planet.linh = G.clone(snapshot.defender.linh || {});
+    supporters.forEach(function (supporter, index) {
+      supporter.fleet.ships = result.conNhomD && result.conNhomD[index + 1] || {};
+      if (!reducerUnitCount(supporter.fleet.ships)) {
+        supporter.loaded.st.fleets.splice(supporter.loaded.st.fleets.indexOf(supporter.fleet), 1);
+      }
+    });
+    var ground = null;
+    if (result.kq === 'thang' && reducerUnitCount(source.entity.linh)) {
+      var groundDefense = G.thuMatDat(target.planet.def);
+      ground = G.doBoXuong(source.loaded.st, source.entity, {
+        ten: target.loaded.st.ten + ' — ' + target.planet.ten,
+        tech: snapshot.defender.tech, linh: target.planet.linh,
+        def: groundDefense, thuDat: snapshot.defender.terrain.thuDat,
+        p: target.planet
+      });
+      G.gopThuMatDat(target.planet.def, groundDefense);
+      reducerCombatStats(source.loaded.st).doBo =
+        Number(reducerCombatStats(source.loaded.st).doBo || 0) + 1;
+    }
+    var loot = {metal: 0, crystal: 0, deut: 0, food: 0};
+    if (result.kq === 'thang') {
+      loot = G.chiaHang(target.planet.res,
+        Math.max(0, G.khoangHang(source.entity.ships) - G.tongRes(source.entity.cargo)),
+        ground && ground.thang ? Math.min(0.85, G.C.CUOP_TOI_DA + G.C.CUOP_DO_BO) :
+          G.C.CUOP_TOI_DA);
+      reducerResourceKeys().forEach(function (resource) {
+        target.planet.res[resource] = Number(target.planet.res[resource] || 0) -
+          Number(loot[resource] || 0);
+        source.entity.cargo[resource] = Number(source.entity.cargo[resource] || 0) +
+          Number(loot[resource] || 0);
+      });
+    }
+    var debris = world.plLay(ref.targetKey);
+    debris.metal += Number(result.pheLieu && result.pheLieu.metal || 0);
+    debris.crystal += Number(result.pheLieu && result.pheLieu.crystal || 0);
+    var attackerStats = reducerCombatStats(source.loaded.st);
+    var defenderStats = reducerCombatStats(target.loaded.st);
+    var attackerLosses = reducerUnitCount(result.matA);
+    var defenderLosses = 0, lossesByOwner = new Map();
+    (result.matNhomD || []).forEach(function (losses, index) {
+      var lost = reducerUnitCount(losses), ownerId = index === 0 ? context.accountId :
+        supporters[index - 1].snapshot.accountId;
+      defenderLosses += lost;
+      lossesByOwner.set(ownerId, Number(lossesByOwner.get(ownerId) || 0) + lost);
+    });
+    if (result.kq === 'thang') {
+      attackerStats.thang += 1;
+      attackerStats.cuop += G.tongRes(loot);
+      defenderStats.thua += 1;
+    } else {
+      attackerStats.thua += 1;
+      defenderStats.thang += 1;
+    }
+    attackerStats.tauMat += attackerLosses;
+    attackerStats.tauDietDich += defenderLosses;
+    defenderStats.tauDietDich += attackerLosses;
+    lossesByOwner.forEach(function (lost, ownerId) {
+      var participant = ownerId === context.accountId ? target.loaded :
+        supportersByAccount.get(ownerId).loaded;
+      reducerCombatStats(participant.st).tauMat += lost;
+    });
+    var supporterReports = [];
+    supportersByAccount.forEach(function (supporter, ownerId) {
+      if (ownerId === context.accountId) return;
+      var account = world.kho.q.tkTheoId.get(ownerId);
+      var name = account ? account.hienthi : supporter.loaded.st.ten;
+      supporterReports.push({tk: ownerId, ten: name,
+        mat: Number(lossesByOwner.get(ownerId) || 0)});
+    });
+    var sourceDetail = {kq: result, cuop: loot, pl: result.pheLieu,
+      td: target.planet.c, ben: 'ta', pvp: true, doiThu: target.loaded.st.ten,
+      doBo: ground, hoTro: supporterReports};
+    var targetDetail = {kq: result, cuop: loot, pl: result.pheLieu,
+      td: target.planet.c, ben: 'dich', pvp: true, doiThu: source.loaded.st.ten,
+      doBo: ground, hoTro: supporterReports};
+    G.tin(source.loaded.st, 'tran', 'Báo cáo chiến đấu ' + G.tdStr(target.planet.c),
+      null, sourceDetail);
+    G.tin(target.loaded.st, 'tran',
+      ground && ground.thang ? 'BỊ ĐỔ BỘ tại ' + G.tdStr(target.planet.c) :
+        'BỊ TẤN CÔNG tại ' + G.tdStr(target.planet.c), null, targetDetail);
+    supporterReports.forEach(function (supporterReport) {
+      var participant = supportersByAccount.get(supporterReport.tk);
+      G.tin(participant.loaded.st, 'tran', 'Hỗ trợ phòng thủ tại ' +
+        G.tdStr(target.planet.c) + ' — ' + source.loaded.st.ten, null,
+      {kq: result, cuop: loot, pl: result.pheLieu, td: target.planet.c,
+        ben: 'hotro', pvp: true, doiThu: source.loaded.st.ten,
+        chuNha: target.loaded.st.ten, mat: supporterReport.mat,
+        doBo: ground, hoTro: supporterReports});
+    });
+    world.ghiTran(effectiveAtS, Number(ref.ownerAccountId), context.accountId,
+      ref.targetKey, result.kq, Math.round(G.tongRes(loot)),
+      reducerUnitCount(result.matA),
+      (result.matNhomD || []).reduce(function (sum, map) { return sum + reducerUnitCount(map); }, 0));
+    world.ghiBangTin(effectiveAtS, 'tran', source.loaded.st.ten + ' đánh ' +
+      target.loaded.st.ten + ' tại ' + G.tdStr(target.planet.c));
+    if (!reducerUnitCount(source.entity.ships)) {
+      source.loaded.st.fleets.splice(source.loaded.st.fleets.indexOf(source.entity), 1);
+    } else G.batDauVe(source.loaded.st, source.entity, true, null);
+    return {kind: 'pvp', applied: true, authorized: true, protected: false,
+      atS: effectiveAtS, result: result,
+      ground: ground,
+      loot: loot, debris: {metal: Number(result.pheLieu && result.pheLieu.metal || 0),
+        crystal: Number(result.pheLieu && result.pheLieu.crystal || 0)},
+      supporterCount: supporters.length, excludedSupporterCount: excludedSupporters.length};
+  });
+};
+
+var RULES_HOOK_METHODS = Object.freeze([
+  'nangCapDuLieu', 'seed', 'batDau', 'ketThuc', 'ghiBangTin', 'ghiTran',
+  'npcLay', 'npcGhi', 'plLay', 'laDongMinh', 'quyenDanh', 'kiemTraGui',
+  'kiemTraGiu', 'chuHienTai', 'oNguoi', 'nap', 'layStateNoiBo', '_chuanBiLuu',
+  '_ghiChiMucHam', '_ghiNhieu', 'luu', '_dongBoChiMucTrongGD', '_chiMucTuCanonical',
+  'dongBoChiMuc', 'hamDangToi', 'hamGiuTai', 'hanhDong',
+  'danhNguoi', 'doThamNguoi', 'tangNguoi', 'xepHangCho', 'xemHe',
+  'oTrong', 'timNha', 'taoDeQuoc', 'tenLuaNguoi', 'xoaTaiKhoan',
+  'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana', 'lmDS', 'lmTao',
+  'lmThanhVien', 'lmXin', 'lmDuyet', 'lmDuoi', 'lmChuyenChu', 'lmRa',
+  'nhip', 'resolvePvpAt', 'resolveTransportAt', 'resolveSpyAt',
+  'resolveHoldAt', 'resolveMissileAt'
+]);
+
+function sameNames(left, right) {
+  return left.length === right.length && left.every(function (name, index) {
+    return name === right[index];
+  });
+}
+
+function bindRulesHooks() {
+  var ignored = new Set(['constructor', 'veHook', 'withRulesHook', 'datScheduler',
+    'datAdvanceService', 'trongMutationScheduler', '_schedulerActive',
+    '_tickNoiBo',
+    'advanceAccountNoiBo', '_assertSchedulerFinalFence', 'tick',
+    '_dongBoSchedulerLuu', '_dongBoSchedulerCreations']);
+  var actual = Object.getOwnPropertyNames(TheGioi.prototype)
+    .filter(function (name) { return !ignored.has(name); })
+    .sort();
+  var expected = RULES_HOOK_METHODS.slice().sort();
+  if (!sameNames(actual, expected)) throw new Error('WORLD_RULES_HOOK_METHODS_OUT_OF_DATE');
+  RULES_HOOK_METHODS.forEach(function (name) {
+    var raw = TheGioi.prototype[name];
+    var wrapped = function () {
+      var self = this;
+      var args = arguments;
+      return self.withRulesHook(function () { return raw.apply(self, args); });
+    };
+    if (/^resolve(?:Pvp|Transport|Spy|Hold|Missile)At$/.test(name)) {
+      Object.defineProperty(wrapped, 'length', {value: raw.length});
+    }
+    Object.defineProperty(TheGioi.prototype, name, {
+      configurable: true,
+      enumerable: true,
+      value: wrapped,
+      writable: true
+    });
+  });
+}
+
+bindRulesHooks();
+module.exports = {TheGioi: TheGioi, G: G, RULES_HOOK_METHODS: RULES_HOOK_METHODS};

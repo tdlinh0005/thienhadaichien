@@ -128,7 +128,12 @@ G.HANHDONG = {
     var ships = {}, cargo = {}, linh = {}, k;
     for (k in (d.ships || {})) if (G.S(k)) { var n = soDuong(d.ships[k]); if (n) ships[k] = n; }
     for (k in (d.linh || {})) if (G.BB(k)) { var nb = soDuong(d.linh[k]); if (nb) linh[k] = nb; }
-    for (k in (d.cargo || {})) if (G.RES_HANH_TINH.indexOf(k) >= 0) { var v = soDuong(d.cargo[k]); if (v) cargo[k] = v; }
+    for (k in (d.cargo || {})) {
+      if (G.RES_HANH_TINH.indexOf(k) >= 0) {
+        var v = soDuong(d.cargo[k]);
+        if (v) cargo[k] = v;
+      }
+    }
     var pct = Math.max(10, Math.min(100, Math.round((+d.pct || 100) / 10) * 10));
     var giu = Math.max(1, Math.min(24, Math.floor(+d.giu || 1)));
     return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh);
@@ -154,7 +159,12 @@ G.HANHDONG = {
     if (st.lm) return 'Đang ở trong một liên minh khác.';
     if (!G.HOOK && G.LIEN_MINH.indexOf(ten) < 0) return 'Không có liên minh này.';
     st.lm = { ten: ten, t: st.now };
-    G.tin(st, 'he', 'Đã gia nhập liên minh', 'Ta chính thức là thành viên của ' + ten + '. Sản lượng toàn đế quốc +5%.');
+    G.tin(
+      st,
+      'he',
+      'Đã gia nhập liên minh',
+      'Ta chính thức là thành viên của ' + ten + '. Sản lượng toàn đế quốc +5%.'
+    );
     return null;
   },
   lmra: function (st) {
@@ -187,6 +197,8 @@ G.HANHDONG = {
 G.chay = function (st, ten, dl) {
   var f = G.HANHDONG[ten];
   if (!f) return 'Hành động không tồn tại.';
-  G.tick(st, G.giay());
+  var tick = G.tick(st, G.giay());
+  if (G.laTickPartial(tick)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+  if (G.tickOutcomeNeedsDeferral(tick)) return G.TICK_PARTIAL;
   return f(st, dl || {}) || null;
 };

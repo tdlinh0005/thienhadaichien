@@ -37,7 +37,8 @@ G.tg = function (giay) {
 G.gio = function (ts) {
   var d = new Date(ts);
   var p = function (x) { return (x < 10 ? '0' : '') + x; };
-  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' +
+    p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 };
 
 /* --- Đối tượng --------------------------------------------------------- */

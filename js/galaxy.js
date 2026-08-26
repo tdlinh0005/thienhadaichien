@@ -5,7 +5,10 @@
 'use strict';
 var G = window.G = window.G || {};
 
-G.HO = ['Trần', 'Nguyễn', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Đặng', 'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Phan', 'Trịnh'];
+G.HO = [
+  'Trần', 'Nguyễn', 'Lê', 'Phạm', 'Hoàng', 'Vũ', 'Đặng', 'Bùi',
+  'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Phan', 'Trịnh'
+];
 G.TEN = ['Quốc Bình', 'Vũ Long', 'Minh Khôi', 'Hải Đăng', 'Trọng Nghĩa', 'Anh Tuấn', 'Thiên Ân', 'Bảo Nam',
   'Chí Kiên', 'Duy Hưng', 'Gia Bảo', 'Hữu Phước', 'Khắc Vũ', 'Lam Sơn', 'Mạnh Trường', 'Nhật Quang',
   'Phúc Thịnh', 'Quang Vinh', 'Sơn Tùng', 'Thành Đạt', 'Tuấn Kiệt', 'Việt Hoàng', 'Xuân Trường', 'Yên Bình'];
@@ -54,7 +57,13 @@ G.coNPC = function (seed, c) {
 /* --- Sinh & lưu trạng thái một NPC ------------------------------------ */
 G.npc = function (st, c) {
   var key = G.tdKey(c);
-  if (G.HOOK && G.HOOK.npc) { var chung = G.HOOK.npc(st, c, key); if (chung) { G.npcHoiPhuc(st, chung); return chung; } }
+  if (G.HOOK && G.HOOK.npc) {
+    var chung = G.HOOK.npc(st, c, key);
+    if (chung) {
+      G.npcHoiPhuc(st, chung);
+      return chung;
+    }
+  }
   if (st.npc[key]) { G.npcHoiPhuc(st, st.npc[key]); return st.npc[key]; }
 
   var r = G.rng(G.hash(st.seed + '@' + key));
@@ -83,7 +92,12 @@ G.npc = function (st, c) {
   var dDef = diem * (bo ? 0.06 : 0.3 + r() * 0.2);
   n.ships = G.npcHam(dFleet, manh, r);
   n.def = G.npcThu(dDef, manh, r);
-  n.res = { metal: Math.round(diem * 220), crystal: Math.round(diem * 110), deut: Math.round(diem * 45), food: Math.round(diem * 60) };
+  n.res = {
+    metal: Math.round(diem * 220),
+    crystal: Math.round(diem * 110),
+    deut: Math.round(diem * 45),
+    food: Math.round(diem * 60)
+  };
   if (bo) { n.res.metal *= 3; n.res.crystal *= 3; n.res.deut *= 2; }
 
   if (G.HOOK && G.HOOK.npcMoi) G.HOOK.npcMoi(n); else st.npc[key] = n;
@@ -115,8 +129,17 @@ G.npcThu = function (diem, manh, r) {
   if (diem <= 0) return {};
   var bang;
   if (manh < 0.4) bang = [['missileLauncher', 0.6], ['laserS', 0.4]];
-  else if (manh < 0.7) bang = [['missileLauncher', 0.3], ['laserS', 0.25], ['laserL', 0.2], ['ion', 0.15], ['satellite', 0.1]];
-  else bang = [['laserL', 0.2], ['gauss', 0.25], ['ion', 0.12], ['plasma', 0.23], ['satellite', 0.1], ['orbitalStation', 0.1]];
+  else if (manh < 0.7) {
+    bang = [
+      ['missileLauncher', 0.3], ['laserS', 0.25], ['laserL', 0.2],
+      ['ion', 0.15], ['satellite', 0.1]
+    ];
+  } else {
+    bang = [
+      ['laserL', 0.2], ['gauss', 0.25], ['ion', 0.12],
+      ['plasma', 0.23], ['satellite', 0.1], ['orbitalStation', 0.1]
+    ];
+  }
   var out = {};
   for (var i = 0; i < bang.length; i++) {
     var d = G.D(bang[i][0]);
