@@ -46,8 +46,14 @@ function docBody(req) {
     req.on('end', function () {
       if (qua) return loi(loiKH('Dữ liệu gửi lên quá lớn.', 413));
       if (!buf.length) return ok({});
-      try { ok(JSON.parse(Buffer.concat(buf).toString('utf8'))); }
-      catch (e) { loi(loiKH('JSON không hợp lệ.', 400)); }
+      try {
+        var doc = JSON.parse(Buffer.concat(buf).toString('utf8'));
+        /* Body hợp lệ về mặt JSON nhưng không phải object — "null", "0", "[]",
+           chuỗi — vẫn đi thẳng vào các handler vốn đọc b.ten, b.tk... Riêng
+           null làm mọi handler ném và biến thành HTTP 500. Quy hết về {} để
+           handler chỉ thấy các trường vắng mặt và trả lỗi 400 sạch sẽ. */
+        ok(doc && typeof doc === 'object' && !Array.isArray(doc) ? doc : {});
+      } catch (e) { loi(loiKH('JSON không hợp lệ.', 400)); }
     });
     req.on('error', loi);
   });
@@ -319,7 +325,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     await self.markLastSeen(p);
     var b3 = await docBodyDaXacThuc();
     var ten3 = chuoi(b3.ten, 24);
-    if (!G.HANHDONG[ten3]) return json(res, 400, { loi: 'Hành động không tồn tại.' });
+    if (!G.layHanhDong(ten3)) return json(res, 400, { loi: 'Hành động không tồn tại.' });
     /* Multiplayer phải qua đơn xin + chủ duyệt; không cho gọi thẳng luật dùng
        chung để lách bộ máy điều hành liên minh. */
     if (ten3 === 'lmvao') return json(res, 400, { loi: 'Hãy gửi đơn xin gia nhập và chờ chủ liên minh duyệt.' });

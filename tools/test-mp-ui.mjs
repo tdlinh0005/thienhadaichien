@@ -545,10 +545,17 @@ async function chay() {
   await nhan(p2, '[data-act="goive"]', '/api/lam');
   ktra(await p2.evaluate('ST.fleets[0] && ST.fleets[0].pha === "ve"'),
     'Gọi Về từ UI chuyển stationed fleet sang pha ve');
+  /* mp.js tự đồng bộ nền mỗi 8 giây, nên waitForResponse('/api/state') có thể
+     bắt trúng một lần poll ĐÃ BAY ĐI trước lúc gọi về — state trong đó vẫn còn
+     garrison và phép kiểm ngay sau đó hỏng ngẫu nhiên. Mọi chỗ khác trong bài
+     này đều chờ tiếp bằng waitForFunction; chỗ này trước đây thì không. */
   var taiRoi1 = p1.waitForResponse(function (r) { return r.url().indexOf('/api/state') >= 0; }, { timeout: 20000 });
   await p1.evaluate('APP.hienLai()'); await taiRoi1;
-  ktra(await p1.evaluate('Array.isArray(ST.pvpGiu) && ST.pvpGiu.length === 0'),
-    'host mất projection garrison ngay khi chủ gọi fleet về');
+  var matGiu = await p1.waitForFunction(
+    'window.ST && Array.isArray(ST.pvpGiu) && ST.pvpGiu.length === 0',
+    null, { timeout: 20000 }
+  ).then(function () { return true; }, function () { return false; });
+  ktra(matGiu, 'host mất projection garrison ngay khi chủ gọi fleet về');
 
   /* Chuyển Galana phải có hành động thật trong UI và cập nhật nguyên tử hai
      đế quốc. Người nhận nhận state mới qua nhịp đồng bộ nền. */

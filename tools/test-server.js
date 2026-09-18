@@ -163,8 +163,84 @@ async function kiemTuCutover() {
   }
 }
 
+/* Body sai định dạng và tên hành động/tài khoản rác KHÔNG được thành HTTP 500.
+   Cả ba lỗi dưới đây từng biến một body hợp lệ về mặt JSON thành lỗi máy chủ. */
+async function kiemDauVaoXau() {
+  var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-dauvao-'));
+  var dbPath = path.join(directory, 'g.sqlite');
+  var clock = clockCoDinh();
+  var khoCut = new Kho(dbPath);
+  try {
+    runMaintenanceCutover({
+      kho: khoCut, clock: clock, ownerId: '00000000-0000-4000-8000-000000000051'
+    });
+  } finally { khoCut.dong(); }
+
+  /* Bài này bắn hàng trăm request nên phải nới trần tần suất, nếu không chính
+     bộ giới hạn (429) sẽ che mất thứ đang cần đo. */
+  var app = taoUngDung({
+    port: 0, dbPath: dbPath, env: {THDC_GIOI_HAN: '100000', THDC_GIOI_HAN_DN: '100000'},
+    clock: clock, logger: loggerImLang([]),
+    timers: {setInterval: function () { return {}; }, clearInterval: function () {}}
+  });
+  app.server.listen = function () {
+    queueMicrotask(function () { app.server.emit('listening'); });
+    return app.server;
+  };
+  try {
+    await app.start();
+    var dk = await post(app, '/api/dangky', {
+      ten: 'dauvaoxau', mk: 'matkhau-dai', hienthi: 'Đầu Vào Xấu'
+    });
+    ktra(dk.status === 200 && dk.body.token, 'đầu vào xấu: đăng ký được tài khoản nền');
+    var tok = dk.body.token;
+
+    /* 1. body JSON là null/mảng/số — handler đọc b.ten trên null thì ném */
+    var mauBody = [null, [], 0, 'x', true];
+    var duong = ['/api/tuyenchien', '/api/chuyengalana', '/api/lmtao', '/api/lmxin',
+      '/api/lmduoi', '/api/lmchuyen', '/api/chat', '/api/guithu', '/api/doimk', '/api/lam'];
+    var xau = [], i, j;
+    for (i = 0; i < duong.length; i++) {
+      for (j = 0; j < mauBody.length; j++) {
+        var r = await post(app, duong[i], mauBody[j], tok);
+        if (r.status >= 500) xau.push(duong[i] + ' <- ' + JSON.stringify(mauBody[j]));
+      }
+    }
+    ktra(xau.length === 0, 'đầu vào xấu: body không phải object không gây 500 (' + xau.join(', ') + ')');
+
+    /* 2. số hiệu tài khoản rác đi thẳng vào preflight của scheduler */
+    var xau2 = [], mauTk = [undefined, null, -1, 0, 'x', 1.5, NaN, [], {}];
+    for (i = 0; i < mauTk.length; i++) {
+      var rc = await post(app, '/api/tuyenchien', { tk: mauTk[i] }, tok);
+      if (rc.status >= 500) xau2.push('tuyenchien tk=' + JSON.stringify(mauTk[i]));
+      var rg = await post(app, '/api/chuyengalana', { tk: mauTk[i], so: 10 }, tok);
+      if (rg.status >= 500) xau2.push('chuyengalana tk=' + JSON.stringify(mauTk[i]));
+    }
+    ktra(xau2.length === 0,
+      'đầu vào xấu: số hiệu tài khoản rác trả lỗi luật chơi chứ không 500 (' + xau2.join(', ') + ')');
+
+    /* 3. tên hành động trùng khoá trên Object.prototype */
+    var xau3 = [], mauTen = ['__proto__', 'toString', 'constructor', 'valueOf',
+      'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable'];
+    for (i = 0; i < mauTen.length; i++) {
+      var ra = await post(app, '/api/lam', { ten: mauTen[i], dl: {} }, tok);
+      if (ra.status !== 400) xau3.push(mauTen[i] + ' -> ' + ra.status);
+    }
+    ktra(xau3.length === 0,
+      'đầu vào xấu: tên hành động trên prototype bị từ chối 400 (' + xau3.join(', ') + ')');
+
+    /* hành động thật vẫn chạy */
+    var that = await post(app, '/api/lam', { ten: 'doithue', dl: { pi: 0, thue: 12 } }, tok);
+    ktra(that.status === 200, 'đầu vào xấu: hành động thật vẫn chạy bình thường');
+  } finally {
+    await app.stop().catch(function () {});
+    xoaFixture(directory);
+  }
+}
+
 async function main() {
   await kiemTuCutover();
+  await kiemDauVaoXau();
   var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-server-durable-'));
   var dbPath = path.join(directory, 'game.sqlite');
   var clock = clockCoDinh();

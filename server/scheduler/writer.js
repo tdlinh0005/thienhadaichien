@@ -818,6 +818,13 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
   var realChuyenGalana = world.chuyenGalana;
   function preflight(accountId, targetS) {
     accountId = Number(accountId);
+    /* Số hiệu tài khoản ở đây đến THẲNG từ body của client (tuyenChien,
+       chuyenGalana...). Hàm world bên dưới có kiểm tra đàng hoàng và trả lỗi
+       luật chơi, nhưng preflight chạy TRƯỚC nó — đẩy một id rác vào
+       adoptAccountAdvanceForCommand làm nó ném ACCOUNT_ADVANCE_ADOPTION_INVALID
+       và biến một body sai định dạng thành HTTP 500. Không có tài khoản nào
+       mang id như vậy để mà advance, nên bỏ qua và để hàm world trả lỗi sạch. */
+    if (!Number.isSafeInteger(accountId) || accountId < 1) return;
     if (Number.isSafeInteger(mutation.commandAccountId) &&
         accountId === mutation.commandAccountId) return;
     var outcome = writer.advanceAccountInCurrentUow(

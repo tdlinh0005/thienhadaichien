@@ -276,9 +276,20 @@ G.HANHDONG = {
   }
 };
 
+/* Tên hành động đến từ client. Tra thẳng G.HANHDONG[ten] là bẫy: '__proto__'
+   trả về Object.prototype (truthy nhưng không gọi được -> ném), còn
+   'toString'/'constructor'/'valueOf' là HÀM THẬT trên prototype nên gọi được
+   luôn. Chỉ nhận khoá do chính bảng sở hữu. */
+G.layHanhDong = function (ten) {
+  if (typeof ten !== 'string') return null;
+  if (!Object.prototype.hasOwnProperty.call(G.HANHDONG, ten)) return null;
+  var f = G.HANHDONG[ten];
+  return typeof f === 'function' ? f : null;
+};
+
 /* Chạy một hành động: tua thời gian trước, rồi thực thi. */
 G.chay = function (st, ten, dl) {
-  var f = G.HANHDONG[ten];
+  var f = G.layHanhDong(ten);
   if (!f) return 'Hành động không tồn tại.';
   var tick = G.tick(st, G.giay());
   if (G.laTickPartial(tick)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');

@@ -4678,7 +4678,7 @@ G.doBoXuong = function (st, f, ben) {
   return { kq: kq, thang: thang, phaCT: phaCT };
 };
 
-/* source: js/actions.js sha256:723f9d5deee295c01dbf33251e74f20fe60f9fbd968caef4c7887f88ec5f1ead */
+/* source: js/actions.js sha256:958d1fbc9d7a62b8cdb19d33753bce8dd2453bee303333b8464a90e4882d3ffe */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
  * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
  * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
@@ -4957,9 +4957,20 @@ G.HANHDONG = {
   }
 };
 
+/* Tên hành động đến từ client. Tra thẳng G.HANHDONG[ten] là bẫy: '__proto__'
+   trả về Object.prototype (truthy nhưng không gọi được -> ném), còn
+   'toString'/'constructor'/'valueOf' là HÀM THẬT trên prototype nên gọi được
+   luôn. Chỉ nhận khoá do chính bảng sở hữu. */
+G.layHanhDong = function (ten) {
+  if (typeof ten !== 'string') return null;
+  if (!Object.prototype.hasOwnProperty.call(G.HANHDONG, ten)) return null;
+  var f = G.HANHDONG[ten];
+  return typeof f === 'function' ? f : null;
+};
+
 /* Chạy một hành động: tua thời gian trước, rồi thực thi. */
 G.chay = function (st, ten, dl) {
-  var f = G.HANHDONG[ten];
+  var f = G.layHanhDong(ten);
   if (!f) return 'Hành động không tồn tại.';
   var tick = G.tick(st, G.giay());
   if (G.laTickPartial(tick)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');

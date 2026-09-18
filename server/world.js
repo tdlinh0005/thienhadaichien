@@ -766,11 +766,12 @@ TheGioi.prototype.hanhDong = function (tk, ten, dl) {
     }
   }
   var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
-  if (!G.HANHDONG[ten]) return {loi: 'Hành động không tồn tại.', st: null};
+  var hanhDong = G.layHanhDong(ten);
+  if (!hanhDong) return {loi: 'Hành động không tồn tại.', st: null};
   var loaded = this.nap(Number(tk));
   if (!loaded) return {loi: 'Đế quốc không tồn tại.', st: null};
   var state = loaded.st;
-  var loi = G.HANHDONG[ten](state, dl || {}) || null;
+  var loi = hanhDong(state, dl || {}) || null;
   this.luu(Number(tk), state, mutation ? {mutation: mutation} : undefined);
   return {loi: loi, st: state};
 };
