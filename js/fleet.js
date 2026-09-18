@@ -391,6 +391,137 @@ G.goiVe = function (st, fid) {
   return 'Không tìm thấy hạm đội.';
 };
 
+/* --- TÁCH HẠM ĐỘI (cơ chế bản gốc) ------------------------------------
+ * [XÁC NHẬN] Nguồn GVN nói hạm đội "có thể chia đội" — xem docs/NGHIEN-CUU.md.
+ * Tách một phần tàu, quân đổ bộ và hàng ra thành hạm đội thứ hai; hai đội từ
+ * đó đi tiếp độc lập, đổi mục tiêu hay đổi căn cứ riêng nhau.
+ *
+ * [TÁI DỰNG] ba quy tắc cân bằng:
+ *  - Hai đội GIỮ NGUYÊN giờ đi và giờ tới của đội gốc. Không tính lại theo tốc
+ *    độ đội mới: nếu tính lại thì gửi kèm một Tàu Dầu chậm rồi tách ra giữa
+ *    đường sẽ thành mẹo rút ngắn chuyến bay.
+ *  - Tách tốn một khe hạm đội và một khoản lệnh điều động cố định.
+ *  - Hàng và quân chia theo đúng số người chơi nhập, nhưng CẢ HAI bên đều phải
+ *    chở nổi phần của mình — tách không được làm hàng bốc hơi hay vượt khoang.
+ * Đội đang neo quỹ đạo tách được, nhưng mỗi bên phải còn đủ nhiên liệu cho
+ * đoạn giữ đang trả dở, nếu không mốc tiếp theo sẽ xoá đội thành phế liệu.
+ */
+G.tachHam = function (st, fid, ships, linh, cargo) {
+  var f = null, i, id, n;
+  for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+  if (!f) return 'Không tìm thấy hạm đội.';
+  if (f.mission === 'thamhiem')
+    return 'Đoàn thám hiểm không tách được — mỗi chuyến là một khe riêng.';
+  if (st.fleets.length >= G.khe(st))
+    return 'Hết khe hạm đội (' + G.khe(st) + ') — tách đội cần thêm một khe.';
+  if (st.galana < G.C.TACH_HAM_GALANA)
+    return 'Cần ' + G.so(G.C.TACH_HAM_GALANA) + ' Galana để phát lệnh tách đội.';
+
+  /* --- tàu: phải lấy ra ít nhất một chiếc và phải để lại ít nhất một chiếc --- */
+  var tauMoi = {}, tauCon = {}, coTau = false, conTau = false;
+  ships = ships && typeof ships === 'object' ? ships : {};
+  for (id in ships) {
+    n = Math.floor(Number(ships[id]) || 0);
+    if (n <= 0 || !G.S(id)) continue;
+    if ((f.ships[id] || 0) < n) return 'Hạm đội không có đủ ' + G.S(id).ten + '.';
+    tauMoi[id] = n; coTau = true;
+  }
+  if (!coTau) return 'Chưa chọn tàu nào để tách.';
+  for (id in f.ships) {
+    n = (f.ships[id] || 0) - (tauMoi[id] || 0);
+    if (n > 0) { tauCon[id] = n; conTau = true; }
+  }
+  if (!conTau) return 'Phải để lại ít nhất một tàu ở hạm đội cũ; muốn đưa cả đội đi thì dùng lệnh đổi mục tiêu.';
+
+  /* --- quân đổ bộ --- */
+  var linhMoi = {}, linhCon = {};
+  linh = linh && typeof linh === 'object' ? linh : {};
+  for (id in linh) {
+    n = Math.floor(Number(linh[id]) || 0);
+    if (n <= 0 || !G.BB(id)) continue;
+    if (((f.linh || {})[id] || 0) < n) return 'Hạm đội không có đủ ' + G.BB(id).ten + '.';
+    linhMoi[id] = n;
+  }
+  for (id in (f.linh || {})) {
+    n = (f.linh[id] || 0) - (linhMoi[id] || 0);
+    if (n > 0) linhCon[id] = n;
+  }
+  if (G.choLinhCan(linhMoi) > G.sucChoLinh(tauMoi))
+    return 'Đội tách ra không đủ chỗ chở số quân đổ bộ đã chọn.';
+  if (G.choLinhCan(linhCon) > G.sucChoLinh(tauCon))
+    return 'Đội ở lại không còn đủ chỗ chở số quân đổ bộ còn lại.';
+
+  /* --- hàng trong khoang --- */
+  var hangMoi = {}, hangCon = {}, tongMoi = 0, tongCon = 0;
+  cargo = cargo && typeof cargo === 'object' ? cargo : {};
+  for (id in cargo) {
+    n = Math.floor(Number(cargo[id]) || 0);
+    if (n <= 0 || !G.byId(G.RES, id)) continue;
+    if (((f.cargo || {})[id] || 0) < n) return 'Hạm đội không chở đủ ' + G.byId(G.RES, id).ten + '.';
+    hangMoi[id] = n; tongMoi += n;
+  }
+  for (id in (f.cargo || {})) {
+    n = (f.cargo[id] || 0) - (hangMoi[id] || 0);
+    if (n > 0) { hangCon[id] = n; tongCon += n; }
+  }
+  if (tongMoi > G.khoangHang(tauMoi))
+    return 'Đội tách ra chỉ chở được ' + G.so(G.khoangHang(tauMoi)) + '.';
+  if (tongCon > G.khoangHang(tauCon))
+    return 'Đội ở lại chỉ chở được ' + G.so(G.khoangHang(tauCon)) + ' — hãy chuyển bớt hàng sang đội tách.';
+
+  /* --- đang neo quỹ đạo: mỗi bên tự lo nhiên liệu đoạn đang trả dở --- */
+  var dangGiu = f.pha === 'giu' || !!f.dangGiu;
+  if (dangGiu) {
+    var mocTiep = Number(f.tiepNL_t);
+    if (Number.isFinite(mocTiep) && mocTiep > st.now) {
+      var conLai = mocTiep - st.now;
+      if ((hangMoi.deut || 0) < G.nhienLieuGiu(st, tauMoi, conLai))
+        return 'Đội tách ra phải mang theo ít nhất ' +
+          G.so(G.nhienLieuGiu(st, tauMoi, conLai)) + ' Nhiên Liệu cho đoạn giữ quỹ đạo đang trả.';
+      if ((hangCon.deut || 0) < G.nhienLieuGiu(st, tauCon, conLai))
+        return 'Đội ở lại phải còn ít nhất ' +
+          G.so(G.nhienLieuGiu(st, tauCon, conLai)) + ' Nhiên Liệu cho đoạn giữ quỹ đạo đang trả.';
+    }
+  }
+
+  st.galana -= G.C.TACH_HAM_GALANA;
+  f.ships = tauCon;
+  f.linh = linhCon;
+  f.cargo = hangCon;
+
+  var moi = {
+    id: st.fleetIdSeq++, pi: f.pi,
+    tu: { g: f.tu.g, h: f.tu.h, p: f.tu.p },
+    den: { g: f.den.g, h: f.den.h, p: f.den.p },
+    mission: f.mission, ships: tauMoi, linh: linhMoi, cargo: hangMoi,
+    pct: f.pct, diLuc: f.diLuc, den_t: f.den_t, veLuc: f.veLuc, ve_t: f.ve_t,
+    pha: f.pha, giu: f.giu || 0, nl: 0, kc: f.kc, doiHuong: f.doiHuong || 0
+  };
+  if (dangGiu) {
+    moi.dangGiu = true;
+    moi.giuLuc = f.giuLuc;
+    moi.giuDen_t = f.giuDen_t;
+    moi.tiepNL_t = f.tiepNL_t;
+    moi.giuTaiTk = f.giuTaiTk === undefined ? null : f.giuTaiTk;
+    moi.giuRules = f.giuRules;
+  }
+  st.fleets.push(moi);
+  G.ghi(st, 'Hạm đội #' + f.id + ' tách ra hạm đội #' + moi.id + ' (' + U_dsTauNgan(tauMoi) +
+    '), phí ' + G.so(G.C.TACH_HAM_GALANA) + ' Galana. Hai đội giữ nguyên giờ tới ' +
+    G.tdStr(f.den) + '.');
+  return null;
+};
+
+/* Mô tả ngắn đội tàu cho dòng nhật ký, không phụ thuộc tầng giao diện. */
+function U_dsTauNgan(ships) {
+  var phan = [];
+  for (var id in ships) {
+    var s = G.S(id);
+    if (s && ships[id] > 0) phan.push(G.so(ships[id]) + ' ' + s.ten);
+  }
+  return phan.length ? phan.join(', ') : 'không tàu';
+}
+
 /* --- CHỌN CĂN CỨ TRỞ VỀ (cơ chế bản gốc) ------------------------------
  * [XÁC NHẬN] Bản gốc cho hạm đội chọn căn cứ để quay về, không bắt buộc về
  * đúng nơi xuất phát — xem docs/NGHIEN-CUU.md. Bản phục dựng này chỉ nhận

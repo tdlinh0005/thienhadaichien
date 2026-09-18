@@ -216,6 +216,59 @@ var ACT = {
     }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi căn cứ trở về.'); });
   },
 
+  /* Tách đội: nhập số tàu/quân/hàng muốn đưa sang hạm đội mới. */
+  tachham: function (el) {
+    var fid = +el.getAttribute('data-fid'), st = U.st(), f = null, i, k;
+    for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+    if (!f) return;
+    var hang = '';
+    for (k in f.ships) {
+      if (!f.ships[k]) continue;
+      var u = G.UNIT(k);
+      hang += '<tr><td>' + U.esc(u ? u.ten : k) + '</td><td class="r sz">' + G.so(f.ships[k]) +
+        '</td><td class="r"><input class="tach-tau" data-id="' + U.esc(k) +
+        '" type="number" min="0" max="' + f.ships[k] + '" value="0"></td></tr>';
+    }
+    for (k in (f.linh || {})) {
+      if (!f.linh[k]) continue;
+      var bb = G.BB(k);
+      hang += '<tr><td class="luc">' + U.esc(bb ? bb.ten : k) + '</td><td class="r sz">' +
+        G.so(f.linh[k]) + '</td><td class="r"><input class="tach-linh" data-id="' + U.esc(k) +
+        '" type="number" min="0" max="' + f.linh[k] + '" value="0"></td></tr>';
+    }
+    for (k in (f.cargo || {})) {
+      if (!f.cargo[k]) continue;
+      var r = G.byId(G.RES, k);
+      hang += '<tr><td class="vang">' + U.esc(r ? r.ten : k) + '</td><td class="r sz">' +
+        G.so(f.cargo[k]) + '</td><td class="r"><input class="tach-hang" data-id="' + U.esc(k) +
+        '" type="number" min="0" max="' + f.cargo[k] + '" value="0"></td></tr>';
+    }
+    U.hop('Tách hạm đội #' + fid,
+      '<p>Nhập phần muốn đưa sang hạm đội mới. Phải để lại ít nhất một tàu, và <b>cả hai đội</b> ' +
+      'đều phải chở nổi phần hàng lẫn quân của mình.</p>' +
+      '<p class="mo">Tốn một khe hạm đội (đang dùng ' + st.fleets.length + '/' + G.khe(st) +
+      ') và <b>' + G.C.TACH_HAM_GALANA + ' Galana</b>. Hai đội giữ nguyên giờ tới ' +
+      G.tdStr(f.den) + '.</p>' +
+      '<div class="bang-cuon"><table><tr><th>Thứ</th><th class="r">Đang có</th>' +
+      '<th class="r">Tách ra</th></tr>' + hang + '</table></div>' +
+      '<div class="hd-td"><button class="nut oke" data-act="tachham-ok" data-fid="' + fid +
+      '">Phát lệnh tách đội</button></div>');
+  },
+  'tachham-ok': function (el) {
+    function gom(lop) {
+      var o = {}, ds = document.querySelectorAll('.' + lop), j;
+      for (j = 0; j < ds.length; j++) {
+        var n = Math.max(0, Math.floor(+ds[j].value || 0));
+        if (n > 0) o[ds[j].getAttribute('data-id')] = n;
+      }
+      return o;
+    }
+    APP.lam('tachham', {
+      fid: +el.getAttribute('data-fid'),
+      ships: gom('tach-tau'), linh: gom('tach-linh'), cargo: gom('tach-hang')
+    }, function (err) { if (!err) U.dongHop(); veLai(err, err ? null : 'Đã tách hạm đội.'); });
+  },
+
   'xh-loai': function (el) {
     U.xhLoai = el.getAttribute('data-loai');
     if (APP.taiXepHang) APP.taiXepHang(U.xhLoai); else U.ve();

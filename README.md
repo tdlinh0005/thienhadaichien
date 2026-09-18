@@ -46,9 +46,6 @@ Ngoài bản một người chạy hẳn trong trình duyệt, repo còn có m�
 người chơi** viết bằng Node thuần (`node:http` + `node:sqlite`, không cài gói nào):
 
 ```bash
-# LẦN ĐẦU: chuyển database sang durable scheduler (chỉ làm một lần cho mỗi file .db)
-node tools/scheduler-cutover.js --db server/data/thdc.db --action cutover
-
 node server/index.js                       # hoặc: npm start  ->  http://localhost:8080
 PORT=3000 THDC_DB=/var/lib/thdc/thdc.db node server/index.js
 ```
@@ -56,12 +53,22 @@ PORT=3000 THDC_DB=/var/lib/thdc/thdc.db node server/index.js
 Cần **Node 22.5 trở lên** (vì `node:sqlite`, nên lúc chạy có một dòng
 `ExperimentalWarning` — bình thường, không phải lỗi).
 
-> **Bước cutover là bắt buộc.** Cutover là thao tác bảo trì thủ công, server
-> **không** tự chạy khi khởi động (xem [`docs/MAY-CHU.md`](docs/MAY-CHU.md)).
-> Database còn ở chế độ `legacy` thì server vẫn lắng nghe và `/healthz` vẫn 200,
-> nhưng `/readyz` trả `{"ready":false,"reason":"SCHEDULER_MODE_LEGACY"}` và **mọi
-> `/api/*` trả 503** — nhìn từ trình duyệt là "Máy chủ đang đồng bộ, hãy thử lại."
-> Nếu gặp tình trạng đó, kiểm tra `/readyz` trước rồi chạy lệnh cutover ở trên.
+> **Về scheduler.** Database **mới tinh** được tự chuyển sang durable scheduler
+> ngay lúc khởi động, nên cài mới chạy được luôn, không cần thao tác gì. Tính
+> năng này chỉ đụng tới database chưa có tài khoản, chưa có đế quốc và chưa có
+> dấu vết durable nào; tắt bằng `THDC_TU_CUTOVER=0`.
+>
+> Database **đã có dữ liệu** thì vẫn phải cutover **thủ công** — đó là thao tác
+> bảo trì có sao lưu trước (xem [`docs/MAY-CHU.md`](docs/MAY-CHU.md)):
+>
+> ```bash
+> node tools/scheduler-cutover.js --db /duong-dan/thdc.db --action cutover
+> ```
+>
+> Dấu hiệu database còn ở chế độ `legacy`: server vẫn lắng nghe và `/healthz`
+> vẫn 200, nhưng `/readyz` trả `{"ready":false,"reason":"SCHEDULER_MODE_LEGACY"}`
+> và **mọi `/api/*` trả 503** — nhìn từ trình duyệt là "Máy chủ đang đồng bộ,
+> hãy thử lại."
 
 - **Tài khoản riêng**: đăng ký tên đăng nhập + mật khẩu (băm scrypt kèm muối),
   nhận ngay một hành tinh ở một chỗ còn trống trong vũ trụ chung.
@@ -139,7 +146,7 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 | **Dân số, ủng hộ & thuế** | **[XÁC NHẬN]** Game gốc có cả ba chỉ số, thiếu Thực Phẩm làm dân rời đi và 250.000 dân cơ bản không bỏ hành tinh. **[TÁI DỰNG]** Thành Phố/sức chứa, tốc độ tăng–giảm, thuế và hệ số theo loại hành tinh được gom trong bảng `NHIP_V1`; do thám đủ cấp mới thấy các chỉ số này. |
 | **Phòng thủ hai lớp** | **[XÁC NHẬN]** Phải phá lớp **quỹ đạo** trước khi đánh xuống **mặt đất**. **[TÁI DỰNG]** Engine chọn vòng 3 làm mốc bắt đầu hạ xuống đất. |
 | **Đổi mục tiêu giữa đường** | **[XÁC NHẬN]** Hạm đội đổi mục tiêu được cả lượt đi lẫn lượt về. **[TÁI DỰNG]** Phí Galana, nhiên liệu phụ trội và cách tính lại thời gian từ vị trí hiện tại là cân bằng mới. |
-| **Đóng quân quỹ đạo** | **[XÁC NHẬN]** Hạm có thể đậu ở bất kỳ quỹ đạo, gặp địch thì đánh, chia đội, chọn căn cứ trở về và phải tiếp nhiên liệu định kỳ; thiếu nhiên liệu sẽ thành “rác không gian”. **[TÁI DỰNG]** Bản này mới cho đậu ở hành tinh mình/đồng minh, trả trước nhiên liệu chở theo từng đoạn 6 giờ ở mức 2%; thiếu kỳ sau xoá đội, chỉ 30% giá trị Kim Loại/Thạch Anh thành phế liệu, gọi về sớm không hoàn phí. **Chọn căn cứ trở về đã có**: hạm đội quay về một hành tinh khác của chính đế quốc, phí `DOI_CAN_CU_GALANA` cộng nhiên liệu phụ trội nếu chặng về dài hơn. Chưa có tách đội, đậu thù địch/trung lập hay va chạm giữa các hạm đang đậu. |
+| **Đóng quân quỹ đạo** | **[XÁC NHẬN]** Hạm có thể đậu ở bất kỳ quỹ đạo, gặp địch thì đánh, chia đội, chọn căn cứ trở về và phải tiếp nhiên liệu định kỳ; thiếu nhiên liệu sẽ thành “rác không gian”. **[TÁI DỰNG]** Bản này mới cho đậu ở hành tinh mình/đồng minh, trả trước nhiên liệu chở theo từng đoạn 6 giờ ở mức 2%; thiếu kỳ sau xoá đội, chỉ 30% giá trị Kim Loại/Thạch Anh thành phế liệu, gọi về sớm không hoàn phí. **Chọn căn cứ trở về** và **tách đội** đã có: hạm đội quay về một hành tinh khác của chính đế quốc (phí `DOI_CAN_CU_GALANA` cộng nhiên liệu phụ trội nếu chặng về dài hơn), và chia được một phần tàu/quân/hàng thành hạm đội thứ hai (tốn một khe + `TACH_HAM_GALANA`, hai đội giữ nguyên giờ tới). Chưa có đậu thù địch/trung lập hay va chạm giữa các hạm đang đậu. |
 | **Tuyên chiến 24 giờ** | **[XÁC NHẬN]** Phải đặt lệnh rồi chờ Hội Đồng Bảo An 24 giờ. **[TÁI DỰNG]** Multiplayer dùng chủ liên minh→người chơi, hoặc người chơi lẻ→người chơi; quyền đi theo tư cách liên minh hiện tại. |
 | **Chuyển Galana & tiếp tế** | **[XÁC NHẬN]** Chỉ người cùng liên minh được chuyển tiền; bản này ghi hai số dư Galana trong cùng một giao dịch SQLite. **[TÁI DỰNG]** Đoàn vận tải tài nguyên cũng bị giới hạn cho đồng minh, kiểm tra cả lúc đi lẫn lúc đến. |
 | **Tình báo & phản tình báo** | Tàu do thám mang về báo cáo; Trung Tâm Tình Báo của đối phương có thể bắn hạ chúng. Độ chi tiết báo cáo phụ thuộc chênh lệch cấp Công Nghệ Tình Báo. Bị đánh thì được báo động trước kèm đồng hồ, nhưng không thấy đội hình địch — còn nhiệm vụ do thám thì đi lén |
@@ -166,6 +173,10 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 - **Chọn căn cứ trở về**: hạm đội đang bay đi, đang neo hay đang trên đường về đều đổi được
   hành tinh sẽ quay về — mục tiêu đang bay tới giữ nguyên, chỉ chặng về đổi chỗ, và tàu lẫn
   hàng trong khoang nhập vào kho căn cứ mới. Đang về thì giờ tới nơi tính lại từ vị trí hiện tại.
+- **Tách hạm đội**: chia một phần tàu, quân đổ bộ và hàng ra thành hạm đội thứ hai đi tiếp
+  độc lập — từ đó đổi mục tiêu hay đổi căn cứ riêng nhau. Tốn một khe hạm đội và một khoản
+  Galana; hai đội **giữ nguyên giờ tới của đội gốc**, nên không thể gửi kèm tàu chậm rồi tách
+  ra giữa đường để đi nhanh hơn. Cả hai bên đều phải chở nổi phần hàng và quân của mình.
 - **Tên lửa liên hành tinh**: bắn thẳng sang hành tinh khác phá phòng thủ mặt đất, tầm bắn
   theo cấp Động Cơ Xung, bên bị bắn dùng Tên Lửa Đánh Chặn hạ 1 đổi 1.
 - **Máy tính trận đánh**: chạy thử 60 lần một trận bằng đúng bộ luật, cho tỷ lệ thắng, tàu

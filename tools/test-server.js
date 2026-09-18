@@ -8,7 +8,10 @@ var path = require('node:path');
 var PassThrough = require('node:stream').PassThrough;
 var taoUngDung = require('../server/app.js').taoUngDung;
 var Kho = require('../server/db.js').Kho;
-var runMaintenanceCutover = require('../server/scheduler/cutover.js').runMaintenanceCutover;
+var cutoverModule = require('../server/scheduler/cutover.js');
+var runMaintenanceCutover = cutoverModule.runMaintenanceCutover;
+var isPristineDatabase = cutoverModule.isPristineDatabase;
+var apDungMigrationScheduler = require('../server/scheduler/migrations.js').apDungMigrationScheduler;
 
 var kiemTra = 0;
 function ktra(dieuKien, ten) {
@@ -91,7 +94,77 @@ function stateCua(app, accountId) {
   return JSON.parse(app.kho.q.dqGet.get(accountId).state);
 }
 
+/* Tự cutover: chỉ được chạm vào database CHƯA CÓ GÌ. */
+async function kiemTuCutover() {
+  var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-tu-cutover-'));
+  var clock = clockCoDinh();
+  function moDb(ten) { return new Kho(path.join(directory, ten)); }
+  function modeCua(ten) {
+    var kho = moDb(ten);
+    try {
+      var row = kho.db.prepare("SELECT value FROM scheduler_meta WHERE key='scheduler_mode'").get();
+      return row ? row.value : null;
+    } finally { kho.dong(); }
+  }
+  try {
+    /* 1. database mới tinh -> tự chuyển sang durable, server sẵn sàng ngay */
+    var app = taoAppDurable(path.join(directory, 'moi.sqlite'), clock, []);
+    try {
+      await app.start();
+      var ready = await get(app, '/readyz');
+      ktra(ready.status === 200 && ready.body.ready === true,
+        'tu-cutover: database mới tinh khởi động là sẵn sàng ngay');
+      ktra((await get(app, '/api/thongtin')).status === 200,
+        'tu-cutover: gameplay API dùng được sau khi tự cutover');
+    } finally { await app.stop().catch(function () {}); }
+    ktra(modeCua('moi.sqlite') === 'durable', 'tu-cutover: database mới đã ở chế độ durable');
+
+    /* 2. database ĐÃ CÓ DỮ LIỆU -> tuyệt đối không tự cutover */
+    var coDl = path.join(directory, 'codulieu.sqlite');
+    var khoDl = moDb('codulieu.sqlite');
+    try {
+      apDungMigrationScheduler(khoDl, clock.nowMs());
+      ktra(isPristineDatabase(khoDl) === true, 'tu-cutover: database trống được coi là mới');
+      khoDl.db.prepare('INSERT INTO tk (ten,hienthi,mk,muoi,tao,vaoCuoi,quyen) VALUES (?,?,?,?,?,?,?)')
+        .run('nguoicu', 'Người Cũ', 'bam', 'muoi', 1, 1, 'nguoi');
+      ktra(isPristineDatabase(khoDl) === false,
+        'tu-cutover: có một tài khoản là hết được coi là mới');
+    } finally { khoDl.dong(); }
+    var app2 = taoAppDurable(coDl, clock, []);
+    try {
+      await app2.start();
+      var chuaSan = await get(app2, '/readyz');
+      ktra(chuaSan.status === 503 && chuaSan.body.reason === 'SCHEDULER_MODE_LEGACY',
+        'tu-cutover: database có dữ liệu vẫn đòi cutover thủ công');
+    } finally { await app2.stop().catch(function () {}); }
+    ktra(modeCua('codulieu.sqlite') === 'legacy',
+      'tu-cutover: database có dữ liệu KHÔNG bị đổi chế độ');
+
+    /* 3. THDC_TU_CUTOVER=0 tắt hẳn, kể cả trên database mới */
+    var tat = path.join(directory, 'tat.sqlite');
+    var app3 = taoUngDung({
+      port: 0, dbPath: tat, env: {THDC_TU_CUTOVER: '0'}, clock: clock,
+      logger: loggerImLang([]),
+      timers: {setInterval: function () { return {}; }, clearInterval: function () {}}
+    });
+    app3.server.listen = function () {
+      queueMicrotask(function () { app3.server.emit('listening'); });
+      return app3.server;
+    };
+    try {
+      await app3.start();
+      var tatReady = await get(app3, '/readyz');
+      ktra(tatReady.status === 503 && tatReady.body.reason === 'SCHEDULER_MODE_LEGACY',
+        'tu-cutover: THDC_TU_CUTOVER=0 tắt được tính năng');
+    } finally { await app3.stop().catch(function () {}); }
+    ktra(modeCua('tat.sqlite') === 'legacy', 'tu-cutover: tắt rồi thì database vẫn legacy');
+  } finally {
+    xoaFixture(directory);
+  }
+}
+
 async function main() {
+  await kiemTuCutover();
   var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-server-durable-'));
   var dbPath = path.join(directory, 'game.sqlite');
   var clock = clockCoDinh();

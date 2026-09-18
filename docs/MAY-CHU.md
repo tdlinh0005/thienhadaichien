@@ -591,8 +591,11 @@ thì đánh, có thể chia đội, chọn căn cứ trở về, được đồn
 phải tiếp nhiên liệu định kỳ, nếu không sẽ thành “rác không gian”. Nhiệm vụ
 **Giữ Chỗ** (`hold`) hiện mới triển khai vị trí đậu thật tại hành tinh chính chủ
 hoặc thành viên cùng liên minh và luôn trở về `f.tu`. Chưa có đậu tại quỹ đạo
-thù địch/trung lập, va chạm giữa các hạm đang đậu hay tách đội. Chọn căn cứ trở về đi qua
-hành động dùng chung `docancu` (`/api/lam`), chỉ nhận một hành tinh khác của chính tài khoản.
+thù địch/trung lập hay va chạm giữa các hạm đang đậu. Chọn căn cứ trở về đi qua hành động
+dùng chung `docancu` (`/api/lam`), chỉ nhận một hành tinh khác của chính tài khoản; tách đội
+đi qua `tachham`. Đội tách ra là một fleet bình thường trong `st.fleets`, nên
+`_ghiChiMucHam` vẫn dựng lại projection `hamdang` cho nó — bên phòng thủ được báo động
+đầy đủ về cả hai đội, và quyền tấn công vẫn bị kiểm lại lúc tới nơi.
 
 Dispatch kiểm tra quyền và yêu cầu `f.cargo.deut` đủ đoạn đầu trước khi trừ bất
 kỳ tài sản nào. Khi tới nơi, `kiemTraGiu` đọc lại chủ toạ độ/membership, sau đó
@@ -842,12 +845,23 @@ có thể đổi.
 
 ### Chuyển sang durable scheduler và quay lui
 
-Chuyển chế độ là thao tác bảo trì cục bộ, không phải API HTTP và không được tự
-chạy khi server khởi động. **Hệ quả cho một cài đặt mới:** database vừa tạo ở
-chế độ `legacy`, nên tiến trình lên bình thường và `/healthz` trả 200, nhưng
-`/readyz` trả `SCHEDULER_MODE_LEGACY` và mọi `/api/*` trả 503 cho tới khi chạy
-cutover một lần. Cutover trên database trống là hợp lệ và không nhập gì
-(`{"imported":0}`). Trước khi chuyển, dừng tiến trình ghi vào database và
+Chuyển chế độ **trên database đã có dữ liệu** là thao tác bảo trì cục bộ,
+không phải API HTTP và không được tự chạy khi server khởi động.
+
+**Ngoại lệ duy nhất — database còn mới tinh.** Lúc khởi động, server gọi
+`autoCutoverIfPristine()`: nếu `isPristineDatabase()` đúng thì tự cutover rồi
+ghi log `scheduler.auto_cutover`. Điều kiện "mới tinh" là chế độ vẫn `legacy`,
+không có `durable_first_mutation_at_ms`, và **mọi** bảng sau đều rỗng: `tk`,
+`dq`, `ht`, `hamdang`, `hamgiu`, `chien`, `tran`, `event_jobs`,
+`event_applications`, `scheduler_cutover_snapshot`. Chỉ cần một dòng ở bất kỳ
+bảng nào là không còn mới và server để nguyên chế độ `legacy`. Lý do quy tắc
+"không tự chạy" tồn tại là để bảo vệ database ĐANG CÓ DỮ LIỆU, còn database
+trống thì không có gì để mất — cutover trên nó vốn hợp lệ và không nhập gì
+(`{"imported":0}`). Đặt `THDC_TU_CUTOVER=0` để tắt hẳn.
+
+Cutover tự động mà lỗi thì **không** giết tiến trình: lỗi được ghi qua
+`scheduler.auto_cutover_failed`, server vẫn lên, `/readyz` vẫn nói rõ
+`SCHEDULER_MODE_LEGACY`, và người vận hành chạy lệnh thủ công bên dưới. Trước khi chuyển, dừng tiến trình ghi vào database và
 tạo bản sao SQLite nhất quán bằng `.backup` (hoặc dừng server rồi copy đủ
 `.db`, `-wal`, `-shm`). Giữ bản sao này cho tới khi đã xác nhận scheduler chạy
 ổn định.

@@ -1,6 +1,7 @@
 /* THIÊN HÀ ĐẠI CHIẾN — observable, instance-local server factory. */
 "use strict";
 
+const crypto = require("node:crypto");
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -11,6 +12,7 @@ const {TheGioi} = require("./world.js");
 const {API} = require("./api.js");
 const schedulerIndex = require("./scheduler/index.js");
 const {apDungMigrationScheduler} = require("./scheduler/migrations.js");
+const {autoCutoverIfPristine} = require("./scheduler/cutover.js");
 
 const taoSchedulerMacDinh = schedulerIndex.taoScheduler;
 const resolveDurableSchedulerOptions = schedulerIndex.resolveDurableSchedulerOptions;
@@ -787,6 +789,31 @@ function taoUngDung(options) {
     if (firstCleanupError.value) throw firstCleanupError.value;
   }
 
+  /* Database vừa tạo nằm ở chế độ legacy, mà readiness đòi durable: `npm start`
+     lần đầu sẽ lên nhưng mọi /api/* trả 503 cho tới khi có người chạy cutover
+     bằng tay. Ở đây tự chuyển giúp — nhưng CHỈ khi database chưa có gì
+     (isPristineDatabase). Database đã có dữ liệu vẫn phải cutover thủ công
+     đúng như docs/MAY-CHU.md quy định; đặt THDC_TU_CUTOVER=0 để tắt hẳn. */
+  function tuCutoverNeuDbConMoi() {
+    if (env.THDC_TU_CUTOVER === "0") return;
+    let kq = null;
+    try {
+      kq = autoCutoverIfPristine({
+        kho: kho,
+        clock: clock,
+        ownerId: crypto.randomUUID()
+      });
+    } catch (error) {
+      /* Không cho lỗi ở đây giết tiến trình: server vẫn lên, /readyz vẫn nói
+         rõ SCHEDULER_MODE_LEGACY, và người vận hành chạy cutover bằng tay. */
+      reportError("scheduler.auto_cutover_failed", error);
+      return;
+    }
+    if (kq) {
+      logger.info({event: "scheduler.auto_cutover", mode: kq.mode, at: clock.nowMs()});
+    }
+  }
+
   async function startOnce() {
     let migrationCompleted = false;
     try {
@@ -796,6 +823,7 @@ function taoUngDung(options) {
       migrationCompleted = true;
       emit("migration.completed");
       logger.info({event: "migration.completed", at: clock.nowMs()});
+      tuCutoverNeuDbConMoi();
       if (stopRequested) return;
       await listenOnConfiguredPort();
       acquired.listener = true;

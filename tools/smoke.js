@@ -1199,5 +1199,83 @@ ktra(kq3.kq === 'thua', 'hạm đội yếu bị nghiền');
 })();
 function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id; })[0]; }
 
+/* ---- 16. tách hạm đội ---- */
+(function () {
+  var s3 = G.moiGame('Tách Đội', 'THDC-TACH-DOI');
+  var t3 = s3.now, p3 = s3.planets[0];
+  p3.res.metal += 5e7; p3.res.crystal += 5e7; p3.res.deut += 2e7;
+  s3.galana += 500000;
+  p3.ships.cargoL = 40; p3.ships.cruiser = 30; p3.ships.probe = 5;
+  p3.b.fleetHQ = (p3.b.fleetHQ || 0) + 5;
+  var xa3 = { g: p3.c.g === 1 ? 2 : 1, h: 30, p: 4 };
+  ktra(!G.guiHam(s3, 0, { cargoL: 20, cruiser: 20 }, xa3, 'attack', { metal: 200000 }, 100),
+    'tách: gửi được hạm đội gốc');
+  var f3 = s3.fleets[0], denT = f3.den_t, khe = G.khe(s3);
+
+  ktra(G.tachHam(s3, 999999, { cruiser: 1 }, {}, {}) === 'Không tìm thấy hạm đội.',
+    'tách: từ chối hạm đội không tồn tại');
+  ktra(G.tachHam(s3, f3.id, {}, {}, {}) === 'Chưa chọn tàu nào để tách.',
+    'tách: từ chối lệnh không chọn tàu nào');
+  ktra(/không có đủ/.test(G.tachHam(s3, f3.id, { probe: 1 }, {}, {})),
+    'tách: từ chối loại tàu hạm đội không mang theo');
+  ktra(/để lại ít nhất một tàu/.test(G.tachHam(s3, f3.id, { cargoL: 20, cruiser: 20 }, {}, {})),
+    'tách: từ chối lấy sạch tàu của đội cũ');
+  ktra(/chỉ chở được/.test(G.tachHam(s3, f3.id, { cruiser: 1 }, {}, { metal: 150000 })),
+    'tách: từ chối nhét hàng quá khoang đội tách');
+  ktra(/chuyển bớt hàng/.test(G.tachHam(s3, f3.id, { cargoL: 20, cruiser: 10 }, {}, {})),
+    'tách: từ chối để đội cũ ôm hàng quá khoang');
+  ktra(s3.fleets.length === 1, 'tách: mọi lệnh bị từ chối đều không tạo hạm đội nào');
+
+  var gal3 = s3.galana;
+  ktra(!G.tachHam(s3, f3.id, { cargoL: 10, cruiser: 5 }, {}, { metal: 120000 }),
+    'tách: tách được đội hợp lệ');
+  ktra(s3.fleets.length === 2, 'tách: có hạm đội thứ hai');
+  ktra(s3.galana === gal3 - G.C.TACH_HAM_GALANA, 'tách: thu đúng phí lệnh điều động');
+
+  var a3 = s3.fleets[0], b3 = s3.fleets[1];
+  ktra(a3.id !== b3.id, 'tách: hai hạm đội có số hiệu khác nhau');
+  ktra(a3.den_t === denT && b3.den_t === denT,
+    'tách: hai đội giữ nguyên giờ tới của đội gốc');
+  ktra(G.tdKey(b3.den) === G.tdKey(a3.den) && b3.mission === a3.mission &&
+    b3.pi === a3.pi && G.tdKey(b3.tu) === G.tdKey(a3.tu),
+    'tách: đội mới thừa hưởng mục tiêu, nhiệm vụ và căn cứ');
+
+  var tongTau = {}, tongHang = 0, z;
+  for (z = 0; z < s3.fleets.length; z++) {
+    var fz = s3.fleets[z], kz;
+    for (kz in fz.ships) tongTau[kz] = (tongTau[kz] || 0) + fz.ships[kz];
+    for (kz in fz.cargo) tongHang += fz.cargo[kz];
+  }
+  ktra(tongTau.cargoL === 20 && tongTau.cruiser === 20, 'tách: không mất/nhân thêm tàu nào');
+  ktra(tongHang === 200000, 'tách: không mất/nhân thêm hàng nào');
+  ktra(G.khoangHang(a3.ships) >= G.tongRes(a3.cargo) &&
+    G.khoangHang(b3.ships) >= G.tongRes(b3.cargo),
+    'tách: cả hai đội đều chở nổi phần hàng của mình');
+
+  /* hết khe thì không tách nữa */
+  ktra(G.khe(s3) === khe, 'tách: tách không làm đổi số khe');
+  var chong = 0;
+  while (s3.fleets.length < G.khe(s3) && chong < 20) {
+    chong++;
+    if (G.tachHam(s3, a3.id, { cruiser: 1 }, {}, {})) break;
+  }
+  ktra(s3.fleets.length === G.khe(s3), 'tách: tách được tới đúng số khe');
+  ktra(/Hết khe/.test(G.tachHam(s3, a3.id, { cruiser: 1 }, {}, {})),
+    'tách: hết khe thì từ chối');
+
+  /* qua bảng hành động dùng chung */
+  p3.b.fleetHQ += 2;
+  ktra(!G.HANHDONG.tachham(s3, { fid: a3.id, ships: { cruiser: 1 } }),
+    'tách: gọi được qua G.HANHDONG.tachham');
+  ktra(typeof G.HANHDONG.tachham(s3, { fid: a3.id, ships: 'rác' }) === 'string',
+    'tách: hành động từ chối dữ liệu rác từ client');
+
+  /* hai đội bay tiếp và tự giải quyết độc lập */
+  for (z = 0; z < 600 && s3.fleets.length; z++) { t3 += 300; G.tick(s3, t3); }
+  ktra(s3.fleets.length === 0, 'tách: mọi đội tách ra đều về được, không kẹt lại');
+  quetNaN(s3.fleets);
+  quetNaN(s3.planets);
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

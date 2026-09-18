@@ -153,6 +153,9 @@ G.HANHDONG = {
   docancu: function (st, d) {
     return G.doiCanCu(st, Math.floor(+d.fid), d.pi);
   },
+  tachham: function (st, d) {
+    return G.tachHam(st, Math.floor(+d.fid), d.ships, d.linh, d.cargo);
+  },
 
   /* --- liên minh --- */
   lmvao: function (st, d) {

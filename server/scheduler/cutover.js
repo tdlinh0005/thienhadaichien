@@ -1028,6 +1028,34 @@ function runMaintenanceCutover(context) {
   }));
 }
 
+/* Database CÒN MỚI TINH: chưa có tài khoản, chưa có đế quốc, chưa một dấu vết
+ * durable nào, và vẫn ở chế độ legacy. Nói cách khác không có gì để mất, nên
+ * cutover ở đây không thể làm hỏng dữ liệu của ai.
+ * Đây là ranh giới cho phép tự cutover lúc khởi động: quy tắc "không tự chạy
+ * khi server khởi động" trong docs/MAY-CHU.md sinh ra để bảo vệ database ĐANG
+ * CÓ DỮ LIỆU, và ranh giới này không đụng tới trường hợp đó. */
+function isPristineDatabase(kho) {
+  var mode = kho.db.prepare("SELECT value FROM scheduler_meta WHERE key='scheduler_mode'").get();
+  if (mode && mode.value !== 'legacy') return false;
+  if (kho.db.prepare("SELECT 1 FROM scheduler_meta WHERE key='durable_first_mutation_at_ms'").get()) {
+    return false;
+  }
+  var trong = ['tk', 'dq', 'ht', 'hamdang', 'hamgiu', 'chien', 'tran',
+    'event_jobs', 'event_applications', 'scheduler_cutover_snapshot'];
+  for (var i = 0; i < trong.length; i++) {
+    if (kho.db.prepare('SELECT 1 FROM ' + trong[i] + ' LIMIT 1').get()) return false;
+  }
+  return true;
+}
+
+/* Trả về kết quả cutover nếu đã chạy, hoặc null nếu database không còn mới —
+ * lúc đó người vận hành vẫn phải tự chạy tools/scheduler-cutover.js. */
+function autoCutoverIfPristine(context) {
+  apDungMigrationScheduler(context.kho, context.clock.nowMs());
+  if (!isPristineDatabase(context.kho)) return null;
+  return runMaintenanceCutover(context);
+}
+
 function canRollbackDurableScheduler(kho) {
   return Boolean(kho.db.prepare('SELECT 1 FROM scheduler_cutover_snapshot LIMIT 1').get()) &&
     !kho.db.prepare("SELECT 1 FROM scheduler_meta WHERE key='durable_first_mutation_at_ms'").get() &&
@@ -1159,6 +1187,8 @@ module.exports = {
   cutoverDurableSchedulerInCurrentUow: cutoverDurableSchedulerInCurrentUow,
   runCutoverWithLease: runCutoverWithLease,
   runMaintenanceCutover: runMaintenanceCutover,
+  isPristineDatabase: isPristineDatabase,
+  autoCutoverIfPristine: autoCutoverIfPristine,
   rollbackDurableScheduler: rollbackDurableScheduler,
   canRollbackDurableScheduler: canRollbackDurableScheduler
 };
