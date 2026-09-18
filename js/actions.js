@@ -92,7 +92,9 @@ G.HANHDONG = {
     G.huyDong(st, p, i); return null;
   },
 
-  /* --- chợ Thiên Hà --- */
+  /* --- Siêu Thị Thiên Hà --------------------------------------------
+   * [XÁC NHẬN] Siêu thị chỉ bán hàng đã có trong kho, lấy thuế 10%, hàng mua
+   * tới hành tinh sau 6 giờ, và có thể HẾT TIỀN MẶT — không phải bộ đổi vô hạn. */
   ban: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     var r = chuoi(d.res, 10);
@@ -100,10 +102,25 @@ G.HANHDONG = {
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần bán.';
     if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
-    var g = Math.floor(n / G.C.TY_GIA[r]);
-    if (g <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
-    p.res[r] -= n; st.galana += g;
-    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' lấy ' + G.so(g) + ' Galana.');
+    var s = G.sieuThi(st);
+    var tho = Math.floor(n / G.C.TY_GIA[r]);
+    if (tho <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
+    var thue = Math.ceil(tho * G.C.ST_THUE);
+    var g = tho - thue;
+    if (g <= 0) return 'Lượng quá nhỏ, thuế ăn hết tiền bán.';
+    if (s.quy < tho)
+      return 'Siêu Thị Thiên Hà chỉ còn ' + G.so(Math.floor(s.quy)) +
+        ' Galana tiền mặt — hãy bán ít hơn hoặc chờ đoàn buôn tới.';
+    var cho = (s.tran && s.tran.kho[r] !== undefined) ? s.tran.kho[r] : Infinity;
+    if (s.kho[r] + n > cho)
+      return 'Kho ' + G.byId(G.RES, r).ten + ' của siêu thị đã gần đầy (còn nhận ' +
+        G.so(Math.max(0, Math.floor(cho - s.kho[r]))) + ').';
+    p.res[r] -= n;
+    s.kho[r] += n;
+    s.quy -= tho;
+    st.galana += g;
+    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' cho Siêu Thị: nhận ' + G.so(g) +
+      ' Galana (thuế ' + G.so(thue) + ').');
     return null;
   },
   mua: function (st, d) {
@@ -112,10 +129,62 @@ G.HANHDONG = {
     if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần mua.';
-    var g = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
-    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana.';
-    st.galana -= g; p.res[r] = (p.res[r] || 0) + n;
-    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) + ' Galana.');
+    var s = G.sieuThi(st);
+    if (s.kho[r] < n)
+      return 'Siêu Thị chỉ còn ' + G.so(Math.floor(s.kho[r])) + ' ' + G.byId(G.RES, r).ten + '.';
+    var tho = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
+    var g = tho + Math.ceil(tho * G.C.ST_THUE);
+    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana (đã gồm thuế ' +
+      Math.round(G.C.ST_THUE * 100) + '%).';
+    st.galana -= g;
+    s.kho[r] -= n;
+    s.quy += tho;
+    G.giaoHang(st).push({
+      pi: st.planets.indexOf(p), res: r, n: n, den_t: st.now + G.C.GIAO_HANG
+    });
+    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) +
+      ' Galana; hàng tới sau ' + G.tg(G.C.GIAO_HANG) + '.');
+    return null;
+  },
+
+  /* --- Ngân Hàng Thiên Hà --------------------------------------------
+   * [XÁC NHẬN] cho gửi lấy lãi khoảng 2%/ngày, và có khoản đầu tư vào Siêu Thị
+   * KHÔNG rút được giữa kỳ. */
+  nhGui: function (st, d) {
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần gửi.';
+    if (st.galana < n) return 'Không đủ Galana.';
+    var nh = G.nganHang(st);
+    st.galana -= n; nh.gui += n;
+    G.ghi(st, 'Gửi ' + G.so(n) + ' Galana vào ngân hàng; số dư gửi ' + G.so(nh.gui) + '.');
+    return null;
+  },
+  nhRut: function (st, d) {
+    var nh = G.nganHang(st);
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần rút.';
+    if (nh.gui < n) return 'Số dư gửi chỉ có ' + G.so(Math.floor(nh.gui)) + ' Galana.';
+    nh.gui -= n; st.galana += n;
+    G.ghi(st, 'Rút ' + G.so(n) + ' Galana khỏi ngân hàng.');
+    return null;
+  },
+  nhDauTu: function (st, d) {
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần đầu tư.';
+    var ngay = Math.floor(Number(d.ngay) || 0);
+    if (!Number.isSafeInteger(ngay) || ngay < G.C.NH_DT_NGAY_MIN || ngay > G.C.NH_DT_NGAY_MAX)
+      return 'Kỳ đầu tư phải từ ' + G.C.NH_DT_NGAY_MIN + ' tới ' + G.C.NH_DT_NGAY_MAX + ' ngày.';
+    if (st.galana < n) return 'Không đủ Galana.';
+    var nh = G.nganHang(st);
+    if (nh.dauTu.length >= 8) return 'Chỉ giữ được 8 khoản đầu tư cùng lúc.';
+    st.galana -= n;
+    nh.dauTu.push({
+      so: n,
+      lai: Math.pow(1 + G.C.NH_DT_LAI_NGAY, ngay) - 1,
+      dao_t: st.now + ngay * 86400
+    });
+    G.ghi(st, 'Đầu tư ' + G.so(n) + ' Galana vào Siêu Thị Thiên Hà, khoá ' + ngay +
+      ' ngày — không rút được giữa kỳ.');
     return null;
   },
 

@@ -192,7 +192,11 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
   luôn giống nhau. Các đế quốc NPC có tên, liên minh, điểm, hạm đội và phòng thủ riêng;
   hành tinh **bỏ hoang** ít phòng thủ nhưng nhiều tài nguyên (nông trại kinh điển của thể loại).
 - **Bãi phế liệu**: 30% xác tàu bị bắn hạ đọng lại trên quỹ đạo, vét bằng Tàu Thu Hồi.
-- **Chợ Thiên Hà**: quy đổi tài nguyên ↔ Galana khi cần tiền trả bảo trì.
+- **Siêu Thị Thiên Hà**: chợ có **kho hữu hạn** và **quỹ tiền mặt riêng** — bán nhiều quá thì
+  siêu thị hết tiền và phải chờ đoàn buôn tới, mua thì chỉ mua được thứ đang có. Thuế **10%**
+  cả hai chiều, và **hàng mua tới hành tinh sau 6 giờ** chứ không tới ngay.
+- **Ngân Hàng Thiên Hà**: gửi Galana lấy lãi **2%/ngày** cộng ở mỗi checkpoint bảo trì — kỳ nào
+  lỡ bảo trì thì không có lãi. Ngoài ra có khoản **đầu tư khoá kỳ** lãi cao hơn, không rút giữa chừng.
 - **Màn Hướng Dẫn ngay trong game**: 6 bước mở đầu, bốn cơ chế đặc trưng, cách trận
   đánh diễn ra, hệ toạ độ — mọi con số đọc trực tiếp từ bảng luật nên không lệch.
 - **Phòng Chat & Bộ Chỉ Huy Liên Minh**: chat chung/liên minh lưu trong SQLite; đơn xin
@@ -204,7 +208,8 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
    Sinh Quyển**. Thiếu điện thì mỏ chạy cầm chừng; thiếu Thực Phẩm được cộng dồn tới
    checkpoint kế tiếp, làm giảm ủng hộ và khiến phần dân trên sàn 250.000 có thể rời đi.
 2. **Luôn để dư Galana** trước mốc bảo trì. Xem đồng hồ "Bảo trì sau" ở thanh trên.
-   Bí tiền thì ra Chợ Thiên Hà bán Kim Loại.
+   Bí tiền thì ra Siêu Thị Thiên Hà bán Kim Loại — nhưng nhớ là siêu thị có hạn mức tiền mặt,
+   bán cả núi một lúc sẽ bị từ chối. Dư tiền thì gửi ngân hàng ăn lãi 2%/ngày.
 3. **Do thám trước khi đánh.** Phòng thủ mặt đất của NPC thường nặng hơn vẻ ngoài.
    Trong luật cân bằng hiện tại, phải quét sạch quỹ đạo và tới vòng 3 mới giao chiến
    với lớp mặt đất.

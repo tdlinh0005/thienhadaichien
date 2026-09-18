@@ -404,6 +404,19 @@ G.C = {
   VONG_DANH: 6,
   THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
+  /* --- kinh tế bản gốc --- */
+  NH_LAI_NGAY: 0.02,         // [XÁC NHẬN] ngân hàng cho lãi khoảng 2%/ngày
+  NH_DT_LAI_NGAY: 0.035,     // [TÁI DỰNG] đầu tư khoá kỳ ăn lãi cao hơn
+  NH_DT_NGAY_MIN: 1,         // [TÁI DỰNG] khoá tối thiểu 1 ngày
+  NH_DT_NGAY_MAX: 7,         // [TÁI DỰNG] khoá tối đa 7 ngày
+  ST_THUE: 0.10,             // [XÁC NHẬN] siêu thị lấy thuế 10%
+  TT_THUE: 0.05,             // [XÁC NHẬN] chợ tự do lấy thuế 5%
+  GIAO_HANG: 6 * 3600,       // [XÁC NHẬN] hàng mua tới hành tinh sau 6 giờ
+  ST_KHO_HE_SO: 0.6,         // [TÁI DỰNG] kho siêu thị so với dung tích đế quốc
+  ST_QUY_HE_SO: 0.8,         // [TÁI DỰNG] quỹ tiền mặt siêu thị
+  ST_QUY_SAN: 30000,         // [TÁI DỰNG] quỹ tối thiểu cho đế quốc mới
+  ST_KHO_SAN: 250000,        // [TÁI DỰNG] sàn kho mỗi loại, để đế quốc mới vẫn giao dịch được
+  ST_HOI_GIO: 0.06,          // [TÁI DỰNG] mỗi giờ bù 6% khoảng cách tới trần
   HE_SO_MUA: 2.5,            // giá mua đắt gấp mấy lần giá bán
   /* [TÁI DỰNG] hiệu chỉnh sao cho 2.500 Mỏ KL, KT-KTM 28 cho ra
    * 17 tỷ KL/ngày trên server x8, đúng mốc người chơi ghi lại. */

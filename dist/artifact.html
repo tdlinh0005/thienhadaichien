@@ -275,7 +275,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 <div id="toast"></div>
 
 <script>
-/* source: js/data.js sha256:22f36139962ffc110c719f9cf3a24529b22426a031f0ea938849cc4e5027ca51 */
+/* source: js/data.js sha256:2c329397d48c3b6e690ad85539d6d19eb7c93de6d4487249240c8664b81fa34d */
 /* =========================================================================
  * THIÊN HÀ ĐẠI CHIẾN — Bảng dữ liệu game
  * -------------------------------------------------------------------------
@@ -682,6 +682,19 @@ G.C = {
   VONG_DANH: 6,
   THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
+  /* --- kinh tế bản gốc --- */
+  NH_LAI_NGAY: 0.02,         // [XÁC NHẬN] ngân hàng cho lãi khoảng 2%/ngày
+  NH_DT_LAI_NGAY: 0.035,     // [TÁI DỰNG] đầu tư khoá kỳ ăn lãi cao hơn
+  NH_DT_NGAY_MIN: 1,         // [TÁI DỰNG] khoá tối thiểu 1 ngày
+  NH_DT_NGAY_MAX: 7,         // [TÁI DỰNG] khoá tối đa 7 ngày
+  ST_THUE: 0.10,             // [XÁC NHẬN] siêu thị lấy thuế 10%
+  TT_THUE: 0.05,             // [XÁC NHẬN] chợ tự do lấy thuế 5%
+  GIAO_HANG: 6 * 3600,       // [XÁC NHẬN] hàng mua tới hành tinh sau 6 giờ
+  ST_KHO_HE_SO: 0.6,         // [TÁI DỰNG] kho siêu thị so với dung tích đế quốc
+  ST_QUY_HE_SO: 0.8,         // [TÁI DỰNG] quỹ tiền mặt siêu thị
+  ST_QUY_SAN: 30000,         // [TÁI DỰNG] quỹ tối thiểu cho đế quốc mới
+  ST_KHO_SAN: 250000,        // [TÁI DỰNG] sàn kho mỗi loại, để đế quốc mới vẫn giao dịch được
+  ST_HOI_GIO: 0.06,          // [TÁI DỰNG] mỗi giờ bù 6% khoảng cách tới trần
   HE_SO_MUA: 2.5,            // giá mua đắt gấp mấy lần giá bán
   /* [TÁI DỰNG] hiệu chỉnh sao cho 2.500 Mỏ KL, KT-KTM 28 cho ra
    * 17 tỷ KL/ngày trên server x8, đúng mốc người chơi ghi lại. */
@@ -1364,7 +1377,7 @@ G.thuyThu = function (ships) {
   return t;
 };
 
-/* source: js/engine.js sha256:9e247e81a166a80e18815618021af06d5e8d3eece36899c549fe25c0c8481c16 */
+/* source: js/engine.js sha256:914d89a33aeefba96ee64a4ca00233c2d1b8be48feda3660a56d8606dd01f228 */
 /* THIÊN HÀ ĐẠI CHIẾN — lõi mô phỏng
  * Toàn bộ game chạy theo mốc thời gian thực: state chỉ lưu các mốc, mỗi lần
  * tick (hoặc mở lại game sau nhiều giờ) engine tua lại từng sự kiện theo
@@ -2207,7 +2220,120 @@ G.ghi = function (st, s) {
   if (st.nk.length > 120) st.nk.length = 120;
 };
 
-/* source: js/fleet.js sha256:04fe283419ad2b74af7eb22727f072c5472804af5db74d3adda73581f6367ff7 */
+/* =======================================================================
+ * KINH TẾ BẢN GỐC — NGÂN HÀNG & SIÊU THỊ THIÊN HÀ
+ * -----------------------------------------------------------------------
+ * [XÁC NHẬN] Tư liệu mô tả một nền kinh tế có thật chứ không phải bộ đổi vô
+ * hạn: ngân hàng cho gửi lấy lãi KHOẢNG 2%/ngày và có khoản đầu tư không rút
+ * giữa kỳ; siêu thị chỉ bán hàng đã có trong kho, lấy thuế 10%, hàng mua tới
+ * hành tinh sau 6 GIỜ; và siêu thị CÓ THỂ HẾT TIỀN — tư liệu còn kể hẳn một
+ * cuộc khủng hoảng nhiên liệu vì lý do đó.
+ *
+ * [TÁI DỰNG] Nguồn không còn bảng số, nên những chỗ sau là cân bằng mới:
+ *  - Lãi chia theo checkpoint 6 giờ và gộp lãi sao cho đúng 2%/ngày.
+ *  - Không trả lãi cho kỳ mà đế quốc lỡ bảo trì: ngân hàng không nuôi một đế
+ *    quốc đang vỡ nợ, và đây cũng là cái hãm tự nhiên cho lãi kép.
+ *  - Sức chứa kho và quỹ tiền mặt của siêu thị neo theo dung tích kho của đế
+ *    quốc, hồi dần theo giờ (đoàn buôn NPC). Bản nhiều người dùng chung một
+ *    chợ do người chơi nhập hàng thì cần bảng riêng trong SQLite — chưa làm.
+ * ===================================================================== */
+
+G.nganHang = function (st) {
+  var nh = st.nganHang;
+  if (!nh || typeof nh !== 'object' || Array.isArray(nh)) nh = st.nganHang = {};
+  if (!(Number(nh.gui) >= 0)) nh.gui = 0;
+  if (!Array.isArray(nh.dauTu)) nh.dauTu = [];
+  if (!(Number(nh.laiCong) >= 0)) nh.laiCong = 0;
+  return nh;
+};
+
+/* Lãi một checkpoint sao cho gộp đủ một ngày ra đúng G.C.NH_LAI_NGAY. */
+G.nganHangLaiKy = function () {
+  var chuKy = (G.NHIP_V1 && G.NHIP_V1.cycleSeconds) || G.C.CHU_KY_BAO_TRI;
+  return Math.pow(1 + G.C.NH_LAI_NGAY, chuKy / 86400) - 1;
+};
+
+G.nganHangNhip = function (st, daTraBaoTri, dong) {
+  var nh = G.nganHang(st), i, con = [], lai = 0;
+  if (daTraBaoTri && nh.gui > 0) {
+    lai = Math.floor(nh.gui * G.nganHangLaiKy());
+    if (lai > 0) { nh.gui += lai; nh.laiCong += lai; }
+  } else if (!daTraBaoTri && nh.gui > 0 && dong) {
+    dong.push('Ngân hàng không trả lãi kỳ này vì bảo trì chưa thanh toán.');
+  }
+  for (i = 0; i < nh.dauTu.length; i++) {
+    var dt = nh.dauTu[i];
+    if (Number(dt.dao_t) > st.now) { con.push(dt); continue; }
+    var tra = Math.floor(Number(dt.so) * (1 + Number(dt.lai)));
+    st.galana += tra;
+    nh.laiCong += Math.max(0, tra - Number(dt.so));
+    if (dong) dong.push('Khoản đầu tư ' + G.so(dt.so) + ' Galana đáo hạn, nhận về ' + G.so(tra) + '.');
+    else G.ghi(st, 'Khoản đầu tư ' + G.so(dt.so) + ' Galana đáo hạn, nhận về ' + G.so(tra) + '.');
+  }
+  nh.dauTu = con;
+  if (lai > 0 && dong) dong.push('Ngân hàng trả lãi ' + G.so(lai) + ' Galana; số dư gửi ' + G.so(nh.gui) + '.');
+  return nh;
+};
+
+/* --- Siêu Thị Thiên Hà ------------------------------------------------ */
+G.sieuThiTran = function (st) {
+  var kho = { metal: 0, crystal: 0, deut: 0, food: 0 }, i, k;
+  for (i = 0; i < st.planets.length; i++) {
+    var c = G.dungTich(st.planets[i]);
+    for (k in kho) kho[k] += c[k] || 0;
+  }
+  /* Sàn giữ cho đế quốc mới vẫn bán được Kim Loại lấy tiền trả bảo trì; trần
+     lớn dần theo dung tích kho nên chợ nở ra cùng đế quốc. */
+  for (k in kho) kho[k] = Math.max(G.C.ST_KHO_SAN, Math.floor(kho[k] * G.C.ST_KHO_HE_SO));
+  var quy = Math.floor(kho.metal / G.C.TY_GIA.metal * G.C.ST_QUY_HE_SO);
+  return { kho: kho, quy: Math.max(G.C.ST_QUY_SAN, quy) };
+};
+
+G.sieuThi = function (st) {
+  var s = st.sieuThi;
+  if (!s || typeof s !== 'object' || Array.isArray(s)) s = st.sieuThi = {};
+  if (!s.kho || typeof s.kho !== 'object') s.kho = {};
+  var tran = G.sieuThiTran(st), k;
+  for (k in tran.kho) if (!(Number(s.kho[k]) >= 0)) s.kho[k] = Math.floor(tran.kho[k] * 0.5);
+  if (!(Number(s.quy) >= 0)) s.quy = Math.floor(tran.quy * 0.5);
+  if (!(Number(s.t) >= 0)) s.t = st.now;
+  var dt = st.now - (Number(s.t) >= 0 ? Number(s.t) : st.now);
+  s.t = st.now;
+  if (dt > 0) {
+    /* Đoàn buôn NPC bù dần về mức trần; cắt luôn phần vượt trần khi đế quốc
+       thu hẹp lại, để kho siêu thị không phình mãi. */
+    var gio = dt / 3600, ty = Math.min(1, G.C.ST_HOI_GIO * gio);
+    for (k in tran.kho) {
+      var caoNhat = tran.kho[k];
+      s.kho[k] = Math.min(caoNhat, s.kho[k] + (caoNhat - s.kho[k]) * ty);
+      if (s.kho[k] < 0) s.kho[k] = 0;
+    }
+    s.quy = Math.min(tran.quy, s.quy + (tran.quy - s.quy) * ty);
+    if (s.quy < 0) s.quy = 0;
+  }
+  s.tran = tran;
+  return s;
+};
+
+/* Hàng mua ở siêu thị không tới ngay: [XÁC NHẬN] 6 giờ sau mới tới hành tinh. */
+G.giaoHang = function (st) {
+  if (!Array.isArray(st.giaoHang)) st.giaoHang = [];
+  return st.giaoHang;
+};
+
+G.giaoHangToi = function (st, i) {
+  var ds = G.giaoHang(st), o = ds[i];
+  if (!o) return;
+  ds.splice(i, 1);
+  var p = st.planets[o.pi] || st.planets[0];
+  if (!p) return;
+  p.res[o.res] = (p.res[o.res] || 0) + o.n;
+  G.tin(st, 'he', 'Siêu Thị giao hàng',
+    'Đã giao ' + G.so(o.n) + ' ' + G.byId(G.RES, o.res).ten + ' tới ' + p.ten + ' ' +
+    G.tdStr(p.c) + '.');
+};
+
+/* source: js/fleet.js sha256:38379fb0df6a82c153dd13455786caf926e44b3fb4984b7d749c09d4bff836a5 */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -3346,6 +3472,7 @@ G.baoTri = function (st) {
     if (st.ncQueue && bt.missStreak >= (c.researchFailureMissStreak || 1))
       G.thatBaiNCNhip(st, st.ncQueue, 'bảo trì đế quốc thất bại', dong);
   }
+  if (G.nganHangNhip) G.nganHangNhip(st, dat, dong);
   var muc = dat ? 0 : Math.min(3, bt.missStreak);
   for (var i = 0; i < st.planets.length; i++) G.nhipDanSu(st, st.planets[i], dat, muc, dong);
   var mocKeTiep = Number(bt.nextAt);
@@ -3764,6 +3891,13 @@ function nextTimelineCandidate(st, ownerAccountId, options, localOnly) {
     }(i)), best);
   if (finiteDue(st.nextRaid)) best = betterCandidate(candidate('LOCAL_EVENT', st.nextRaid, 8, 0,
     'raid', null, function () { G.hepRaid(st, raidRandomFor(st, options)); }), best);
+  if (Array.isArray(st.giaoHang)) for (i = st.giaoHang.length - 1; i >= 0; i--) {
+    if (!finiteDue(st.giaoHang[i].den_t)) continue;
+    best = betterCandidate(candidate('LOCAL_EVENT', st.giaoHang[i].den_t, 9, -i,
+      'delivery:' + i, null, function (idx) {
+        return function () { G.giaoHangToi(st, idx); };
+      }(i)), best);
+  }
   return best;
 }
 
@@ -4267,7 +4401,7 @@ G.doBoXuong = function (st, f, ben) {
   return { kq: kq, thang: thang, phaCT: phaCT };
 };
 
-/* source: js/actions.js sha256:1edbcd76d90963d45599f9437a8bd1c444322426df02d6e88056b5b73593e745 */
+/* source: js/actions.js sha256:7bd51cb96cb9ca266ac0d7f69786f1dd9699b881eaefcbca6ff9aecf0ed2f17c */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
  * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
  * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
@@ -4362,7 +4496,9 @@ G.HANHDONG = {
     G.huyDong(st, p, i); return null;
   },
 
-  /* --- chợ Thiên Hà --- */
+  /* --- Siêu Thị Thiên Hà --------------------------------------------
+   * [XÁC NHẬN] Siêu thị chỉ bán hàng đã có trong kho, lấy thuế 10%, hàng mua
+   * tới hành tinh sau 6 giờ, và có thể HẾT TIỀN MẶT — không phải bộ đổi vô hạn. */
   ban: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
     var r = chuoi(d.res, 10);
@@ -4370,10 +4506,25 @@ G.HANHDONG = {
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần bán.';
     if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
-    var g = Math.floor(n / G.C.TY_GIA[r]);
-    if (g <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
-    p.res[r] -= n; st.galana += g;
-    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' lấy ' + G.so(g) + ' Galana.');
+    var s = G.sieuThi(st);
+    var tho = Math.floor(n / G.C.TY_GIA[r]);
+    if (tho <= 0) return 'Lượng quá nhỏ, không đủ 1 Galana.';
+    var thue = Math.ceil(tho * G.C.ST_THUE);
+    var g = tho - thue;
+    if (g <= 0) return 'Lượng quá nhỏ, thuế ăn hết tiền bán.';
+    if (s.quy < tho)
+      return 'Siêu Thị Thiên Hà chỉ còn ' + G.so(Math.floor(s.quy)) +
+        ' Galana tiền mặt — hãy bán ít hơn hoặc chờ đoàn buôn tới.';
+    var cho = (s.tran && s.tran.kho[r] !== undefined) ? s.tran.kho[r] : Infinity;
+    if (s.kho[r] + n > cho)
+      return 'Kho ' + G.byId(G.RES, r).ten + ' của siêu thị đã gần đầy (còn nhận ' +
+        G.so(Math.max(0, Math.floor(cho - s.kho[r]))) + ').';
+    p.res[r] -= n;
+    s.kho[r] += n;
+    s.quy -= tho;
+    st.galana += g;
+    G.ghi(st, 'Bán ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' cho Siêu Thị: nhận ' + G.so(g) +
+      ' Galana (thuế ' + G.so(thue) + ').');
     return null;
   },
   mua: function (st, d) {
@@ -4382,10 +4533,62 @@ G.HANHDONG = {
     if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần mua.';
-    var g = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
-    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana.';
-    st.galana -= g; p.res[r] = (p.res[r] || 0) + n;
-    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) + ' Galana.');
+    var s = G.sieuThi(st);
+    if (s.kho[r] < n)
+      return 'Siêu Thị chỉ còn ' + G.so(Math.floor(s.kho[r])) + ' ' + G.byId(G.RES, r).ten + '.';
+    var tho = Math.ceil(n / G.C.TY_GIA[r] * G.C.HE_SO_MUA);
+    var g = tho + Math.ceil(tho * G.C.ST_THUE);
+    if (st.galana < g) return 'Cần ' + G.so(g) + ' Galana (đã gồm thuế ' +
+      Math.round(G.C.ST_THUE * 100) + '%).';
+    st.galana -= g;
+    s.kho[r] -= n;
+    s.quy += tho;
+    G.giaoHang(st).push({
+      pi: st.planets.indexOf(p), res: r, n: n, den_t: st.now + G.C.GIAO_HANG
+    });
+    G.ghi(st, 'Mua ' + G.so(n) + ' ' + G.byId(G.RES, r).ten + ' hết ' + G.so(g) +
+      ' Galana; hàng tới sau ' + G.tg(G.C.GIAO_HANG) + '.');
+    return null;
+  },
+
+  /* --- Ngân Hàng Thiên Hà --------------------------------------------
+   * [XÁC NHẬN] cho gửi lấy lãi khoảng 2%/ngày, và có khoản đầu tư vào Siêu Thị
+   * KHÔNG rút được giữa kỳ. */
+  nhGui: function (st, d) {
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần gửi.';
+    if (st.galana < n) return 'Không đủ Galana.';
+    var nh = G.nganHang(st);
+    st.galana -= n; nh.gui += n;
+    G.ghi(st, 'Gửi ' + G.so(n) + ' Galana vào ngân hàng; số dư gửi ' + G.so(nh.gui) + '.');
+    return null;
+  },
+  nhRut: function (st, d) {
+    var nh = G.nganHang(st);
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần rút.';
+    if (nh.gui < n) return 'Số dư gửi chỉ có ' + G.so(Math.floor(nh.gui)) + ' Galana.';
+    nh.gui -= n; st.galana += n;
+    G.ghi(st, 'Rút ' + G.so(n) + ' Galana khỏi ngân hàng.');
+    return null;
+  },
+  nhDauTu: function (st, d) {
+    var n = soDuong(d.n);
+    if (!n) return 'Nhập số Galana cần đầu tư.';
+    var ngay = Math.floor(Number(d.ngay) || 0);
+    if (!Number.isSafeInteger(ngay) || ngay < G.C.NH_DT_NGAY_MIN || ngay > G.C.NH_DT_NGAY_MAX)
+      return 'Kỳ đầu tư phải từ ' + G.C.NH_DT_NGAY_MIN + ' tới ' + G.C.NH_DT_NGAY_MAX + ' ngày.';
+    if (st.galana < n) return 'Không đủ Galana.';
+    var nh = G.nganHang(st);
+    if (nh.dauTu.length >= 8) return 'Chỉ giữ được 8 khoản đầu tư cùng lúc.';
+    st.galana -= n;
+    nh.dauTu.push({
+      so: n,
+      lai: Math.pow(1 + G.C.NH_DT_LAI_NGAY, ngay) - 1,
+      dao_t: st.now + ngay * 86400
+    });
+    G.ghi(st, 'Đầu tư ' + G.so(n) + ' Galana vào Siêu Thị Thiên Hà, khoá ' + ngay +
+      ' ngày — không rút được giữa kỳ.');
     return null;
   },
 
@@ -4479,7 +4682,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:89efebad6f259ecd518e585ab4f24cbd10306cfe59c7b19b0f71b03d2516bcbc */
+/* source: js/ui.js sha256:4c497d8d808915a8c3a836d32fd863c4bf86c38143fb6857dc72ca4702302004 */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -4861,22 +5064,79 @@ U.m_tainguyen = function () {
   h += '</div></div>';
   h += '</div>';
 
-  /* Chợ Thiên Hà: đổi tài nguyên ra Galana và ngược lại */
-  h += '<div class="panel"><h3>Chợ Thiên Hà — quy đổi Galana</h3><div class="noi">';
-  h += '<p class="mo">Bán tài nguyên lấy Galana để trả phí bảo trì, hoặc mua tài nguyên bằng Galana. ' +
-    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' +
-      G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA +
-      ' lần.</p>';
-  h += '<div class="hd-luoi">';
+  /* Siêu Thị Thiên Hà: kho hữu hạn, thuế, và hàng tới sau 6 giờ */
+  var sieu = G.sieuThi(st);
+  h += '<div class="panel"><h3>Siêu Thị Thiên Hà</h3><div class="noi">';
+  h += '<p class="mo">Siêu thị <b>chỉ bán thứ đang có trong kho</b> và trả tiền từ <b>quỹ tiền mặt</b> ' +
+    'của chính nó — bán nhiều quá thì siêu thị hết tiền, phải chờ đoàn buôn tới. Thuế <b>' +
+    Math.round(G.C.ST_THUE * 100) + '%</b> tính cả hai chiều, và <b>hàng mua tới hành tinh sau ' +
+    G.tg(G.C.GIAO_HANG) + '</b>, không tới ngay.</p>';
+  h += '<p class="mo">Tỷ giá gốc: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' +
+    G.C.TY_GIA.crystal + ' Thạch Anh / ' + G.C.TY_GIA.deut + ' Nhiên Liệu / ' +
+    G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
+  h += '<table><tr><th>Mặt hàng</th><th class="r">Siêu thị còn</th><th class="r">Số lượng</th>' +
+    '<th class="r"></th></tr>';
   var tg = G.C.TY_GIA;
   for (var t in tg) {
     var rr = G.byId(G.RES, t);
-    h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '</span>' +
-      '<input type="number" min="0" step="1000" id="cho-' + t + '" value="' + (U.cho[t] || 0) + '">' +
-      '<button class="nut nho oke" data-act="ban" data-res="' + t + '">Bán</button>' +
-      '<button class="nut nho" data-act="mua" data-res="' + t + '">Mua</button></div>';
+    var con = Math.floor(sieu.kho[t] || 0), tranT = (sieu.tran && sieu.tran.kho[t]) || 1;
+    h += '<tr><td><span style="color:' + rr.mau + '">' + U.esc(rr.ten) + '</span></td>' +
+      '<td class="r sz">' + G.so(con) + '<br><span class="mo">' +
+      Math.round(con / tranT * 100) + '% kho</span></td>' +
+      '<td class="r"><input type="number" min="0" step="1000" id="cho-' + t +
+      '" value="' + (U.cho[t] || 0) + '"></td>' +
+      '<td class="r" style="white-space:nowrap">' +
+      '<button class="nut nho oke" data-act="ban" data-res="' + t + '">Bán</button> ' +
+      '<button class="nut nho" data-act="mua" data-res="' + t + '">Mua</button></td></tr>';
   }
-  h += '</div></div></div>';
+  h += '</table>';
+  h += '<p class="mo" style="margin-top:6px">Quỹ tiền mặt siêu thị: <b class="vang">' +
+    G.so(Math.floor(sieu.quy)) + ' Galana</b>' +
+    (sieu.tran ? ' / ' + G.so(sieu.tran.quy) : '') + '</p>';
+  var dsGiao = G.giaoHang(st);
+  if (dsGiao.length) {
+    h += '<table style="margin-top:6px"><tr><th>Đang giao</th><th class="r">Tới</th><th>Về</th></tr>';
+    for (var gi = 0; gi < dsGiao.length; gi++) {
+      var gg = dsGiao[gi], pg = st.planets[gg.pi];
+      h += '<tr><td>' + G.so(gg.n) + ' ' + U.esc(G.byId(G.RES, gg.res).ten) + '</td>' +
+        '<td class="r sz">' + U.dem(gg.den_t) + '</td>' +
+        '<td class="sz">' + U.esc(pg ? pg.ten : '—') + '</td></tr>';
+    }
+    h += '</table>';
+  }
+  h += '</div></div>';
+
+  /* Ngân Hàng Thiên Hà */
+  var nh = G.nganHang(st);
+  h += '<div class="panel"><h3>Ngân Hàng Thiên Hà</h3><div class="noi">';
+  h += '<p class="mo">Gửi Galana lấy lãi <b>' + (G.C.NH_LAI_NGAY * 100) + '%/ngày</b>, cộng ở mỗi ' +
+    'checkpoint bảo trì. <b>Kỳ nào lỡ bảo trì thì không có lãi</b> — ngân hàng không nuôi một đế quốc ' +
+    'đang vỡ nợ.</p>';
+  h += '<table><tr><td>Đang gửi</td><td class="r"><b class="vang">' + G.so(Math.floor(nh.gui)) +
+    '</b> Galana</td></tr>' +
+    '<tr><td>Lãi đã nhận</td><td class="r sz">' + G.so(Math.floor(nh.laiCong)) + '</td></tr></table>';
+  h += '<div class="hd-td" style="margin-top:6px"><input id="nh-so" type="number" min="0" step="1000" value="0">' +
+    '<button class="nut nho oke" data-act="nh-gui">Gửi</button>' +
+    '<button class="nut nho" data-act="nh-rut">Rút</button></div>';
+  h += '<p class="mo" style="margin-top:8px">Đầu tư vào Siêu Thị Thiên Hà ăn lãi cao hơn (<b>' +
+    (G.C.NH_DT_LAI_NGAY * 100) + '%/ngày</b>) nhưng <b>khoá tới khi đáo hạn</b>, không rút giữa kỳ.</p>';
+  h += '<div class="hd-td"><input id="nh-dt-so" type="number" min="0" step="1000" value="0">' +
+    '<input id="nh-dt-ngay" type="number" min="' + G.C.NH_DT_NGAY_MIN + '" max="' +
+    G.C.NH_DT_NGAY_MAX + '" value="' + G.C.NH_DT_NGAY_MIN + '" title="số ngày khoá">' +
+    '<button class="nut nho oke" data-act="nh-dautu">Đầu tư</button></div>';
+  if (nh.dauTu.length) {
+    h += '<table style="margin-top:6px"><tr><th>Khoản đầu tư</th><th class="r">Nhận về</th>' +
+      '<th class="r">Đáo hạn</th></tr>';
+    for (var di = 0; di < nh.dauTu.length; di++) {
+      var dd = nh.dauTu[di];
+      h += '<tr><td>' + G.so(dd.so) + ' Galana</td>' +
+        '<td class="r luc">' + G.so(Math.floor(dd.so * (1 + dd.lai))) + '</td>' +
+        '<td class="r sz">' + U.dem(dd.dao_t) + '</td></tr>';
+    }
+    h += '</table>';
+  }
+  h += '</div></div>';
+  h += '</div>';
   return h;
 };
 
@@ -5816,7 +6076,8 @@ U.m_huongdan = function () {
     '<p><b class="cam">1. Chu kỳ bảo trì 6 giờ.</b> Cứ 6 giờ thực, đế quốc bị trừ phí bảo trì bằng <b>Galana</b>, ' +
     'tính theo quy mô hạm đội + phòng thủ + công trình. Phải đủ nguyên khoản; lỡ nhiều kỳ liên tiếp sẽ lần lượt ' +
     'làm nghiên cứu trễ, dân rời đi rồi công trình xuống cấp. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
-    'Bí tiền thì ra <b>Chợ Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại. ' +
+    'Bí tiền thì ra <b>Siêu Thị Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại — nhưng siêu thị có ' +
+    'hạn mức tiền mặt, bán cả núi một lúc sẽ bị từ chối. Dư tiền thì gửi <b>Ngân Hàng</b> ăn lãi. ' +
     '<i>Trung Tâm Bảo Trì</i> giảm tới 60% khoản phí này.</p>' +
     '<p><b class="cam">2. Nghiên cứu trả dần.</b> Không trừ chi phí lúc xếp đề tài. Toàn bộ Kim Loại, Thạch Anh, ' +
     'Nhiên Liệu, Kỹ Thuật… được chia thành các khoản ở nhịp 6 giờ. Thiếu một loại thì kỳ đó không trừ gì và ' +
@@ -6173,7 +6434,7 @@ U.m_mophong = function () {
   return h;
 };
 
-/* source: js/app.js sha256:62ac49762fcd6d6f5b00ed25d7b56d02129b67bc6eebc73c999596a4c73741cc */
+/* source: js/app.js sha256:8d001243a383053dffd5a685cfecc37329192512f707d105c6b4134c5d186edf */
 /* THIÊN HÀ ĐẠI CHIẾN — tầng thao tác giao diện (dùng chung cho 1 người & nhiều người)
  * Mọi thao tác của người chơi đi qua APP.lam(ten, dl, xong):
  *   - bản một người  (js/main.js): chạy G.chay() ngay trên state trong máy
@@ -6245,6 +6506,13 @@ var ACT = {
     var r = el.getAttribute('data-res');
     U.cho[r] = soO('cho-' + r);
     lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
+  },
+
+  /* ---------- Ngân Hàng Thiên Hà ---------- */
+  'nh-gui': function () { lam('nhGui', { n: soO('nh-so') }); },
+  'nh-rut': function () { lam('nhRut', { n: soO('nh-so') }); },
+  'nh-dautu': function () {
+    lam('nhDauTu', { n: soO('nh-dt-so'), ngay: soO('nh-dt-ngay') });
   },
 
   /* ---------- bản đồ thiên hà ---------- */

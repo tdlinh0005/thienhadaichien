@@ -1353,5 +1353,107 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   quetNaN(s4.planets);
 })();
 
+/* ---- 18. kinh tế: ngân hàng & siêu thị ---- */
+(function () {
+  var s5 = G.moiGame('Kinh Tế', 'THDC-KINH-TE');
+  var t5 = s5.now, p5 = s5.planets[0];
+
+  /* --- siêu thị có kho hữu hạn, có quỹ tiền mặt --- */
+  var sieu = G.sieuThi(s5);
+  ktra(sieu.kho.metal > 0 && sieu.quy > 0, 'kinh tế: siêu thị mới có sẵn kho và quỹ');
+  ktra(sieu.kho.metal <= sieu.tran.kho.metal && sieu.quy <= sieu.tran.quy,
+    'kinh tế: kho và quỹ không vượt trần');
+
+  p5.res.metal = 1e6;
+  var gTruoc = s5.galana, khoTruoc = s5.sieuThi.kho.metal, quyTruoc = s5.sieuThi.quy;
+  ktra(!G.HANHDONG.ban(s5, { pi: 0, res: 'metal', n: 90000 }), 'kinh tế: bán được Kim Loại');
+  var tho = Math.floor(90000 / G.C.TY_GIA.metal);
+  var nhan = s5.galana - gTruoc;
+  ktra(nhan === tho - Math.ceil(tho * G.C.ST_THUE),
+    'kinh tế: tiền bán bị trừ đúng thuế ' + Math.round(G.C.ST_THUE * 100) + '%');
+  ktra(s5.sieuThi.kho.metal === khoTruoc + 90000, 'kinh tế: hàng bán vào kho siêu thị');
+  ktra(s5.sieuThi.quy === quyTruoc - tho, 'kinh tế: quỹ siêu thị giảm đúng số tiền trả ra');
+
+  /* siêu thị hết tiền thì không mua nữa — [XÁC NHẬN] khủng hoảng nhiên liệu */
+  p5.res.metal = 1e9;
+  var loiQuy = G.HANHDONG.ban(s5, { pi: 0, res: 'metal', n: 1e9 });
+  ktra(typeof loiQuy === 'string' && /tiền mặt/.test(loiQuy),
+    'kinh tế: bán quá quỹ thì siêu thị từ chối vì hết tiền mặt');
+
+  /* mua: có thuế, trừ kho, và giao sau 6 giờ chứ không tới ngay */
+  s5.galana += 500000;
+  var khoTA = s5.sieuThi.kho.crystal;
+  var muaN = Math.min(20000, Math.floor(khoTA));
+  var taTruoc = p5.res.crystal, gMua = s5.galana;
+  ktra(!G.HANHDONG.mua(s5, { pi: 0, res: 'crystal', n: muaN }), 'kinh tế: mua được Thạch Anh');
+  var thoMua = Math.ceil(muaN / G.C.TY_GIA.crystal * G.C.HE_SO_MUA);
+  ktra(gMua - s5.galana === thoMua + Math.ceil(thoMua * G.C.ST_THUE),
+    'kinh tế: tiền mua đã cộng thuế');
+  ktra(p5.res.crystal === taTruoc, 'kinh tế: hàng KHÔNG tới ngay lúc mua');
+  ktra(G.giaoHang(s5).length === 1, 'kinh tế: có một chuyến giao đang trên đường');
+  t5 += 3 * 3600; G.tick(s5, t5);
+  ktra(G.giaoHang(s5).length === 1, 'kinh tế: sau 3 giờ hàng vẫn chưa tới');
+  /* Hành tinh vẫn tự sản xuất Thạch Anh, nên mốc so sánh phải lấy NGAY trước
+     lúc giao rồi đối chiếu phần nhảy vọt, không so với lúc đặt mua. */
+  var taNgayTruoc = p5.res.crystal;
+  t5 += 4 * 3600; G.tick(s5, t5);
+  ktra(G.giaoHang(s5).length === 0, 'kinh tế: qua mốc 6 giờ thì chuyến giao kết thúc');
+  ktra(p5.res.crystal >= taNgayTruoc + muaN,
+    'kinh tế: hàng mua được cộng vào kho hành tinh');
+
+  ktra(/chỉ còn/.test(String(G.HANHDONG.mua(s5, { pi: 0, res: 'deut', n: 1e9 }))),
+    'kinh tế: mua quá kho siêu thị thì bị từ chối');
+
+  /* --- ngân hàng: đúng 2%/ngày --- */
+  var s6 = G.moiGame('Ngân Hàng', 'THDC-NGAN-HANG');
+  var t6 = s6.now;
+  s6.galana += 400000;
+  ktra(G.HANHDONG.nhGui(s6, { n: 1e9 }) === 'Không đủ Galana.',
+    'kinh tế: không gửi quá số Galana đang có');
+  ktra(!G.HANHDONG.nhGui(s6, { n: 100000 }), 'kinh tế: gửi được vào ngân hàng');
+  ktra(s6.nganHang.gui === 100000, 'kinh tế: số dư gửi đúng');
+  ktra(/Số dư gửi/.test(String(G.HANHDONG.nhRut(s6, { n: 999999 }))),
+    'kinh tế: không rút quá số dư');
+  ktra(!G.HANHDONG.nhRut(s6, { n: 20000 }) && s6.nganHang.gui === 80000,
+    'kinh tế: rút được một phần');
+
+  var guiTruoc = s6.nganHang.gui;
+  t6 += 86400 + 120; G.tick(s6, t6);
+  var tyLe = s6.nganHang.gui / guiTruoc - 1;
+  ktra(Math.abs(tyLe - G.C.NH_LAI_NGAY) < 0.002,
+    'kinh tế: gộp đủ một ngày ra đúng ' + (G.C.NH_LAI_NGAY * 100) + '%/ngày (được ' +
+      (tyLe * 100).toFixed(2) + '%)');
+
+  /* không trả lãi cho kỳ lỡ bảo trì */
+  var s7 = G.moiGame('Vỡ Nợ', 'THDC-VO-NO');
+  s7.galana = 0;
+  G.nganHang(s7).gui = 100000;
+  var dong7 = [];
+  G.nganHangNhip(s7, false, dong7);
+  ktra(s7.nganHang.gui === 100000, 'kinh tế: lỡ bảo trì thì ngân hàng không trả lãi');
+  ktra(dong7.some(function (x) { return /không trả lãi/.test(x); }),
+    'kinh tế: checkpoint nói rõ vì sao không có lãi');
+
+  /* --- đầu tư khoá kỳ --- */
+  var s8 = G.moiGame('Đầu Tư', 'THDC-DAU-TU');
+  var t8 = s8.now;
+  s8.galana += 300000;
+  ktra(/Kỳ đầu tư/.test(String(G.HANHDONG.nhDauTu(s8, { n: 1000, ngay: 99 }))),
+    'kinh tế: từ chối kỳ đầu tư ngoài khoảng');
+  ktra(!G.HANHDONG.nhDauTu(s8, { n: 50000, ngay: 2 }), 'kinh tế: đầu tư được');
+  ktra(s8.nganHang.dauTu.length === 1, 'kinh tế: khoản đầu tư được ghi nhận');
+  var daoT = s8.nganHang.dauTu[0].dao_t;
+  t8 += 86400; G.tick(s8, t8);
+  ktra(s8.nganHang.dauTu.length === 1, 'kinh tế: chưa tới hạn thì KHÔNG rút được giữa kỳ');
+  var gTruocDao = s8.galana;
+  t8 = daoT + 6 * 3600; G.tick(s8, t8);
+  ktra(s8.nganHang.dauTu.length === 0, 'kinh tế: tới hạn thì khoản đầu tư đáo hạn');
+  ktra(s8.galana > gTruocDao + 50000, 'kinh tế: đáo hạn trả về cả vốn lẫn lãi');
+
+  quetNaN(s5.planets); quetNaN(s6.planets); quetNaN(s8.planets);
+  ktra(JSON.parse(JSON.stringify(s5)).sieuThi.kho.metal === s5.sieuThi.kho.metal,
+    'kinh tế: state kinh tế lưu/nạp được JSON');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

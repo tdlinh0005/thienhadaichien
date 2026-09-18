@@ -71,6 +71,13 @@ var ACT = {
     lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
   },
 
+  /* ---------- Ngân Hàng Thiên Hà ---------- */
+  'nh-gui': function () { lam('nhGui', { n: soO('nh-so') }); },
+  'nh-rut': function () { lam('nhRut', { n: soO('nh-so') }); },
+  'nh-dautu': function () {
+    lam('nhDauTu', { n: soO('nh-dt-so'), ngay: soO('nh-dt-ngay') });
+  },
+
   /* ---------- bản đồ thiên hà ---------- */
   gal: function (el) {
     if (!U.gal) U.gal = { g: U.ht().c.g, h: U.ht().c.h };

@@ -1136,6 +1136,7 @@ G.baoTri = function (st) {
     if (st.ncQueue && bt.missStreak >= (c.researchFailureMissStreak || 1))
       G.thatBaiNCNhip(st, st.ncQueue, 'bảo trì đế quốc thất bại', dong);
   }
+  if (G.nganHangNhip) G.nganHangNhip(st, dat, dong);
   var muc = dat ? 0 : Math.min(3, bt.missStreak);
   for (var i = 0; i < st.planets.length; i++) G.nhipDanSu(st, st.planets[i], dat, muc, dong);
   var mocKeTiep = Number(bt.nextAt);
@@ -1554,6 +1555,13 @@ function nextTimelineCandidate(st, ownerAccountId, options, localOnly) {
     }(i)), best);
   if (finiteDue(st.nextRaid)) best = betterCandidate(candidate('LOCAL_EVENT', st.nextRaid, 8, 0,
     'raid', null, function () { G.hepRaid(st, raidRandomFor(st, options)); }), best);
+  if (Array.isArray(st.giaoHang)) for (i = st.giaoHang.length - 1; i >= 0; i--) {
+    if (!finiteDue(st.giaoHang[i].den_t)) continue;
+    best = betterCandidate(candidate('LOCAL_EVENT', st.giaoHang[i].den_t, 9, -i,
+      'delivery:' + i, null, function (idx) {
+        return function () { G.giaoHangToi(st, idx); };
+      }(i)), best);
+  }
   return best;
 }
 

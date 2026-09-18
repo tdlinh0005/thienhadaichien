@@ -379,22 +379,79 @@ U.m_tainguyen = function () {
   h += '</div></div>';
   h += '</div>';
 
-  /* Chợ Thiên Hà: đổi tài nguyên ra Galana và ngược lại */
-  h += '<div class="panel"><h3>Chợ Thiên Hà — quy đổi Galana</h3><div class="noi">';
-  h += '<p class="mo">Bán tài nguyên lấy Galana để trả phí bảo trì, hoặc mua tài nguyên bằng Galana. ' +
-    'Tỷ giá bán: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' +
-      G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA +
-      ' lần.</p>';
-  h += '<div class="hd-luoi">';
+  /* Siêu Thị Thiên Hà: kho hữu hạn, thuế, và hàng tới sau 6 giờ */
+  var sieu = G.sieuThi(st);
+  h += '<div class="panel"><h3>Siêu Thị Thiên Hà</h3><div class="noi">';
+  h += '<p class="mo">Siêu thị <b>chỉ bán thứ đang có trong kho</b> và trả tiền từ <b>quỹ tiền mặt</b> ' +
+    'của chính nó — bán nhiều quá thì siêu thị hết tiền, phải chờ đoàn buôn tới. Thuế <b>' +
+    Math.round(G.C.ST_THUE * 100) + '%</b> tính cả hai chiều, và <b>hàng mua tới hành tinh sau ' +
+    G.tg(G.C.GIAO_HANG) + '</b>, không tới ngay.</p>';
+  h += '<p class="mo">Tỷ giá gốc: 1 Galana = ' + G.C.TY_GIA.metal + ' Kim Loại / ' +
+    G.C.TY_GIA.crystal + ' Thạch Anh / ' + G.C.TY_GIA.deut + ' Nhiên Liệu / ' +
+    G.C.TY_GIA.food + ' Thực Phẩm. Giá mua đắt gấp ' + G.C.HE_SO_MUA + ' lần.</p>';
+  h += '<table><tr><th>Mặt hàng</th><th class="r">Siêu thị còn</th><th class="r">Số lượng</th>' +
+    '<th class="r"></th></tr>';
   var tg = G.C.TY_GIA;
   for (var t in tg) {
     var rr = G.byId(G.RES, t);
-    h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '</span>' +
-      '<input type="number" min="0" step="1000" id="cho-' + t + '" value="' + (U.cho[t] || 0) + '">' +
-      '<button class="nut nho oke" data-act="ban" data-res="' + t + '">Bán</button>' +
-      '<button class="nut nho" data-act="mua" data-res="' + t + '">Mua</button></div>';
+    var con = Math.floor(sieu.kho[t] || 0), tranT = (sieu.tran && sieu.tran.kho[t]) || 1;
+    h += '<tr><td><span style="color:' + rr.mau + '">' + U.esc(rr.ten) + '</span></td>' +
+      '<td class="r sz">' + G.so(con) + '<br><span class="mo">' +
+      Math.round(con / tranT * 100) + '% kho</span></td>' +
+      '<td class="r"><input type="number" min="0" step="1000" id="cho-' + t +
+      '" value="' + (U.cho[t] || 0) + '"></td>' +
+      '<td class="r" style="white-space:nowrap">' +
+      '<button class="nut nho oke" data-act="ban" data-res="' + t + '">Bán</button> ' +
+      '<button class="nut nho" data-act="mua" data-res="' + t + '">Mua</button></td></tr>';
   }
-  h += '</div></div></div>';
+  h += '</table>';
+  h += '<p class="mo" style="margin-top:6px">Quỹ tiền mặt siêu thị: <b class="vang">' +
+    G.so(Math.floor(sieu.quy)) + ' Galana</b>' +
+    (sieu.tran ? ' / ' + G.so(sieu.tran.quy) : '') + '</p>';
+  var dsGiao = G.giaoHang(st);
+  if (dsGiao.length) {
+    h += '<table style="margin-top:6px"><tr><th>Đang giao</th><th class="r">Tới</th><th>Về</th></tr>';
+    for (var gi = 0; gi < dsGiao.length; gi++) {
+      var gg = dsGiao[gi], pg = st.planets[gg.pi];
+      h += '<tr><td>' + G.so(gg.n) + ' ' + U.esc(G.byId(G.RES, gg.res).ten) + '</td>' +
+        '<td class="r sz">' + U.dem(gg.den_t) + '</td>' +
+        '<td class="sz">' + U.esc(pg ? pg.ten : '—') + '</td></tr>';
+    }
+    h += '</table>';
+  }
+  h += '</div></div>';
+
+  /* Ngân Hàng Thiên Hà */
+  var nh = G.nganHang(st);
+  h += '<div class="panel"><h3>Ngân Hàng Thiên Hà</h3><div class="noi">';
+  h += '<p class="mo">Gửi Galana lấy lãi <b>' + (G.C.NH_LAI_NGAY * 100) + '%/ngày</b>, cộng ở mỗi ' +
+    'checkpoint bảo trì. <b>Kỳ nào lỡ bảo trì thì không có lãi</b> — ngân hàng không nuôi một đế quốc ' +
+    'đang vỡ nợ.</p>';
+  h += '<table><tr><td>Đang gửi</td><td class="r"><b class="vang">' + G.so(Math.floor(nh.gui)) +
+    '</b> Galana</td></tr>' +
+    '<tr><td>Lãi đã nhận</td><td class="r sz">' + G.so(Math.floor(nh.laiCong)) + '</td></tr></table>';
+  h += '<div class="hd-td" style="margin-top:6px"><input id="nh-so" type="number" min="0" step="1000" value="0">' +
+    '<button class="nut nho oke" data-act="nh-gui">Gửi</button>' +
+    '<button class="nut nho" data-act="nh-rut">Rút</button></div>';
+  h += '<p class="mo" style="margin-top:8px">Đầu tư vào Siêu Thị Thiên Hà ăn lãi cao hơn (<b>' +
+    (G.C.NH_DT_LAI_NGAY * 100) + '%/ngày</b>) nhưng <b>khoá tới khi đáo hạn</b>, không rút giữa kỳ.</p>';
+  h += '<div class="hd-td"><input id="nh-dt-so" type="number" min="0" step="1000" value="0">' +
+    '<input id="nh-dt-ngay" type="number" min="' + G.C.NH_DT_NGAY_MIN + '" max="' +
+    G.C.NH_DT_NGAY_MAX + '" value="' + G.C.NH_DT_NGAY_MIN + '" title="số ngày khoá">' +
+    '<button class="nut nho oke" data-act="nh-dautu">Đầu tư</button></div>';
+  if (nh.dauTu.length) {
+    h += '<table style="margin-top:6px"><tr><th>Khoản đầu tư</th><th class="r">Nhận về</th>' +
+      '<th class="r">Đáo hạn</th></tr>';
+    for (var di = 0; di < nh.dauTu.length; di++) {
+      var dd = nh.dauTu[di];
+      h += '<tr><td>' + G.so(dd.so) + ' Galana</td>' +
+        '<td class="r luc">' + G.so(Math.floor(dd.so * (1 + dd.lai))) + '</td>' +
+        '<td class="r sz">' + U.dem(dd.dao_t) + '</td></tr>';
+    }
+    h += '</table>';
+  }
+  h += '</div></div>';
+  h += '</div>';
   return h;
 };
 
@@ -1334,7 +1391,8 @@ U.m_huongdan = function () {
     '<p><b class="cam">1. Chu kỳ bảo trì 6 giờ.</b> Cứ 6 giờ thực, đế quốc bị trừ phí bảo trì bằng <b>Galana</b>, ' +
     'tính theo quy mô hạm đội + phòng thủ + công trình. Phải đủ nguyên khoản; lỡ nhiều kỳ liên tiếp sẽ lần lượt ' +
     'làm nghiên cứu trễ, dân rời đi rồi công trình xuống cấp. Xem đồng hồ "Bảo trì sau" ở thanh trên. ' +
-    'Bí tiền thì ra <b>Chợ Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại. ' +
+    'Bí tiền thì ra <b>Siêu Thị Thiên Hà</b> (màn Tài Nguyên) bán bớt Kim Loại — nhưng siêu thị có ' +
+    'hạn mức tiền mặt, bán cả núi một lúc sẽ bị từ chối. Dư tiền thì gửi <b>Ngân Hàng</b> ăn lãi. ' +
     '<i>Trung Tâm Bảo Trì</i> giảm tới 60% khoản phí này.</p>' +
     '<p><b class="cam">2. Nghiên cứu trả dần.</b> Không trừ chi phí lúc xếp đề tài. Toàn bộ Kim Loại, Thạch Anh, ' +
     'Nhiên Liệu, Kỹ Thuật… được chia thành các khoản ở nhịp 6 giờ. Thiếu một loại thì kỳ đó không trừ gì và ' +

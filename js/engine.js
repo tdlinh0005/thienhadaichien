@@ -839,3 +839,116 @@ G.ghi = function (st, s) {
   st.nk.unshift({ t: st.now, s: s });
   if (st.nk.length > 120) st.nk.length = 120;
 };
+
+/* =======================================================================
+ * KINH TẾ BẢN GỐC — NGÂN HÀNG & SIÊU THỊ THIÊN HÀ
+ * -----------------------------------------------------------------------
+ * [XÁC NHẬN] Tư liệu mô tả một nền kinh tế có thật chứ không phải bộ đổi vô
+ * hạn: ngân hàng cho gửi lấy lãi KHOẢNG 2%/ngày và có khoản đầu tư không rút
+ * giữa kỳ; siêu thị chỉ bán hàng đã có trong kho, lấy thuế 10%, hàng mua tới
+ * hành tinh sau 6 GIỜ; và siêu thị CÓ THỂ HẾT TIỀN — tư liệu còn kể hẳn một
+ * cuộc khủng hoảng nhiên liệu vì lý do đó.
+ *
+ * [TÁI DỰNG] Nguồn không còn bảng số, nên những chỗ sau là cân bằng mới:
+ *  - Lãi chia theo checkpoint 6 giờ và gộp lãi sao cho đúng 2%/ngày.
+ *  - Không trả lãi cho kỳ mà đế quốc lỡ bảo trì: ngân hàng không nuôi một đế
+ *    quốc đang vỡ nợ, và đây cũng là cái hãm tự nhiên cho lãi kép.
+ *  - Sức chứa kho và quỹ tiền mặt của siêu thị neo theo dung tích kho của đế
+ *    quốc, hồi dần theo giờ (đoàn buôn NPC). Bản nhiều người dùng chung một
+ *    chợ do người chơi nhập hàng thì cần bảng riêng trong SQLite — chưa làm.
+ * ===================================================================== */
+
+G.nganHang = function (st) {
+  var nh = st.nganHang;
+  if (!nh || typeof nh !== 'object' || Array.isArray(nh)) nh = st.nganHang = {};
+  if (!(Number(nh.gui) >= 0)) nh.gui = 0;
+  if (!Array.isArray(nh.dauTu)) nh.dauTu = [];
+  if (!(Number(nh.laiCong) >= 0)) nh.laiCong = 0;
+  return nh;
+};
+
+/* Lãi một checkpoint sao cho gộp đủ một ngày ra đúng G.C.NH_LAI_NGAY. */
+G.nganHangLaiKy = function () {
+  var chuKy = (G.NHIP_V1 && G.NHIP_V1.cycleSeconds) || G.C.CHU_KY_BAO_TRI;
+  return Math.pow(1 + G.C.NH_LAI_NGAY, chuKy / 86400) - 1;
+};
+
+G.nganHangNhip = function (st, daTraBaoTri, dong) {
+  var nh = G.nganHang(st), i, con = [], lai = 0;
+  if (daTraBaoTri && nh.gui > 0) {
+    lai = Math.floor(nh.gui * G.nganHangLaiKy());
+    if (lai > 0) { nh.gui += lai; nh.laiCong += lai; }
+  } else if (!daTraBaoTri && nh.gui > 0 && dong) {
+    dong.push('Ngân hàng không trả lãi kỳ này vì bảo trì chưa thanh toán.');
+  }
+  for (i = 0; i < nh.dauTu.length; i++) {
+    var dt = nh.dauTu[i];
+    if (Number(dt.dao_t) > st.now) { con.push(dt); continue; }
+    var tra = Math.floor(Number(dt.so) * (1 + Number(dt.lai)));
+    st.galana += tra;
+    nh.laiCong += Math.max(0, tra - Number(dt.so));
+    if (dong) dong.push('Khoản đầu tư ' + G.so(dt.so) + ' Galana đáo hạn, nhận về ' + G.so(tra) + '.');
+    else G.ghi(st, 'Khoản đầu tư ' + G.so(dt.so) + ' Galana đáo hạn, nhận về ' + G.so(tra) + '.');
+  }
+  nh.dauTu = con;
+  if (lai > 0 && dong) dong.push('Ngân hàng trả lãi ' + G.so(lai) + ' Galana; số dư gửi ' + G.so(nh.gui) + '.');
+  return nh;
+};
+
+/* --- Siêu Thị Thiên Hà ------------------------------------------------ */
+G.sieuThiTran = function (st) {
+  var kho = { metal: 0, crystal: 0, deut: 0, food: 0 }, i, k;
+  for (i = 0; i < st.planets.length; i++) {
+    var c = G.dungTich(st.planets[i]);
+    for (k in kho) kho[k] += c[k] || 0;
+  }
+  /* Sàn giữ cho đế quốc mới vẫn bán được Kim Loại lấy tiền trả bảo trì; trần
+     lớn dần theo dung tích kho nên chợ nở ra cùng đế quốc. */
+  for (k in kho) kho[k] = Math.max(G.C.ST_KHO_SAN, Math.floor(kho[k] * G.C.ST_KHO_HE_SO));
+  var quy = Math.floor(kho.metal / G.C.TY_GIA.metal * G.C.ST_QUY_HE_SO);
+  return { kho: kho, quy: Math.max(G.C.ST_QUY_SAN, quy) };
+};
+
+G.sieuThi = function (st) {
+  var s = st.sieuThi;
+  if (!s || typeof s !== 'object' || Array.isArray(s)) s = st.sieuThi = {};
+  if (!s.kho || typeof s.kho !== 'object') s.kho = {};
+  var tran = G.sieuThiTran(st), k;
+  for (k in tran.kho) if (!(Number(s.kho[k]) >= 0)) s.kho[k] = Math.floor(tran.kho[k] * 0.5);
+  if (!(Number(s.quy) >= 0)) s.quy = Math.floor(tran.quy * 0.5);
+  if (!(Number(s.t) >= 0)) s.t = st.now;
+  var dt = st.now - (Number(s.t) >= 0 ? Number(s.t) : st.now);
+  s.t = st.now;
+  if (dt > 0) {
+    /* Đoàn buôn NPC bù dần về mức trần; cắt luôn phần vượt trần khi đế quốc
+       thu hẹp lại, để kho siêu thị không phình mãi. */
+    var gio = dt / 3600, ty = Math.min(1, G.C.ST_HOI_GIO * gio);
+    for (k in tran.kho) {
+      var caoNhat = tran.kho[k];
+      s.kho[k] = Math.min(caoNhat, s.kho[k] + (caoNhat - s.kho[k]) * ty);
+      if (s.kho[k] < 0) s.kho[k] = 0;
+    }
+    s.quy = Math.min(tran.quy, s.quy + (tran.quy - s.quy) * ty);
+    if (s.quy < 0) s.quy = 0;
+  }
+  s.tran = tran;
+  return s;
+};
+
+/* Hàng mua ở siêu thị không tới ngay: [XÁC NHẬN] 6 giờ sau mới tới hành tinh. */
+G.giaoHang = function (st) {
+  if (!Array.isArray(st.giaoHang)) st.giaoHang = [];
+  return st.giaoHang;
+};
+
+G.giaoHangToi = function (st, i) {
+  var ds = G.giaoHang(st), o = ds[i];
+  if (!o) return;
+  ds.splice(i, 1);
+  var p = st.planets[o.pi] || st.planets[0];
+  if (!p) return;
+  p.res[o.res] = (p.res[o.res] || 0) + o.n;
+  G.tin(st, 'he', 'Siêu Thị giao hàng',
+    'Đã giao ' + G.so(o.n) + ' ' + G.byId(G.RES, o.res).ten + ' tới ' + p.ten + ' ' +
+    G.tdStr(p.c) + '.');
+};
