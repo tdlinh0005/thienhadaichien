@@ -351,10 +351,16 @@ TheGioi.prototype.kiemTraGui = function (st, p, den, mission) {
   if (!tkA) return null;
   var d = this.kho.q.htGet.get(G.tdKey(den));
   if (mission === 'hold') {
-    if (!d) return 'Giữ Chỗ chỉ được gửi tới hành tinh của ta hoặc đồng minh hiện tại.';
-    if (d.tk !== tkA && !this.laDongMinh(tkA, d.tk))
-      return 'Chỉ được đóng quân quỹ đạo tại hành tinh của ta hoặc thành viên cùng liên minh.';
-    return null;
+    /* Không có hàng ht nghĩa là toạ độ NPC hoặc ô trống: phong toả tự do, đúng
+       như tấn công NPC không cần tuyên chiến. Trận phong toả chỉ đụng state NPC
+       dùng chung nên không kéo theo state của người chơi nào khác. */
+    if (!d) return null;
+    if (d.tk === tkA || this.laDongMinh(tkA, d.tk)) return null;
+    /* Phong toả quỹ đạo của người chơi khác là hành vi chiến tranh và cần
+       state của đối phương để giải trận. Bản này chưa dựng đường đó
+       (G.HOOK.phongToaNguoi), nên chặn ở cửa phát lệnh thay vì để hạm đội bay
+       tới rồi mới quay về tay trắng. */
+    return 'Chưa phong toả được quỹ đạo của người chơi khác; hãy dùng nhiệm vụ Tấn Công.';
   }
   if (!d || d.tk === tkA) return null;
   if (mission === 'attack') {
@@ -374,7 +380,12 @@ TheGioi.prototype.kiemTraGiu = function (st, f, o) {
   if (!tkA) return 'Không xác định được chủ hạm đội.';
   var td = G.tdKey(f.den);
   var d = this.kho.q.htGet.get(td);
-  if (!d) return 'Hành tinh giữ chỗ không còn tồn tại.';
+  /* Toạ độ không thuộc người chơi nào: phong toả NPC/ô trống. Không pin
+     giuTaiTk vì không có chủ nào để theo dõi đổi chủ. */
+  if (!d) {
+    if (o && o.loai === 'nguoi') return 'Chủ hành tinh đã thay đổi.';
+    return { tk: null, phongToa: true };
+  }
   if (o && o.loai === 'nguoi' && o.tk !== d.tk) return 'Chủ hành tinh đã thay đổi.';
   if (o && o.loai === 'toi' && d.tk !== tkA) return 'Chủ hành tinh đã thay đổi.';
   if (f.giuTaiTk !== null && f.giuTaiTk !== undefined && f.giuTaiTk !== d.tk)
@@ -449,6 +460,10 @@ TheGioi.prototype._ghiChiMucHam = function (tk, st) {
           Math.round(f.den_t), st.ten, st.lm ? st.lm.ten : null);
     }
     if (f.mission !== 'hold' || f.pha !== 'giu') continue;
+    /* Đội đang PHONG TOẢ đứng ở quỹ đạo thù địch. Không bao giờ ghi nó vào
+       hamgiu: bảng đó là lực lượng cùng phòng thủ cho chủ toạ độ, ghi vào đây
+       nghĩa là hạm đội đi phong toả lại quay ra bảo vệ chính nơi nó phong toả. */
+    if (f.phongToa) continue;
     /* hamgiu phản chiếu VỊ TRÍ canonical, kể cả quan hệ vừa hết hạn. Eligibility
        nằm ở các SELECT có JOIN ht/dq; giữ row stale cho phép battle kế tiếp nạp
        đúng owner, gọi hook và bắt hạm quay về thay vì chỉ âm thầm bỏ qua. */

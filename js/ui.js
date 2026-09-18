@@ -743,7 +743,9 @@ U.m_hamdoi = function () {
         : U.dem(fl.den_t));
       h += '<tr><td class="sz">' + fl.id + '</td><td>' + U.esc(G.byId(G.MISSIONS, fl.mission).ten) +
         (fl.pha === 've' ? ' <span class="mo">(đang về)</span>' :
-          (dangGiu ? ' <span class="luc">(đang đóng quân quỹ đạo)</span>' :
+          (dangGiu ? (fl.phongToa
+            ? ' <span class="do">(đang PHONG TOẢ quỹ đạo)</span>'
+            : ' <span class="luc">(đang đóng quân quỹ đạo)</span>') :
             ' <span class="mo">(đang bay tới)</span>')) +
         (fl.doiHuong ? ' <span class="vang">↷' + fl.doiHuong + '</span>' : '') + '</td>' +
         '<td style="font-size:11.5px">' + U.dsTau(fl.ships) + '</td>' +
@@ -840,7 +842,9 @@ U.m_hamdoi = function () {
   if (f.mission === 'hold')
     h += '<div style="margin-bottom:8px"><b>Đóng quân quỹ đạo ' +
       '(giờ)</b><br><input id="f-giu" type="number" min="1" max="24" value="' + f.giu + '">' +
-      '<div class="mo" style="font-size:11.5px;margin-top:3px">Chỉ dùng tại hành tinh của mình hoặc đồng minh. ' +
+      '<div class="mo" style="font-size:11.5px;margin-top:3px">Ở hành tinh của mình hoặc đồng minh là ' +
+      '<b>đóng quân</b> cùng phòng thủ. Ở quỹ đạo khác là <b class="do">phong toả</b>: tới nơi phải ' +
+      'đánh thắng lớp quỹ đạo mới neo được, và mỗi mốc 6 giờ lại phải giữ lấy nó. ' +
       'Nhiên liệu trả trước theo từng đoạn 6 giờ từ khoang hàng; thiếu ' +
         'một kỳ sau khi đã đậu thì hạm đội bị phá huỷ.</div></div>';
   h += '<div id="hd-tt">' + U.ttBay() + '</div>';
@@ -1349,10 +1353,15 @@ U.m_huongdan = function () {
     'được nhiều nhất). Quỹ đạo vỡ rồi quân mới đổ xuống, đánh nhau với quân giữ nhà và phòng thủ mặt đất của ' +
     'đối phương; thắng thì <b>san phẳng công trình</b> của họ và vét thêm kho. Quân đổ bộ đứng ở nhà thì chính ' +
     'là lực lượng chống đổ bộ — đừng để hành tinh trống trơn.</p>' +
-    '<p><b class="cam">Giữ Chỗ — đóng quân quỹ đạo.</b> Có thể đưa hạm đội tới một thuộc địa khác của mình hoặc ' +
+    '<p><b class="cam">Giữ Chỗ — đóng quân quỹ đạo.</b> Đưa hạm đội tới một thuộc địa khác của mình hoặc ' +
     'hành tinh đồng minh để cùng phòng thủ lớp quỹ đạo. Nhiên liệu phải chở theo và được trả trước từng đoạn 6 giờ; ' +
     'thiếu một kỳ sau khi đã đậu thì số tàu còn lại biến thành phế ' +
       'liệu tại đó. Gọi về sớm không hoàn lại nhiên liệu đã trả.</p>' +
+    '<p><b class="cam">Phong toả quỹ đạo.</b> Cũng là nhiệm vụ Giữ Chỗ, nhưng gửi tới quỹ đạo <b>không phải ' +
+    'của mình hay đồng minh</b>. Tới nơi hạm đội phải <b>đánh thắng lớp quỹ đạo</b> mới neo lại được, rồi cứ ' +
+    'mỗi mốc nhiên liệu 6 giờ lại chạm trán lực lượng đã hồi lại — giữ được thì ở, không giữ được thì rút. ' +
+    'Phong toả <b>không</b> phá công trình và <b>không</b> cướp kho: muốn lấy của thì phải đổ bộ bằng nhiệm vụ ' +
+    'Tấn Công. Hiện chỉ phong toả được quỹ đạo NPC và ô trống.</p>' +
     '<p><b class="cam">Thám hiểm.</b> Ô số 16 của mỗi hệ là <b>vùng không gian sâu</b>. Gửi hạm đội ra đó ' +
     'để tìm tài nguyên trôi nổi, tàu bỏ hoang còn dùng được hay một trạm giao dịch cũ — nhưng cũng có thể ' +
     'đụng sinh vật ngoài hành tinh, lạc đường, hoặc bay vào vành đai thiên thạch. Số đoàn đi cùng lúc ' +

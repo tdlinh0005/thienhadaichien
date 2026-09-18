@@ -227,9 +227,14 @@ schema hay công thức đầy đủ:
   trở về, cùng đồng minh phòng thủ và phải tiếp nhiên liệu định kỳ, nếu không sẽ
   trở thành “rác không gian”.
 - **[TÁI DỰNG]** Bản hiện tại có vị trí đậu thật, gọi về và phòng thủ theo từng
-  nhóm chủ sở hữu, nhưng chỉ cho đậu tại hành tinh mình/đồng minh và luôn trở về
-  nơi xuất phát `f.tu`. Chưa có đậu thù địch/trung lập, va chạm giữa các hạm đang
-  đậu. Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
+  nhóm chủ sở hữu. Đậu ở quỹ đạo thù địch/trung lập đã dựng lại (`G.tranQuyDao`):
+  neo ở quỹ đạo không phải của mình/đồng minh là **phong toả**, tới nơi phải thắng
+  lớp quỹ đạo và mỗi mốc nhiên liệu lại chạm trán lại — đó cũng chính là chỗ dựng
+  "gặp lực lượng địch thì đánh". Trận phong toả chỉ đụng **lớp quỹ đạo**, đúng luật
+  hai lớp; **[TÁI DỰNG]** là việc chọn mốc chạm trán trùng với mốc nhiên liệu 6 giờ.
+  Hiện chỉ phong toả được NPC và ô trống — phong toả hành tinh người chơi khác cần
+  state của đối phương, chừa sẵn seam `G.HOOK.phongToaNguoi` và bị chặn ngay ở cửa
+  phát lệnh. Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
   một hành tinh khác của chính đế quốc — hàng dỡ thẳng vào kho nơi đó nên không mở cho
   hành tinh người khác; phí điều động và mức nhiên liệu phụ trội là **[TÁI DỰNG]**.
   Tách đội cũng đã dựng lại (`G.tachHam`): **[TÁI DỰNG]** là giá (một khe hạm đội +
@@ -290,7 +295,7 @@ Những chỗ này được đánh dấu trong code bằng comment `[SUY LUẬN]
 | 5 tài nguyên chính + Kỹ Thuật ẩn | **Khớp tên và vai trò rộng:** id save cũ vẫn giữ nguyên để tương thích. Công thức là suy luận. |
 | Bảo trì 6 giờ; nghiên cứu/dân/cơ sở vật chất chịu hậu quả | **Khớp khung:** state v6 có một clock đế quốc, nghiên cứu trả vector tài nguyên nguyên khối ở checkpoint, dân số/ủng hộ/thuế, sàn 250.000 và xuống cấp theo số lượng. **[TÁI DỰNG]** Hoá đơn all-or-nothing, các hệ số và ngưỡng miss 1/2/3; migration giữ pha clock và không áp mất mát hồi tố. |
 | Ngân hàng, siêu thị do người chơi nhập hàng, chợ tự do có thuế/giao chậm | **Chưa có:** Chợ Thiên Hà hiện là bộ đổi vô hạn theo tỷ giá cố định. |
-| Hạm đội đổi hướng cả lượt đi/về, tách đội, đỗ mọi quỹ đạo, gặp địch, chọn căn cứ về, tiếp nhiên liệu | **Một phần:** đã đổi mục tiêu hai chiều, đỗ tại hành tinh mình/đồng minh, gọi về và trả nhiên liệu quỹ đạo theo đoạn. **[TÁI DỰNG]** phí đổi hướng, nhịp/mức nhiên liệu và hậu quả thiếu kỳ; chọn căn cứ trở về đã có nhưng chỉ nhận hành tinh khác của chính đế quốc và giá là **[TÁI DỰNG]**; chưa có tách hạm, đỗ thù địch/trung lập, va chạm hạm đậu hay trạm tiếp nhiên liệu giữa đường; tách hạm đã có (`G.tachHam`) với giá và quy tắc giữ nguyên giờ tới là **[TÁI DỰNG]**. |
+| Hạm đội đổi hướng cả lượt đi/về, tách đội, đỗ mọi quỹ đạo, gặp địch, chọn căn cứ về, tiếp nhiên liệu | **Gần đủ:** đã đổi mục tiêu hai chiều, đỗ tại hành tinh mình/đồng minh, gọi về và trả nhiên liệu quỹ đạo theo đoạn. **[TÁI DỰNG]** phí đổi hướng, nhịp/mức nhiên liệu và hậu quả thiếu kỳ; chọn căn cứ trở về đã có nhưng chỉ nhận hành tinh khác của chính đế quốc và giá là **[TÁI DỰNG]**; tách hạm đã có (`G.tachHam`) với giá và quy tắc giữ nguyên giờ tới là **[TÁI DỰNG]**; đỗ thù địch/trung lập và chạm trán đã có (`G.tranQuyDao`), giới hạn ở NPC/ô trống. Chưa có trạm tiếp nhiên liệu giữa đường và phong toả giữa người chơi. |
 | Phòng thủ quỹ đạo + mặt đất, Robot/Tank đổ bộ | **Khớp lõi:** **[XÁC NHẬN]** quỹ đạo phải thất thủ trước khi xuống đất; **[TÁI DỰNG]** bắt đầu mặt đất ở vòng 3, tỷ lệ phá công trình và cân bằng cụ thể. |
 | Tình báo/phản tình báo | **Một phần:** có do thám nhiều mức, đánh chặn, và báo cáo đủ cấp thấy dân số/ủng hộ/thuế; chưa có lương gián điệp hay phản bội. Ngưỡng lộ chỉ số dân sự là **[TÁI DỰNG]**. |
 | Liên minh, tuyên chiến 24 giờ, chuyển tiền nội bộ | **Một phần:** đã có đơn/duyệt/loại/chuyển chủ, lệnh chiến chờ 24 giờ, chuyển Galana và hạm đóng quân phòng thủ đồng minh. Mô hình chủ-LM→người, người lẻ→người, lifecycle và thứ tự chia tổn thất nhóm là **[TÁI DỰNG]**; chưa có ba chính thể hay hiệp ước. |

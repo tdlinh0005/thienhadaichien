@@ -85,6 +85,7 @@ G.mocHamKe = function (f) {
 
 G.xoaTrangThaiGiu = function (f) {
   f.dangGiu = false;                       // alias v5
+  delete f.phongToa;
   delete f.giuLuc;
   delete f.giuDen_t;
   delete f.tiepNL_t;
@@ -112,8 +113,10 @@ G.batDauVe = function (st, f, daToiDich, ghi) {
  * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc. */
 G.kiemTraGiu = function (st, f, o) {
   o = o || G.oHanhTinh(st, f.den);
-  if (!o || (o.loai !== 'toi' && o.loai !== 'nguoi'))
-    return 'Giữ quỹ đạo chỉ dùng được tại hành tinh của ta hoặc đồng minh.';
+  if (!o) return 'Không xác định được toạ độ giữ quỹ đạo.';
+  if (o.loai === 'sau') return 'Vùng không gian sâu không neo quỹ đạo được.';
+  /* Quỹ đạo của chính ta: neo thân thiện, không phải phong toả. */
+  if (o.loai === 'toi') { f.phongToa = false; return null; }
   if (G.HOOK && G.HOOK.kiemTraGiu) {
     var kq = G.HOOK.kiemTraGiu(st, f, o);
     var loi = typeof kq === 'string' ? kq : (kq && kq.loi);
@@ -123,6 +126,7 @@ G.kiemTraGiu = function (st, f, o) {
         return 'Hành tinh giữ quỹ đạo đã đổi chủ.';
       f.giuTaiTk = kq.tk;
     }
+    f.phongToa = !!(kq && kq.phongToa);
     return null;
   }
   if (G.HOOK) {
@@ -133,9 +137,80 @@ G.kiemTraGiu = function (st, f, o) {
     if (loiCu) return typeof loiCu === 'string' ? loiCu : loiCu.loi;
     /* Nếu server chưa cung cấp bất kỳ hook quyền nào thì fail closed cho
      * hành tinh người khác; hành tinh của chính state vẫn xác minh được. */
-    return o.loai === 'toi' ? null : 'Máy chủ chưa xác minh được quyền giữ quỹ đạo tại hành tinh này.';
+    return 'Máy chủ chưa xác minh được quyền giữ quỹ đạo tại hành tinh này.';
   }
-  return o.loai === 'toi' ? null : 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+  /* BẢN MỘT NGƯỜI — [XÁC NHẬN] bản gốc cho đậu ở BẤT KỲ quỹ đạo, gặp lực lượng
+   * địch thì đánh. Quỹ đạo NPC hoặc ô trống là phong toả: phải giành và giữ. */
+  if (o.loai === 'npc' || o.loai === 'trong') { f.phongToa = true; return null; }
+  return 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+};
+
+/* --- PHONG TOẢ QUỸ ĐẠO (cơ chế bản gốc) -------------------------------
+ * [XÁC NHẬN] Nguồn GVN: hạm có thể đậu ở BẤT KỲ quỹ đạo, và "gặp lực lượng
+ * địch thì đánh". Neo ở quỹ đạo không phải của mình/đồng minh là phong toả:
+ * phải giành lấy quỹ đạo rồi phải GIỮ được nó.
+ *
+ * Trận phong toả chỉ đánh LỚP QUỸ ĐẠO — đúng luật hai lớp [XÁC NHẬN]: muốn
+ * chạm tới mặt đất thì phải đổ bộ bằng nhiệm vụ Tấn Công, phong toả không
+ * phá công trình và không cướp kho.
+ * [TÁI DỰNG] Phòng thủ NPC hồi 1,5%/giờ, nên mỗi mốc nhiên liệu 6 giờ là một
+ * lần chạm trán mới — phong toả là cam kết dài hạn chứ không phải cắm cờ một
+ * lần rồi thôi.
+ *
+ * Trả về 'giu' (giành/giữ được), 've' (còn sống nhưng phải rút) hoặc
+ * 'mat' (hạm đội đã bị xoá trong trận).
+ */
+G.tranQuyDao = function (st, f, o) {
+  o = o || G.oHanhTinh(st, f.den);
+  if (!o) return 've';
+  if (o.loai === 'trong') return 'giu';           /* ô trống, không có gì kháng cự */
+  if (o.loai === 'nguoi') {
+    /* Phong toả hành tinh người chơi khác cần state của đối phương -> server. */
+    if (G.HOOK && G.HOOK.phongToaNguoi) return G.HOOK.phongToaNguoi(st, f, o);
+    return 've';
+  }
+  if (o.loai !== 'npc') return 've';
+
+  var n = o.npc;
+  n.ships = n.ships || {};
+  n.def = n.def || {};
+  n.tech = n.tech || {};
+  var thuQD = G.thuQuyDao(n.def);
+  if (G.trong(n.ships) && G.trong(thuQD)) return 'giu';
+
+  var Lmuc = G.LHT(G.loaiTheoViTri(st.seed, f.den));
+  var kq = G.danhTran(
+    { ten: st.ten, tech: st.tech, ships: f.ships },
+    { ten: n.ten + ' — ' + (n.htTen || 'quỹ đạo'), tech: n.tech, ships: n.ships,
+      def: thuQD, loaiHT: Lmuc.ten },
+    G.hash('phongtoa:' + f.id + ':' + st.now + ':' + o.key)
+  );
+  f.ships = kq.conShipsA;
+  n.ships = kq.conShipsD;
+  G.gopThuQuyDao(n.def, kq.conDefD);
+
+  st.stats = st.stats && typeof st.stats === 'object' ? st.stats : {};
+  var kx, ky;
+  for (kx in kq.matA) st.stats.tauMat = (st.stats.tauMat || 0) + kq.matA[kx];
+  for (ky in kq.matD) st.stats.tauDietDich = (st.stats.tauDietDich || 0) + kq.matD[ky];
+  var pl = G.pheLieu(st, o.key);
+  pl.metal += kq.pheLieu.metal; pl.crystal += kq.pheLieu.crystal;
+
+  G.tin(st, 'tran', 'Trận quỹ đạo tại ' + G.tdStr(f.den), null,
+    { kq: kq, cuop: { metal: 0, crystal: 0, deut: 0, food: 0 }, pl: kq.pheLieu,
+      td: f.den, ben: 'ta', phongToa: true });
+
+  if (G.trong(f.ships)) {
+    st.stats.thua = (st.stats.thua || 0) + 1;
+    G.hamThanhPheLieu(st, f, 'Hạm đội bị quét sạch trong trận giành quỹ đạo ' + G.tdStr(f.den) + '.');
+    return 'mat';
+  }
+  if (kq.kq === 'thang') {
+    st.stats.thang = (st.stats.thang || 0) + 1;
+    return 'giu';
+  }
+  st.stats.thua = (st.stats.thua || 0) + 1;
+  return 've';
 };
 
 /* Trả trước đoạn đầu rồi mới hiện diện trên quỹ đạo. */
@@ -210,13 +285,27 @@ G.nhipGiu = function (st, f) {
   f.tiepNL_t = mocMoi;
   G.ghi(st, 'Hạm đội #' + f.id + ' tiếp nhiên liệu quỹ đạo ' + G.so(can) +
     ', đủ hoạt động thêm ' + G.tg(mocMoi - st.now) + '.');
+
+  /* Phong toả phải GIỮ được quỹ đạo: mỗi mốc là một lần chạm trán với lực
+     lượng đã hồi lại của bên bị phong toả. */
+  if (f.phongToa) {
+    var kqGiu = G.tranQuyDao(st, f);
+    if (kqGiu === 'mat') return;
+    if (kqGiu !== 'giu') {
+      G.batDauVe(st, f, true, 'Hạm đội #' + f.id + ' mất quyền kiểm soát quỹ đạo ' +
+        G.tdStr(f.den) + ' và phải rút về.');
+    }
+  }
 };
 
+/* Hạm đang neo THÂN THIỆN tại toạ độ c — đây là danh sách cùng phòng thủ.
+   Đội đang phong toả đứng ở quỹ đạo thù địch nên không bao giờ được tính vào
+   lực lượng phòng thủ của toạ độ đó. */
 G.hamGiuTai = function (st, c) {
   var key = G.tdKey(c), out = [];
   for (var i = 0; i < st.fleets.length; i++) {
     var f = st.fleets[i];
-    if (f.mission === 'hold' && f.pha === 'giu' && G.tdKey(f.den) === key &&
+    if (f.mission === 'hold' && f.pha === 'giu' && !f.phongToa && G.tdKey(f.den) === key &&
         Number(f.giuDen_t) > st.now && !G.trong(f.ships)) out.push(f);
   }
   return out;
@@ -252,8 +341,10 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   if (mission === 'recycle' && !ships.recycler) return 'Nhiệm vụ thu hồi cần Tàu Thu Hồi.';
   /* Bản một người không có khái niệm NPC đồng minh: chỉ một hành tinh khác
    * của chính đế quốc là điểm neo hợp lệ. Server kiểm tra quan hệ bằng hook. */
-  if (mission === 'hold' && !G.HOOK && G.oHanhTinh(st, den).loai !== 'toi')
-    return 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+  /* Giữ Chỗ đi được tới mọi quỹ đạo; quỹ đạo không phải của ta thành phong toả
+     và phải đánh nhau lúc tới nơi (G.tranQuyDao). Ô thám hiểm đã bị chặn ở trên. */
+  if (mission === 'hold' && G.oHanhTinh(st, den).loai === 'sau')
+    return 'Vùng không gian sâu không neo quỹ đạo được.';
   if (G.HOOK && G.HOOK.kiemTraGui) {
     var loiQuyen = G.HOOK.kiemTraGui(st, p, den, mission);
     var noiQuyen = typeof loiQuyen === 'string' ? loiQuyen : (loiQuyen && loiQuyen.loi);
@@ -331,8 +422,8 @@ G.doiMucTieu = function (st, fid, den) {
   var dau = dangGiu ? f.den : (dangVe ? f.den : f.tu);
   var cuoi = dangGiu ? f.den : (dangVe ? f.tu : f.den);
   if (G.bang(den, cuoi)) return 'Đã đang bay tới đó rồi.';
-  if (f.mission === 'hold' && !G.HOOK && G.oHanhTinh(st, den).loai !== 'toi')
-    return 'Chế độ một người chỉ giữ được quỹ đạo hành tinh của mình.';
+  if (f.mission === 'hold' && G.oHanhTinh(st, den).loai === 'sau')
+    return 'Vùng không gian sâu không neo quỹ đạo được.';
   if (G.HOOK && G.HOOK.kiemTraGui) {
     var pGoc = st.planets[f.pi] || st.planets[0];
     var loiQuyen = G.HOOK.kiemTraGui(st, pGoc, den, f.mission);
@@ -624,6 +715,20 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'hold') {
+    var loiQuyen = G.kiemTraGiu(st, f, o);
+    if (loiQuyen) {
+      veNha('Hạm đội #' + f.id + ' không thể neo quỹ đạo: ' + loiQuyen + ' Hạm đội quay về.');
+      return;
+    }
+    /* Quỹ đạo không phải của ta/đồng minh: phải giành lấy trước khi neo. */
+    if (f.phongToa) {
+      var kqQD = G.tranQuyDao(st, f, o);
+      if (kqQD === 'mat') return;                     /* đội đã bị xoá trong trận */
+      if (kqQD !== 'giu') {
+        veNha('Hạm đội #' + f.id + ' không giành được quỹ đạo ' + G.tdStr(f.den) + ', rút về.');
+        return;
+      }
+    }
     var loiGiu = G.batDauGiu(st, f, o);
     if (loiGiu) veNha('Hạm đội #' + f.id + ' không thể neo quỹ đạo: ' + loiGiu + ' Hạm đội quay về.');
     return;
@@ -1921,6 +2026,16 @@ G.thuMatDat = function (def) {
   var ra = {};
   for (var k in def) { var d = G.D(k); if (d && d.lop === 'dat' && def[k] > 0) ra[k] = def[k]; }
   return ra;
+};
+
+G.thuQuyDao = function (def) {
+  var ra = {};
+  for (var k in def) { var d = G.D(k); if (d && d.lop === 'quydao' && def[k] > 0) ra[k] = def[k]; }
+  return ra;
+};
+G.gopThuQuyDao = function (def, con) {
+  for (var k in def) { var d = G.D(k); if (d && d.lop === 'quydao') delete def[k]; }
+  G.cong(def, con);
 };
 G.gopThuMatDat = function (def, con) {
   for (var k in def) { var d = G.D(k); if (d && d.lop === 'dat') delete def[k]; }

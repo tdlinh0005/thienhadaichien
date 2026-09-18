@@ -1277,5 +1277,81 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   quetNaN(s3.planets);
 })();
 
+/* ---- 17. phong toả quỹ đạo thù địch ---- */
+(function () {
+  var s4 = G.moiGame('Phong Toả', 'THDC-PHONG-TOA');
+  var t4 = s4.now, p4 = s4.planets[0];
+  p4.res.metal += 2e8; p4.res.crystal += 2e8; p4.res.deut += 1e8;
+  s4.galana += 1e6;
+  p4.b.fleetHQ = (p4.b.fleetHQ || 0) + 5;
+  s4.tech.weapon = 8; s4.tech.shield = 8; s4.tech.armor = 8;
+  s4.tech.combustion = 8; s4.tech.impulse = 6;
+  p4.ships.cruiser = 400; p4.ships.cargoL = 60;
+
+  var muc = null, hh, kk;
+  for (hh = p4.c.h; hh < p4.c.h + 8 && !muc; hh++) {
+    var he4 = G.xemHe(s4, p4.c.g, hh);
+    for (kk = 0; kk < he4.length; kk++) if (he4[kk].loai === 'npc') { muc = he4[kk]; break; }
+  }
+  ktra(!!muc, 'phong toả: tìm được hành tinh NPC để phong toả');
+  if (!muc) return;
+
+  /* lớp quỹ đạo và lớp mặt đất là hai bảng tách bạch */
+  var thuQD = G.thuQuyDao(muc.npc.def), thuDat = G.thuMatDat(muc.npc.def);
+  ktra(Object.keys(thuQD).every(function (id) { return G.D(id).lop === 'quydao'; }),
+    'phong toả: G.thuQuyDao chỉ trả công trình lớp quỹ đạo');
+  ktra(Object.keys(thuDat).every(function (id) { return G.D(id).lop === 'dat'; }),
+    'phong toả: G.thuMatDat chỉ trả công trình lớp mặt đất');
+  var datTruoc = JSON.stringify(thuDat);
+
+  ktra(!G.guiHam(s4, 0, { cruiser: 300, cargoL: 50 }, muc.c, 'hold', { deut: 900000 }, 100, 24),
+    'phong toả: gửi được Giữ Chỗ tới quỹ đạo NPC');
+  var fid4 = s4.fleets[s4.fleets.length - 1].id;
+  function ham4() { return s4.fleets.filter(function (x) { return x.id === fid4; })[0]; }
+  var z4;
+  for (z4 = 0; z4 < 400 && ham4() && ham4().pha !== 'giu'; z4++) { t4 += 300; G.tick(s4, t4); }
+  var f4 = ham4();
+  ktra(!!f4 && f4.pha === 'giu', 'phong toả: giành được quỹ đạo và neo lại');
+  if (!f4 || f4.pha !== 'giu') return;
+  ktra(f4.phongToa === true, 'phong toả: đội được đánh dấu là đang phong toả');
+  ktra(JSON.stringify(G.thuMatDat(muc.npc.def)) === datTruoc,
+    'phong toả: KHÔNG chạm tới lớp mặt đất (luật hai lớp)');
+  var bcPT = s4.msgs.filter(function (m) { return m.data && m.data.phongToa; });
+  ktra(bcPT.length > 0, 'phong toả: có báo cáo trận quỹ đạo');
+  ktra(bcPT.every(function (m) { return G.tongRes(m.data.cuop) === 0; }),
+    'phong toả: trận phong toả KHÔNG cướp tài nguyên (muốn cướp phải đổ bộ)');
+
+  /* đội phong toả KHÔNG được tính là quân phòng thủ của toạ độ nó phong toả */
+  ktra(G.hamGiuTai(s4, muc.c).length === 0,
+    'phong toả: đội phong toả không nằm trong lực lượng phòng thủ của mục tiêu');
+
+  /* neo ở quỹ đạo của chính mình thì KHÔNG phải phong toả */
+  p4.res.deut += 5e6;
+  s4.planets.push(JSON.parse(JSON.stringify(p4)));
+  s4.planets[1].c = { g: p4.c.g, h: p4.c.h, p: (p4.c.p % 14) + 1 };
+  s4.planets[1].ten = 'Tiền Đồn';
+  ktra(!G.guiHam(s4, 0, { cruiser: 5, cargoL: 5 }, s4.planets[1].c, 'hold', { deut: 60000 }, 100, 6),
+    'phong toả: gửi được Giữ Chỗ tới hành tinh của chính ta');
+  var fidThan = s4.fleets[s4.fleets.length - 1].id;
+  for (z4 = 0; z4 < 200; z4++) {
+    var ft = s4.fleets.filter(function (x) { return x.id === fidThan; })[0];
+    if (!ft || ft.pha === 'giu') break;
+    t4 += 300; G.tick(s4, t4);
+  }
+  var fThan = s4.fleets.filter(function (x) { return x.id === fidThan; })[0];
+  ktra(!!fThan && fThan.pha === 'giu' && !fThan.phongToa,
+    'phong toả: neo ở quỹ đạo của chính ta không bị coi là phong toả');
+  ktra(G.hamGiuTai(s4, s4.planets[1].c).length === 1,
+    'phong toả: đội neo thân thiện VẪN tính vào phòng thủ hành tinh mình');
+
+  /* ô thám hiểm không neo được */
+  ktra(/không gian sâu/.test(String(G.guiHam(s4, 0, { cruiser: 1 },
+    { g: p4.c.g, h: p4.c.h, p: G.C.O_THAM_HIEM }, 'hold', {}, 100, 6))),
+    'phong toả: từ chối neo ở ô thám hiểm');
+
+  quetNaN(s4.fleets);
+  quetNaN(s4.planets);
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

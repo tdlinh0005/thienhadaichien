@@ -593,7 +593,13 @@ phải tiếp nhiên liệu định kỳ, nếu không sẽ thành “rác khôn
 hoặc thành viên cùng liên minh và luôn trở về `f.tu`. Chưa có đậu tại quỹ đạo
 thù địch/trung lập hay va chạm giữa các hạm đang đậu. Chọn căn cứ trở về đi qua hành động
 dùng chung `docancu` (`/api/lam`), chỉ nhận một hành tinh khác của chính tài khoản; tách đội
-đi qua `tachham`. Đội tách ra là một fleet bình thường trong `st.fleets`, nên
+đi qua `tachham`. Giữ Chỗ nay gửi được tới **toạ độ NPC hoặc ô trống** (phong toả):
+`kiemTraGui` cho qua khi không có hàng `ht` nào ở toạ độ đó, còn `kiemTraGiu` trả
+`{tk: null, phongToa: true}` nên không pin `giuTaiTk`. Phong toả quỹ đạo của người chơi
+khác bị **chặn ngay ở cửa phát lệnh** vì cần state đối phương để giải trận. Đội đang
+phong toả **không bao giờ** được ghi vào `hamgiu` — nếu ghi thì hạm đội đi phong toả
+sẽ quay ra phòng thủ chính nơi nó phong toả.
+Đội tách ra là một fleet bình thường trong `st.fleets`, nên
 `_ghiChiMucHam` vẫn dựng lại projection `hamdang` cho nó — bên phòng thủ được báo động
 đầy đủ về cả hai đội, và quyền tấn công vẫn bị kiểm lại lúc tới nơi.
 
