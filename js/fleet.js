@@ -41,6 +41,65 @@ G.nhienLieu = function (st, ships, kc, pct) {
   return Math.max(Math.ceil(can * 0.4), can - bu);
 };
 
+/* --- TẦM HOẠT ĐỘNG TÍNH BẰNG GIỜ BAY (cơ chế bản gốc) ------------------
+ * [XÁC NHẬN] Tường thuật Start War III cho thấy chỉ huy bản gốc tính nhiên
+ * liệu theo GIỜ BAY, không theo một khoản trả một lần: "Thời gian đi là 24h
+ * mà nhiên liệu mang theo chỉ có 33h" — chở không đủ thì tới nơi cũng không
+ * có đường về.
+ *
+ * Bản này giữ nguyên khoản nhiên liệu trả lúc xuất phát (lấy từ kho hành
+ * tinh, đủ cho chặng ĐI), và bổ sung đúng phần còn thiếu của mô hình gốc:
+ *  - Nhiên liệu CHỞ THEO quy ra được bao nhiêu GIỜ BAY (G.gioBayTu).
+ *  - Chặng VỀ đòi một khoản DỰ TRỮ trong khoang (G.nlVe), và cái giá của nó
+ *    là CHỖ CHỨA — đúng phép cân mà chỉ huy bản gốc phải làm trước khi đi.
+ * [TÁI DỰNG] Cách quy nhiên liệu ra giờ (đảo ngược chính G.nhienLieu rồi đưa
+ * qua G.tgBay). Dự trữ KHÔNG bị đốt khỏi khoang: durable pipeline giữ bất
+ * biến không tự tạo chỗ hao tài nguyên, và chuyến bị từ chối ở cửa phải không
+ * đụng gì tới khoang hàng. Muốn ép luật gốc — không đủ đường về thì không cho
+ * đi — bật G.C.EP_NHIEN_LIEU_VE.
+ */
+G.dinhMucNhienLieu = function (ships) {
+  var base = 0;
+  for (var id in ships) { var s = G.S(id); if (s) base += s.fuel * (ships[id] || 0); }
+  return base;
+};
+
+/* Khoảng cách xa nhất mà `deut` mua được, rồi quy ra giờ bay ở tốc độ pct. */
+G.gioBayTu = function (st, ships, deut, pct) {
+  pct = pct || 100;
+  deut = Math.max(0, Number(deut) || 0);
+  var base = G.dinhMucNhienLieu(ships);
+  if (!base) return 0;
+  var m = 1 + Math.pow(pct / 100, 2);
+  var bu = (ships.tauDau || 0) * G.C.TAU_DAU_BU;
+  var kc = (deut + bu) * 35000 / (base * m);
+  if (!(kc > 0)) return 0;
+  return G.tgBay(st, ships, kc, pct) / 3600;
+};
+
+/* Nhiên liệu cần cho chặng VỀ của một hạm đội đang bay. */
+G.nlVe = function (st, f) {
+  var kc = Math.max(5, Math.round(G.khoangCach(f.den, f.tu)));
+  return G.nhienLieu(st, f.ships, kc, f.pct);
+};
+
+/* Bảng tóm tắt cho giao diện và cho kiểm thử: chuyến này bay mấy giờ, nhiên
+   liệu chở theo đủ mấy giờ, có đủ đường về không. */
+G.tamBay = function (st, ships, cargo, kc, pct) {
+  pct = pct || 100;
+  var giayDi = G.tgBay(st, ships, kc, pct);
+  var deut = (cargo && cargo.deut) || 0;
+  var gioCo = G.gioBayTu(st, ships, deut, pct);
+  return {
+    gioDi: giayDi / 3600,
+    gioKhuHoi: giayDi * 2 / 3600,
+    gioCo: gioCo,
+    nlVe: G.nhienLieu(st, ships, kc, pct),
+    deutCo: deut,
+    duDuongVe: deut >= G.nhienLieu(st, ships, kc, pct)
+  };
+};
+
 /* [TÁI DỰNG] Nhiên liệu giữ quỹ đạo tính theo tổng định mức động cơ và số
  * giờ đậu. Hàm thuần để UI, server và kiểm thử dùng đúng cùng một con số. */
 G.nhienLieuGiu = function (st, ships, seconds) {
@@ -101,6 +160,18 @@ G.batDauVe = function (st, f, daToiDich, ghi) {
     tg = G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
   else
     tg = Math.max(2, st.now - (Number(f.diLuc) || st.now));
+  /* Nhiên liệu chở theo là KHOẢN DỰ TRỮ cho đường về, KHÔNG bị đốt khỏi khoang.
+     Đã thử cho chặng về trừ thẳng vào cargo và bộ kiểm thử scheduler bắt được
+     ngay: nó giữ bất biến "chuyến bị từ chối ở cửa phải không đụng gì tới
+     khoang hàng", và rộng hơn là durable pipeline không được tự tạo ra một chỗ
+     hao tài nguyên mới. Cái giá của khoản dự trữ nằm ở CHỖ CHỨA — nó chiếm
+     khoang hàng đúng như bản gốc bắt chỉ huy phải cân. */
+  f.nlVeThieu = 0;
+  if (f.mission !== 'hold' && (daToiDich || f.pha === 'giu')) {
+    var thieu = G.nlVe(st, f) - Math.max(0, (f.cargo && f.cargo.deut) || 0);
+    if (thieu > 0) f.nlVeThieu = Math.round(thieu);
+  }
+  if (!f.nlVeThieu) delete f.nlVeThieu;
   G.xoaTrangThaiGiu(f);
   f.pha = 've';
   f.veLuc = st.now;
@@ -390,6 +461,16 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   for (id in cargo) if ((p.res[id] || 0) < cargo[id] + (id === 'deut' ? nl : 0)) return 'Không đủ ' +
     G.byId(G.RES, id).ten + ' để xếp hàng.';
 
+  /* [XÁC NHẬN] Chỉ huy bản gốc cân "đi mấy giờ / nhiên liệu mang theo mấy giờ"
+     TRƯỚC khi xuất phát. Mặc định bản này chỉ cảnh báo để không đổi cân bằng
+     của bàn chơi cũ; bật G.C.EP_NHIEN_LIEU_VE thì thành luật cứng. */
+  var tam = G.tamBay(st, ships, cargo, kc, pct);
+  if (!tam.duDuongVe && mission !== 'deploy' && mission !== 'colonize') {
+    if (G.C.EP_NHIEN_LIEU_VE)
+      return 'Không đủ nhiên liệu cho đường về: chặng về cần ' + G.so(tam.nlVe) +
+        ' Nhiên Liệu trong khoang, đang chở ' + G.so(tam.deutCo) + '.';
+  }
+
   /* trừ tàu, quân, hàng, nhiên liệu */
   for (id in ships) p.ships[id] -= ships[id];
   if (!p.linh) p.linh = {};
@@ -408,6 +489,14 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   st.stats.chuyenBay++;
   G.ghi(st, 'Hạm đội #' + f.id + ' rời ' + G.tdStr(p.c) + ' → ' + G.tdStr(den) + ' (' + G.byId(G.MISSIONS,
     mission).ten + '), tới sau ' + G.tg(tg) + '.');
+  if (!tam.duDuongVe && mission !== 'deploy' && mission !== 'colonize') {
+    G.tin(st, 'ham', 'Hạm đội #' + f.id + ' thiếu nhiên liệu đường về',
+      'Chuyến này bay ' + tam.gioDi.toFixed(1) + ' giờ mỗi chiều. Chặng về cần ' +
+      G.so(tam.nlVe) + ' Nhiên Liệu trong khoang, hạm đội đang chở ' + G.so(tam.deutCo) +
+      ' — đủ khoảng ' + tam.gioCo.toFixed(1) + ' giờ bay.\n' +
+      'Hạm đội vẫn về được, nhưng đây đúng là tình huống bản gốc cảnh báo: ' +
+      '"tới nơi cũng không có đường về". Xếp thêm Nhiên Liệu hoặc mang Tàu Dầu.');
+  }
   return null;
 };
 

@@ -134,6 +134,16 @@ và **tàu thăm dò / gián điệp**.
   153.000.000 điểm"* → mỗi đơn vị đáng khoảng **18–30 điểm**.
 - **Nhiên liệu tính theo GIỜ BAY**: *"Thời gian đi là 24h mà nhiên liệu mang theo chỉ có
   33h"* — chở không đủ nhiên liệu thì tới nơi cũng không có đường về.
+  **Đã dựng lại:** `G.tamBay` / `G.gioBayTu` quy nhiên liệu trong khoang ra **giờ bay**
+  và bày ngay trên màn gửi hạm (đi mấy giờ, khứ hồi mấy giờ, nhiên liệu chở theo đủ
+  mấy giờ); chặng về đòi một khoản **dự trữ** trong khoang, và
+  cái giá của nó là **chỗ chứa** — đúng phép cân chỉ huy bản gốc phải làm. **[TÁI DỰNG]**
+  cách quy ra giờ (đảo ngược `G.nhienLieu` rồi đưa qua `G.tgBay`). Dự trữ **không** bị đốt
+  khỏi khoang: bộ kiểm thử durable scheduler giữ bất biến "chuyến bị từ chối ở cửa không
+  đụng gì tới khoang hàng", và rộng hơn là pipeline không được tự tạo một chỗ hao mới. Mặc định thiếu nhiên liệu về chỉ **cảnh
+  báo** chứ không chặn, để không đổi cân bằng của bàn chơi cũ; bật `G.C.EP_NHIEN_LIEU_VE`
+  là thành luật cứng đúng bản gốc. Nhiệm vụ Giữ Chỗ đứng ngoài vì đã có mô hình trả
+  trước theo đoạn 6 giờ — chính là "nhiên liệu theo giờ" dựng sẵn từ trước.
 
 ### Công trình xây theo SỐ LƯỢNG, không theo cấp
 

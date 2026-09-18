@@ -395,6 +395,7 @@ G.C = {
   PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
   TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu Nhiên Liệu cho chuyến bay
+  EP_NHIEN_LIEU_VE: false,   // bật = ép đúng luật gốc: không đủ nhiên liệu về thì không cho đi
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
   CUOP_TOI_DA: 0.5,
   CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại

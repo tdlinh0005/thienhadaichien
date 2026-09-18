@@ -814,6 +814,21 @@ U.ttBay = function () {
             'tiếp thì toàn bộ tàu còn lại sẽ bị phá huỷ thành phế liệu.'
           : 'Đủ theo kế hoạch hiện tại; gọi về sớm không hoàn lại phần đã trả.')) + '</td></tr>';
   }
+  /* [XÁC NHẬN] Bản gốc tính nhiên liệu theo GIỜ BAY — chỉ huy cân "đi 24h mà
+     nhiên liệu mang theo chỉ có 33h". Bảng này bày đúng phép cân đó ra. */
+  var ttTam = '';
+  if (f.mission !== 'hold' && G.tamBay) {
+    var tam = G.tamBay(st, f.ships, f.cargo, kc, f.pct);
+    var lopTam = tam.duDuongVe ? 'luc' : 'vang';
+    ttTam = '<tr><td>Chặng về cần</td><td class="r sz ' + lopTam + '">' + G.so(tam.nlVe) + ' NL</td>' +
+      '<td>NL dự trữ đủ</td><td class="r sz ' + lopTam + '">' + tam.gioCo.toFixed(1) + ' giờ bay' +
+      ' <span class="mo">(khứ hồi ' + tam.gioKhuHoi.toFixed(1) + ' giờ)</span></td></tr>' +
+      (tam.duDuongVe ? '' :
+        '<tr><td colspan="4" class="vang">Khoang chưa có đủ Nhiên Liệu dự trữ cho đường về. ' +
+        'Hạm đội vẫn về được ở bản này, nhưng đây đúng là tình huống bản gốc cảnh báo — ' +
+        'xếp thêm Nhiên Liệu vào khoang hoặc mang theo Tàu Dầu.</td></tr>');
+  }
+
   return '<table style="font-size:12px"><tr>' +
     '<td>Khoảng cách</td><td class="r sz">' + G.so(kc) + '</td>' +
     '<td>Tốc độ hạm đội</td><td class="r sz">' + G.so(G.tocDoHam(st, f.ships)) + '</td></tr>' +
@@ -824,6 +839,7 @@ U.ttBay = function () {
       '</td></tr>' +
     '<tr><td>Thủy thủ đoàn</td><td class="r sz">' + G.so(G.thuyThu(f.ships)) + '</td>' +
     '<td>Khe hạm đội</td><td class="r sz">' + st.fleets.length + ' / ' + G.khe(st) + '</td></tr>' +
+    ttTam +
     ttGiu +
     (G.trong(f.linh || {}) ? '' :
       '<tr><td>Quân đổ bộ</td><td class="r sz">' + G.so(G.choLinhCan(f.linh)) + ' chỗ</td>' +
@@ -862,7 +878,13 @@ U.m_hamdoi = function () {
         '<td style="font-size:11.5px">' + U.dsTau(fl.ships) + '</td>' +
         '<td class="sz">' + G.tdStr(fl.tu) + ' → ' + G.tdStr(fl.den) + '</td>' +
         '<td class="sz">' + conLai + '</td>' +
-        '<td style="font-size:11.5px">' + U.dsRes(fl.cargo) + '</td>' +
+        '<td style="font-size:11.5px">' + U.dsRes(fl.cargo) +
+          (fl.mission !== 'hold' && G.gioBayTu && (fl.cargo && fl.cargo.deut)
+            ? '<br><span class="mo sz">dự trữ ' +
+              G.gioBayTu(st, fl.ships, fl.cargo.deut, fl.pct).toFixed(1) + 'h bay</span>'
+            : '') +
+          (fl.nlVeThieu ? '<br><span class="vang sz">thiếu ' + G.so(fl.nlVeThieu) +
+            ' NL đường về</span>' : '') + '</td>' +
         '<td class="r" style="white-space:nowrap">' +
         (dangGiu ? '' : '<button class="nut nho" data-act="doihuong" data-fid="' + fl.id + '">Đổi mục tiêu</button> ') +
         (st.planets.length > 1 ? '<button class="nut nho" data-act="docancu" data-fid="' + fl.id +

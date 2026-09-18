@@ -1584,5 +1584,92 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
     'audit: đội đó lập tức tính vào phòng thủ thuộc địa mới');
 })();
 
+/* ---- 20. nhiên liệu tính theo giờ bay ---- */
+(function () {
+  var s = G.moiGame('Giờ Bay', 'THDC-GIO-BAY'), p = s.planets[0];
+  p.res.metal += 5e8; p.res.crystal += 5e8; p.res.deut += 2e8; s.galana += 1e6;
+  p.b.fleetHQ = (p.b.fleetHQ || 0) + 8;
+  p.ships.cruiser = 200; p.ships.cargoL = 60; p.ships.tauDau = 10;
+  var xa = { g: p.c.g === 1 ? 2 : 1, h: 30, p: 4 };
+  var kc = G.khoangCach(p.c, xa);
+  var doi = { cruiser: 50, cargoL: 20 };
+
+  var khong = G.tamBay(s, doi, {}, kc, 100);
+  ktra(khong.gioDi > 0 && Math.abs(khong.gioKhuHoi - khong.gioDi * 2) < 1e-9,
+    'giờ bay: khứ hồi đúng gấp đôi chặng đi');
+  ktra(khong.gioCo === 0 && khong.duDuongVe === false,
+    'giờ bay: không chở nhiên liệu thì tầm 0 giờ và không đủ đường về');
+  ktra(khong.nlVe === G.nhienLieu(s, doi, kc, 100),
+    'giờ bay: nhiên liệu chặng về bằng đúng nhiên liệu một chặng');
+
+  var du = G.tamBay(s, doi, { deut: khong.nlVe }, kc, 100);
+  ktra(du.duDuongVe === true, 'giờ bay: chở đúng phần chặng về là đủ đường về');
+  ktra(du.gioCo > khong.gioCo, 'giờ bay: chở nhiều nhiên liệu hơn thì tầm xa hơn');
+
+  /* tầm tăng theo lượng nhiên liệu, và Tàu Dầu kéo tầm lên */
+  var it = G.gioBayTu(s, doi, 50000, 100);
+  var nhieu = G.gioBayTu(s, doi, 200000, 100);
+  ktra(nhieu > it, 'giờ bay: tầm tăng theo lượng nhiên liệu chở theo');
+  var coTauDau = G.gioBayTu(s, { cruiser: 50, cargoL: 20, tauDau: 5 }, 50000, 100);
+  ktra(coTauDau > it, 'giờ bay: mang Tàu Dầu thì tầm xa hơn cùng lượng nhiên liệu');
+
+  /* chặng về đốt nhiên liệu chở theo */
+  ktra(!G.guiHam(s, 0, doi, xa, 'transport', { deut: 500000 }, 100),
+    'giờ bay: gửi được đoàn có chở nhiên liệu');
+  var fid = s.fleets[s.fleets.length - 1].id;
+  function ham() { return s.fleets.filter(function (x) { return x.id === fid; })[0]; }
+  var deutDi = ham().cargo.deut;
+  var t = s.now, z;
+  for (z = 0; z < 500 && ham() && ham().pha !== 've'; z++) { t += 300; G.tick(s, t); }
+  var fv = ham();
+  ktra(!!fv && fv.pha === 've', 'giờ bay: bắt được hạm đội ở chặng về');
+  if (fv) {
+    ktra((fv.cargo.deut || 0) === deutDi,
+      'giờ bay: nhiên liệu dự trữ KHÔNG bị trừ khỏi khoang (giữ bất biến bảo toàn)');
+    ktra(!fv.nlVeThieu, 'giờ bay: chở đủ thì không ghi nhận thiếu');
+  }
+
+  /* không chở nhiên liệu: vẫn về được, nhưng có cảnh báo và ghi nhận thiếu */
+  var s2 = G.moiGame('Thiếu', 'THDC-GIO-BAY-2'), p2 = s2.planets[0];
+  p2.res.deut += 2e8; p2.res.metal += 1e8;
+  p2.b.fleetHQ = (p2.b.fleetHQ || 0) + 8; p2.ships.cruiser = 100;
+  ktra(!G.guiHam(s2, 0, { cruiser: 50 }, xa, 'attack', {}, 100),
+    'giờ bay: vẫn gửi được đoàn không chở nhiên liệu (mặc định chỉ cảnh báo)');
+  ktra(s2.msgs.some(function (m) { return /thiếu nhiên liệu đường về/.test(m.td || ''); }),
+    'giờ bay: có tin cảnh báo thiếu nhiên liệu đường về');
+  var fid2 = s2.fleets[0].id, t2 = s2.now, z2;
+  for (z2 = 0; z2 < 500 && s2.fleets.length && s2.fleets[0].pha !== 've'; z2++) { t2 += 300; G.tick(s2, t2); }
+  var fv2 = s2.fleets.filter(function (x) { return x.id === fid2; })[0];
+  ktra(fv2 && fv2.pha === 've' && fv2.nlVeThieu > 0,
+    'giờ bay: thiếu nhiên liệu thì vẫn về nhưng ghi nhận phần thiếu');
+
+  /* bật luật gốc thì chặn ngay ở cửa phát lệnh */
+  var truoc = G.C.EP_NHIEN_LIEU_VE;
+  G.C.EP_NHIEN_LIEU_VE = true;
+  try {
+    var s3 = G.moiGame('Ép', 'THDC-GIO-BAY-3'), p3 = s3.planets[0];
+    p3.res.deut += 2e8; p3.b.fleetHQ = (p3.b.fleetHQ || 0) + 8; p3.ships.cruiser = 100;
+    ktra(/đường về/.test(String(G.guiHam(s3, 0, { cruiser: 50 }, xa, 'attack', {}, 100))),
+      'giờ bay: bật EP_NHIEN_LIEU_VE thì không cho đi khi thiếu đường về');
+    ktra(s3.fleets.length === 0, 'giờ bay: lệnh bị chặn không tạo hạm đội');
+  } finally { G.C.EP_NHIEN_LIEU_VE = truoc; }
+
+  /* Giữ Chỗ đứng ngoài: đã có mô hình nhiên liệu theo đoạn 6 giờ riêng */
+  var s4 = G.moiGame('Giữ', 'THDC-GIO-BAY-4'), p4 = s4.planets[0];
+  p4.res.deut += 2e8; p4.b.fleetHQ = (p4.b.fleetHQ || 0) + 8;
+  p4.ships.cruiser = 20; p4.ships.cargoL = 10;
+  s4.planets.push(JSON.parse(JSON.stringify(p4)));
+  s4.planets[1].c = { g: p4.c.g, h: p4.c.h, p: (p4.c.p % 14) + 1 };
+  s4.planets[1].ten = 'Tiền Đồn';
+  var loiH = G.guiHam(s4, 0, { cruiser: 5, cargoL: 5 }, s4.planets[1].c, 'hold', { deut: 100000 }, 100, 6);
+  ktra(!loiH, 'giờ bay: gửi được đoàn Giữ Chỗ' + (loiH ? ': ' + loiH : ''));
+  var fH = s4.fleets[0], t4 = s4.now, z4;
+  for (z4 = 0; z4 < 300 && fH.pha !== 'giu'; z4++) { t4 += 300; G.tick(s4, t4); }
+  var deutGiu = fH.cargo.deut;
+  ktra(!G.goiVe(s4, fH.id), 'giờ bay: gọi được đoàn Giữ Chỗ về');
+  ktra(fH.cargo.deut === deutGiu && !fH.nlVeThieu,
+    'giờ bay: Giữ Chỗ đứng ngoài luật dự trữ (đã trả theo đoạn 6 giờ)');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

@@ -173,6 +173,12 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 - **Chọn căn cứ trở về**: hạm đội đang bay đi, đang neo hay đang trên đường về đều đổi được
   hành tinh sẽ quay về — mục tiêu đang bay tới giữ nguyên, chỉ chặng về đổi chỗ, và tàu lẫn
   hàng trong khoang nhập vào kho căn cứ mới. Đang về thì giờ tới nơi tính lại từ vị trí hiện tại.
+- **Nhiên liệu theo giờ bay**: màn gửi hạm bày đúng phép cân của chỉ huy bản gốc — chuyến
+  này bay mấy giờ mỗi chiều, nhiên liệu chở theo đủ mấy giờ, chặng về cần bao nhiêu. Chặng
+  về đòi một khoản **dự trữ** trong khoang — cái giá của nó là chỗ chứa, nên Tàu Dầu và số
+  Nhiên Liệu xếp lên khoang đều có nghĩa.
+  Thiếu thì hiện cảnh báo (vẫn về được); muốn đúng luật gốc "không đủ thì không cho đi" thì
+  bật `G.C.EP_NHIEN_LIEU_VE`.
 - **Phong toả quỹ đạo**: Giữ Chỗ gửi tới quỹ đạo lạ là một cuộc phong toả — tới nơi phải đánh
   thắng lớp quỹ đạo mới neo được, rồi cứ mỗi mốc nhiên liệu 6 giờ lại phải giữ lấy nó (phòng thủ
   NPC hồi 1,5%/giờ nên đây là cam kết dài hạn). Đúng luật hai lớp, phong toả **không** chạm tới
