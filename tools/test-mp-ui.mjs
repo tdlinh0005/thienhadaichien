@@ -119,6 +119,18 @@ async function diTuiHe(page, g, h) {
   await nhan(page, '[data-act="gal-di"]', '/api/he');
   return true;
 }
+/* #man-khoidong nằm sẵn trong index.html nên Playwright thấy nó "visible"
+ * ngay khi DOM vừa parse xong — trước lúc 10 thẻ <script> ở cuối trang chạy.
+ * Đợi thêm bộ luật nạp xong rồi mới evaluate, nếu không sẽ gặp
+ * "G.moiGame is not a function" một cách ngẫu nhiên. */
+function choLuatSanSang(page) {
+  return page.waitForFunction(
+    'typeof window.G === "object" && typeof window.G.moiGame === "function" && ' +
+    'typeof window.APP === "object"',
+    null, { timeout: 20000 }
+  );
+}
+
 function soHang(page) {
   return page.locator('#noidung table tr').evaluateAll(function (rs) {
     return rs.filter(function (r) { return r.querySelector('td'); }).length;
@@ -694,6 +706,7 @@ async function chay() {
   });
   await pSolo.reload({ waitUntil: 'domcontentloaded' });
   await pSolo.waitForSelector('#kd-tieptuc', { state: 'visible', timeout: 20000 });
+  await choLuatSanSang(pSolo);
   var saveLocal = await pSolo.evaluate(function () {
     return { cu: JSON.parse(localStorage.getItem('thdc_save_v3')),
       moi: JSON.parse(localStorage.getItem('thdc_save_v6')) };
@@ -719,6 +732,7 @@ async function chay() {
   });
   await pSolo.evaluate(function () { APP.ACT['xoa-that'](); }).catch(function () { /* reload huỷ context cũ */ });
   await pSolo.waitForSelector('#man-khoidong', { state: 'visible', timeout: 20000 });
+  await choLuatSanSang(pSolo);
   ktra(await pSolo.evaluate(function () {
     return ['v6', 'v5', 'v4', 'v3'].every(function (x) { return !localStorage.getItem('thdc_save_' + x); });
   }), 'xoá bàn dọn sạch v6/v5/v4/v3, beforeunload không phục hồi state');
@@ -737,6 +751,7 @@ async function chay() {
   });
   await pSolo.reload({ waitUntil: 'domcontentloaded' });
   await pSolo.waitForSelector('#kd-tieptuc', { state: 'visible', timeout: 20000 });
+  await choLuatSanSang(pSolo);
   var uuTien = await pSolo.evaluate(function () {
     return { ten: JSON.parse(localStorage.getItem('thdc_save_v6')).ten,
       raws: ['v3', 'v4', 'v5'].map(function (x) { return !!localStorage.getItem('thdc_save_' + x); }) };

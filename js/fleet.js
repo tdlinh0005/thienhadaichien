@@ -391,6 +391,89 @@ G.goiVe = function (st, fid) {
   return 'Không tìm thấy hạm đội.';
 };
 
+/* --- CHỌN CĂN CỨ TRỞ VỀ (cơ chế bản gốc) ------------------------------
+ * [XÁC NHẬN] Bản gốc cho hạm đội chọn căn cứ để quay về, không bắt buộc về
+ * đúng nơi xuất phát — xem docs/NGHIEN-CUU.md. Bản phục dựng này chỉ nhận
+ * một hành tinh KHÁC CỦA CHÍNH ĐẾ QUỐC làm căn cứ mới: khi về, hàng trong
+ * khoang dỡ thẳng vào kho hành tinh đó (G.hamVeNha), nên không mở cho hành
+ * tinh của người khác dù là đồng minh.
+ * [TÁI DỰNG] Giá: một khoản lệnh điều động cố định, cộng nhiên liệu phụ trội
+ * khi chặng về mới DÀI HƠN chặng cũ — chỉ tính phần dôi ra, không tính lại cả
+ * chặng. Nhiên liệu lấy từ khoang trước, thiếu thì quy ra Galana theo cùng tỷ
+ * lệ ×3 như lệnh đổi mục tiêu. Đổi căn cứ không cắt lượt giữ quỹ đạo và không
+ * đụng tới mục tiêu đang bay tới: chỉ chặng VỀ đổi chỗ.
+ */
+G.doiCanCu = function (st, fid, pi) {
+  var f = null, i;
+  for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+  if (!f) return 'Không tìm thấy hạm đội.';
+  pi = Math.floor(Number(pi));
+  if (!Number.isSafeInteger(pi) || pi < 0 || pi >= st.planets.length)
+    return 'Hành tinh không tồn tại.';
+  if (pi === f.pi) return 'Hạm đội đã lấy hành tinh này làm căn cứ.';
+  var moi = st.planets[pi];
+  if (!moi || !moi.c) return 'Hành tinh không tồn tại.';
+  var canCu = { g: moi.c.g, h: moi.c.h, p: moi.c.p };
+
+  /* Đang về thì đo từ CHỖ ĐANG BAY, đúng cách lệnh đổi mục tiêu nội suy;
+     còn đang đi hoặc đang neo thì chặng về sẽ khởi hành từ f.den. */
+  var dangVe = f.pha === 've';
+  var kcCu, kcMoi;
+  if (dangVe) {
+    var ketThuc = f.ve_t;
+    var batDau = f.veLuc;
+    if (!(batDau >= 0)) {
+      batDau = ketThuc - G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
+    }
+    var tong = ketThuc - batDau;
+    var fr = tong > 0 ? Math.min(1, Math.max(0, (st.now - batDau) / tong)) : 1;
+    kcCu = (1 - fr) * G.khoangCach(f.den, f.tu);
+    kcMoi = (1 - fr) * G.khoangCach(f.den, canCu) + fr * G.khoangCach(f.tu, canCu);
+  } else {
+    kcCu = G.khoangCach(f.den, f.tu);
+    kcMoi = G.khoangCach(f.den, canCu);
+  }
+  kcCu = Math.max(5, Math.round(kcCu));
+  kcMoi = Math.max(5, Math.round(kcMoi));
+
+  var nlThem = kcMoi > kcCu
+    ? Math.max(0, G.nhienLieu(st, f.ships, kcMoi, f.pct) - G.nhienLieu(st, f.ships, kcCu, f.pct))
+    : 0;
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var dt = f.cargo.deut || 0;
+  var traGalana = G.C.DOI_CAN_CU_GALANA;
+  var deutCon = Math.max(0, dt - nlThem);
+  if (dt < nlThem) traGalana += Math.ceil((nlThem - dt) * 3);
+  if (st.galana < traGalana)
+    return 'Cần ' + G.so(traGalana) + ' Galana để đổi căn cứ (gồm nhiên liệu phụ trội).';
+
+  /* Hạm đang neo phải còn đủ nhiên liệu cho đoạn giữ quỹ đạo đang trả dở,
+     nếu không thì đổi căn cứ sẽ làm đội tan thành phế liệu ở mốc kế tiếp. */
+  if (f.pha === 'giu' || f.dangGiu) {
+    var mocTiep = Number(f.tiepNL_t);
+    if (Number.isFinite(mocTiep) && mocTiep > st.now) {
+      var canGiu = G.nhienLieuGiu(st, f.ships, mocTiep - st.now);
+      if (deutCon < canGiu)
+        return 'Sau khi đổi căn cứ phải còn ' + G.so(canGiu) +
+          ' Nhiên Liệu trong khoang cho đoạn giữ quỹ đạo đang trả.';
+    }
+  }
+
+  f.cargo.deut = deutCon;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  st.galana -= traGalana;
+  f.pi = pi;
+  f.tu = canCu;
+  if (dangVe) {
+    f.veLuc = st.now;
+    f.ve_t = st.now + Math.max(2, Math.round(G.tgBay(st, f.ships, kcMoi, f.pct)));
+  }
+  G.ghi(st, 'Hạm đội #' + f.id + ' đổi căn cứ trở về → ' + moi.ten + ' ' + G.tdStr(canCu) +
+    ' (phí ' + G.so(traGalana) + ' Galana' + (nlThem ? ', ' + G.so(nlThem) + ' Nhiên Liệu' : '') + ').' +
+    (dangVe ? ' Tới sau ' + G.tg(f.ve_t - st.now) + '.' : ''));
+  return null;
+};
+
 /* --- Xử lý hạm đội tới đích ------------------------------------------- */
 G.hamToiDich = function (st, f) {
   var o = G.oHanhTinh(st, f.den);

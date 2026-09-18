@@ -283,7 +283,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 <div id="toast"></div>
 
 <script>
-/* source: js/data.js sha256:d23962ccba33eeca9057f917e045e99eda4f1f8098333497656f0d7a568bce08 */
+/* source: js/data.js sha256:93a1bf8b2832427c4cd1930b41cbc2521588aab87ad74a160f6e9c39438b1241 */
 /* =========================================================================
  * THIÊN HÀ ĐẠI CHIẾN — Bảng dữ liệu game
  * -------------------------------------------------------------------------
@@ -685,6 +685,7 @@ G.C = {
   CUOP_TOI_DA: 0.5,
   CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
+  DOI_CAN_CU_GALANA: 120,    // phí chọn căn cứ trở về (đặc trưng bản gốc)
   VONG_DANH: 6,
   THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu
@@ -2213,7 +2214,7 @@ G.ghi = function (st, s) {
   if (st.nk.length > 120) st.nk.length = 120;
 };
 
-/* source: js/fleet.js sha256:c4965e14e24c639e3d3407edcb757545c2546021a57a933822462d31a2dc5288 */
+/* source: js/fleet.js sha256:bea8ef8960b0bb7fc3c175f09babfc8f4f4d64c02ad807f4c5e1c5b2200c37f0 */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -2605,6 +2606,89 @@ G.goiVe = function (st, fid) {
     return null;
   }
   return 'Không tìm thấy hạm đội.';
+};
+
+/* --- CHỌN CĂN CỨ TRỞ VỀ (cơ chế bản gốc) ------------------------------
+ * [XÁC NHẬN] Bản gốc cho hạm đội chọn căn cứ để quay về, không bắt buộc về
+ * đúng nơi xuất phát — xem docs/NGHIEN-CUU.md. Bản phục dựng này chỉ nhận
+ * một hành tinh KHÁC CỦA CHÍNH ĐẾ QUỐC làm căn cứ mới: khi về, hàng trong
+ * khoang dỡ thẳng vào kho hành tinh đó (G.hamVeNha), nên không mở cho hành
+ * tinh của người khác dù là đồng minh.
+ * [TÁI DỰNG] Giá: một khoản lệnh điều động cố định, cộng nhiên liệu phụ trội
+ * khi chặng về mới DÀI HƠN chặng cũ — chỉ tính phần dôi ra, không tính lại cả
+ * chặng. Nhiên liệu lấy từ khoang trước, thiếu thì quy ra Galana theo cùng tỷ
+ * lệ ×3 như lệnh đổi mục tiêu. Đổi căn cứ không cắt lượt giữ quỹ đạo và không
+ * đụng tới mục tiêu đang bay tới: chỉ chặng VỀ đổi chỗ.
+ */
+G.doiCanCu = function (st, fid, pi) {
+  var f = null, i;
+  for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+  if (!f) return 'Không tìm thấy hạm đội.';
+  pi = Math.floor(Number(pi));
+  if (!Number.isSafeInteger(pi) || pi < 0 || pi >= st.planets.length)
+    return 'Hành tinh không tồn tại.';
+  if (pi === f.pi) return 'Hạm đội đã lấy hành tinh này làm căn cứ.';
+  var moi = st.planets[pi];
+  if (!moi || !moi.c) return 'Hành tinh không tồn tại.';
+  var canCu = { g: moi.c.g, h: moi.c.h, p: moi.c.p };
+
+  /* Đang về thì đo từ CHỖ ĐANG BAY, đúng cách lệnh đổi mục tiêu nội suy;
+     còn đang đi hoặc đang neo thì chặng về sẽ khởi hành từ f.den. */
+  var dangVe = f.pha === 've';
+  var kcCu, kcMoi;
+  if (dangVe) {
+    var ketThuc = f.ve_t;
+    var batDau = f.veLuc;
+    if (!(batDau >= 0)) {
+      batDau = ketThuc - G.tgBay(st, f.ships, G.khoangCach(f.den, f.tu), f.pct);
+    }
+    var tong = ketThuc - batDau;
+    var fr = tong > 0 ? Math.min(1, Math.max(0, (st.now - batDau) / tong)) : 1;
+    kcCu = (1 - fr) * G.khoangCach(f.den, f.tu);
+    kcMoi = (1 - fr) * G.khoangCach(f.den, canCu) + fr * G.khoangCach(f.tu, canCu);
+  } else {
+    kcCu = G.khoangCach(f.den, f.tu);
+    kcMoi = G.khoangCach(f.den, canCu);
+  }
+  kcCu = Math.max(5, Math.round(kcCu));
+  kcMoi = Math.max(5, Math.round(kcMoi));
+
+  var nlThem = kcMoi > kcCu
+    ? Math.max(0, G.nhienLieu(st, f.ships, kcMoi, f.pct) - G.nhienLieu(st, f.ships, kcCu, f.pct))
+    : 0;
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var dt = f.cargo.deut || 0;
+  var traGalana = G.C.DOI_CAN_CU_GALANA;
+  var deutCon = Math.max(0, dt - nlThem);
+  if (dt < nlThem) traGalana += Math.ceil((nlThem - dt) * 3);
+  if (st.galana < traGalana)
+    return 'Cần ' + G.so(traGalana) + ' Galana để đổi căn cứ (gồm nhiên liệu phụ trội).';
+
+  /* Hạm đang neo phải còn đủ nhiên liệu cho đoạn giữ quỹ đạo đang trả dở,
+     nếu không thì đổi căn cứ sẽ làm đội tan thành phế liệu ở mốc kế tiếp. */
+  if (f.pha === 'giu' || f.dangGiu) {
+    var mocTiep = Number(f.tiepNL_t);
+    if (Number.isFinite(mocTiep) && mocTiep > st.now) {
+      var canGiu = G.nhienLieuGiu(st, f.ships, mocTiep - st.now);
+      if (deutCon < canGiu)
+        return 'Sau khi đổi căn cứ phải còn ' + G.so(canGiu) +
+          ' Nhiên Liệu trong khoang cho đoạn giữ quỹ đạo đang trả.';
+    }
+  }
+
+  f.cargo.deut = deutCon;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  st.galana -= traGalana;
+  f.pi = pi;
+  f.tu = canCu;
+  if (dangVe) {
+    f.veLuc = st.now;
+    f.ve_t = st.now + Math.max(2, Math.round(G.tgBay(st, f.ships, kcMoi, f.pct)));
+  }
+  G.ghi(st, 'Hạm đội #' + f.id + ' đổi căn cứ trở về → ' + moi.ten + ' ' + G.tdStr(canCu) +
+    ' (phí ' + G.so(traGalana) + ' Galana' + (nlThem ? ', ' + G.so(nlThem) + ' Nhiên Liệu' : '') + ').' +
+    (dangVe ? ' Tới sau ' + G.tg(f.ve_t - st.now) + '.' : ''));
+  return null;
 };
 
 /* --- Xử lý hạm đội tới đích ------------------------------------------- */
@@ -3944,7 +4028,7 @@ G.doBoXuong = function (st, f, ben) {
   return { kq: kq, thang: thang, phaCT: phaCT };
 };
 
-/* source: js/actions.js sha256:2ddfffe5f9b46bbf44dfd35903daddd2fc57f924a8dc5bea878bd75eddd1c3d7 */
+/* source: js/actions.js sha256:35a49348fa60b8f833b7bab17d2bc0124e755372ef43fe1900c097b2dad52660 */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
  * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
  * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
@@ -4097,6 +4181,9 @@ G.HANHDONG = {
     if (!den) return 'Toạ độ không hợp lệ.';
     return G.doiMucTieu(st, Math.floor(+d.fid), den);
   },
+  docancu: function (st, d) {
+    return G.doiCanCu(st, Math.floor(+d.fid), d.pi);
+  },
 
   /* --- liên minh --- */
   lmvao: function (st, d) {
@@ -4150,7 +4237,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:378c291f3235c55db854f8a367a3c9e3f8a11e4d9ba71491be959b4f9d46c654 */
+/* source: js/ui.js sha256:1193e566542466db6b9052665818dfa533b7deb12f03919c208a45d5b183c0e0 */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -4905,6 +4992,8 @@ U.m_hamdoi = function () {
         '<td style="font-size:11.5px">' + U.dsRes(fl.cargo) + '</td>' +
         '<td class="r" style="white-space:nowrap">' +
         (dangGiu ? '' : '<button class="nut nho" data-act="doihuong" data-fid="' + fl.id + '">Đổi mục tiêu</button> ') +
+        (st.planets.length > 1 ? '<button class="nut nho" data-act="docancu" data-fid="' + fl.id +
+          '">Đổi căn cứ</button> ' : '') +
         (fl.pha === 'di' || dangGiu ? '<button class="nut nho xoa" data-act="goive" data-fid="' + fl.id +
           '">Gọi về</button>' : '') +
         '</td></tr>';
@@ -4913,6 +5002,9 @@ U.m_hamdoi = function () {
   h += '<p class="mo" style="margin:8px 0 0">Đổi mục tiêu giữa đường là cơ chế riêng của Thiên Hà Đại Chiến: ' +
       'dùng được cả lúc đi lẫn lúc về, mất ' + G.C.DOI_MUC_TIEU_GALANA +
       ' Galana cộng phí nhiên liệu phụ trội, thời gian bay tính lại từ vị trí hiện tại.</p>';
+  h += '<p class="mo" style="margin:4px 0 0"><b>Đổi căn cứ</b> chọn hành tinh mà hạm đội sẽ quay về — ' +
+      'mục tiêu đang bay tới giữ nguyên, chỉ chặng VỀ đổi chỗ, và hàng trong khoang sẽ dỡ vào kho căn cứ mới. ' +
+      'Phí ' + G.C.DOI_CAN_CU_GALANA + ' Galana, cộng nhiên liệu phụ trội nếu chặng về mới dài hơn.</p>';
   }
   h += '</div></div>';
 
@@ -5826,7 +5918,7 @@ U.m_mophong = function () {
   return h;
 };
 
-/* source: js/app.js sha256:200fd096a52a225db544039df64938a5b44bce3da323f4d4f535ca5e083fb2a7 */
+/* source: js/app.js sha256:b6a6bb50e7ebbcb48ad2bea32b6b96612de541ef05130536fc2d6894dc4c854c */
 /* THIÊN HÀ ĐẠI CHIẾN — tầng thao tác giao diện (dùng chung cho 1 người & nhiều người)
  * Mọi thao tác của người chơi đi qua APP.lam(ten, dl, xong):
  *   - bản một người  (js/main.js): chạy G.chay() ngay trên state trong máy
@@ -6012,6 +6104,37 @@ var ACT = {
       fid: +el.getAttribute('data-fid'),
       den: { g: soO('dh-g'), h: soO('dh-h'), p: soO('dh-p') }
     }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi hướng.'); });
+  },
+
+  /* Chọn căn cứ trở về: chỉ đổi chặng VỀ, mục tiêu đang bay tới giữ nguyên. */
+  docancu: function (el) {
+    var fid = +el.getAttribute('data-fid'), st = U.st(), f = null, i;
+    for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+    if (!f) return;
+    var opt = '';
+    for (i = 0; i < st.planets.length; i++) {
+      if (i === f.pi) continue;
+      opt += '<option value="' + i + '">' + U.esc(st.planets[i].ten) + ' ' +
+        G.tdStr(st.planets[i].c) + '</option>';
+    }
+    if (!opt) return U.toast('Đế quốc chỉ có một hành tinh — chưa có căn cứ nào khác để về.', 'loi');
+    var canCu = st.planets[f.pi];
+    U.hop('Đổi căn cứ trở về của hạm đội #' + fid,
+      '<p>Hạm đội đang lấy <b>' + U.esc(canCu ? canCu.ten : '—') + ' ' +
+      (canCu ? G.tdStr(canCu.c) : '') + '</b> làm căn cứ. Chọn hành tinh khác để hạm đội quay về đó — ' +
+      'tàu và toàn bộ hàng trong khoang sẽ nhập vào kho hành tinh mới. Mục tiêu đang bay tới <b>' +
+      G.tdStr(f.den) + '</b> không đổi.</p>' +
+      '<p class="mo">Phí: <b>' + G.C.DOI_CAN_CU_GALANA + ' Galana</b>, cộng nhiên liệu phụ trội nếu ' +
+      'chặng về mới dài hơn chặng cũ.</p>' +
+      '<div class="hd-td"><select id="dc-pi">' + opt + '</select>' +
+      '<button class="nut oke" data-act="docancu-ok" data-fid="' + fid + '">Đổi căn cứ</button></div>');
+  },
+  'docancu-ok': function (el) {
+    var o = document.getElementById('dc-pi');
+    APP.lam('docancu', {
+      fid: +el.getAttribute('data-fid'),
+      pi: o ? Math.floor(+o.value) : -1
+    }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi căn cứ trở về.'); });
   },
 
   'xh-loai': function (el) {

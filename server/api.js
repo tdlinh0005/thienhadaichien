@@ -12,6 +12,7 @@ var BODY_MAX = 96 * 1024;
 var CHAT_HAN = 30 * 86400;
 var CHAT_TOI_DA = 300;
 var NHIP_CUA = 10;
+var NHIP_KHOA_TOI_DA = 5000;
 
 /* ------------------------------------------------------------ mật khẩu */
 function bam(mk, muoi) { return crypto.scryptSync(String(mk), muoi, 64, { N: 16384, r: 8, p: 1 }).toString('hex'); }
@@ -86,12 +87,34 @@ function API(kho, tg, options) {
   this.chatDonLuc = 0;
 }
 
+/* Dọn bản đếm. Trước đây map quá 5000 dòng thì clear() sạch: ai đẩy đủ khoá lạ
+   vào là xoá luôn bộ đếm đăng nhập của mọi người, kể cả của chính mình — tức
+   là tự gỡ được giới hạn chống dò mật khẩu.
+   Nay bỏ trước các khoá đã hết cửa sổ; nếu vẫn quá chỗ thì bỏ theo SỐ LẦN GỌI
+   tăng dần (bằng nhau thì bỏ khoá cũ hơn). Khoá vừa tạo của kẻ xả lũ có n=1
+   nên bị bỏ trước, còn khoá đang bị đếm dở — đúng cái cần giữ — ở lại. */
+API.prototype.donNhip = function (now) {
+  var self = this;
+  this.nhip.forEach(function (o, khoa) {
+    if (now - o.tu > NHIP_CUA * 1000) self.nhip.delete(khoa);
+  });
+  var du = this.nhip.size - (NHIP_KHOA_TOI_DA - 1);
+  if (du <= 0) return;
+  var theoThuTu = Array.from(this.nhip.entries()).sort(function (a, b) {
+    return a[1].n - b[1].n || a[1].tu - b[1].tu;
+  });
+  for (var i = 0; i < du && i < theoThuTu.length; i++) this.nhip.delete(theoThuTu[i][0]);
+};
+
 API.prototype.gioiHan = function (khoa, tran) {
   var now = this.clock.nowMs();
   var o = this.nhip.get(khoa);
-  if (!o || now - o.tu > NHIP_CUA * 1000) { this.nhip.set(khoa, { n: 1, tu: now }); return true; }
+  if (!o || now - o.tu > NHIP_CUA * 1000) {
+    if (this.nhip.size >= NHIP_KHOA_TOI_DA) this.donNhip(now);
+    this.nhip.set(khoa, { n: 1, tu: now });
+    return true;
+  }
   o.n++;
-  if (this.nhip.size > 5000) this.nhip.clear();
   return o.n <= (tran || this.nhipToiDa);
 };
 

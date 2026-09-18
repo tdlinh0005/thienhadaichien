@@ -150,6 +150,9 @@ G.HANHDONG = {
     if (!den) return 'Toạ độ không hợp lệ.';
     return G.doiMucTieu(st, Math.floor(+d.fid), den);
   },
+  docancu: function (st, d) {
+    return G.doiCanCu(st, Math.floor(+d.fid), d.pi);
+  },
 
   /* --- liên minh --- */
   lmvao: function (st, d) {

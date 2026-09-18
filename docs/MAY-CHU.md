@@ -591,7 +591,8 @@ thì đánh, có thể chia đội, chọn căn cứ trở về, được đồn
 phải tiếp nhiên liệu định kỳ, nếu không sẽ thành “rác không gian”. Nhiệm vụ
 **Giữ Chỗ** (`hold`) hiện mới triển khai vị trí đậu thật tại hành tinh chính chủ
 hoặc thành viên cùng liên minh và luôn trở về `f.tu`. Chưa có đậu tại quỹ đạo
-thù địch/trung lập, va chạm giữa các hạm đang đậu, tách đội hay chọn căn cứ về.
+thù địch/trung lập, va chạm giữa các hạm đang đậu hay tách đội. Chọn căn cứ trở về đi qua
+hành động dùng chung `docancu` (`/api/lam`), chỉ nhận một hành tinh khác của chính tài khoản.
 
 Dispatch kiểm tra quyền và yêu cầu `f.cargo.deut` đủ đoạn đầu trước khi trừ bất
 kỳ tài sản nào. Khi tới nơi, `kiemTraGiu` đọc lại chủ toạ độ/membership, sau đó

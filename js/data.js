@@ -399,6 +399,7 @@ G.C = {
   CUOP_TOI_DA: 0.5,
   CUOP_DO_BO: 0.35,          // đổ bộ thành công thì vét thêm được chừng này phần kho còn lại
   DOI_MUC_TIEU_GALANA: 250,  // phí đổi mục tiêu giữa đường (đặc trưng bản gốc)
+  DOI_CAN_CU_GALANA: 120,    // phí chọn căn cứ trở về (đặc trưng bản gốc)
   VONG_DANH: 6,
   THUE_CO_BAN: 8,            // chỉ dùng bridge catch-up v4; thuế v5 lấy theo dân số
   TY_GIA: { metal: 45, crystal: 30, deut: 12, food: 60 },  // 1 Galana đổi được bao nhiêu

@@ -752,6 +752,8 @@ U.m_hamdoi = function () {
         '<td style="font-size:11.5px">' + U.dsRes(fl.cargo) + '</td>' +
         '<td class="r" style="white-space:nowrap">' +
         (dangGiu ? '' : '<button class="nut nho" data-act="doihuong" data-fid="' + fl.id + '">Đổi mục tiêu</button> ') +
+        (st.planets.length > 1 ? '<button class="nut nho" data-act="docancu" data-fid="' + fl.id +
+          '">Đổi căn cứ</button> ' : '') +
         (fl.pha === 'di' || dangGiu ? '<button class="nut nho xoa" data-act="goive" data-fid="' + fl.id +
           '">Gọi về</button>' : '') +
         '</td></tr>';
@@ -760,6 +762,9 @@ U.m_hamdoi = function () {
   h += '<p class="mo" style="margin:8px 0 0">Đổi mục tiêu giữa đường là cơ chế riêng của Thiên Hà Đại Chiến: ' +
       'dùng được cả lúc đi lẫn lúc về, mất ' + G.C.DOI_MUC_TIEU_GALANA +
       ' Galana cộng phí nhiên liệu phụ trội, thời gian bay tính lại từ vị trí hiện tại.</p>';
+  h += '<p class="mo" style="margin:4px 0 0"><b>Đổi căn cứ</b> chọn hành tinh mà hạm đội sẽ quay về — ' +
+      'mục tiêu đang bay tới giữ nguyên, chỉ chặng VỀ đổi chỗ, và hàng trong khoang sẽ dỡ vào kho căn cứ mới. ' +
+      'Phí ' + G.C.DOI_CAN_CU_GALANA + ' Galana, cộng nhiên liệu phụ trội nếu chặng về mới dài hơn.</p>';
   }
   h += '</div></div>';
 

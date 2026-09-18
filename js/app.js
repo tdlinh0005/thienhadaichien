@@ -185,6 +185,37 @@ var ACT = {
     }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi hướng.'); });
   },
 
+  /* Chọn căn cứ trở về: chỉ đổi chặng VỀ, mục tiêu đang bay tới giữ nguyên. */
+  docancu: function (el) {
+    var fid = +el.getAttribute('data-fid'), st = U.st(), f = null, i;
+    for (i = 0; i < st.fleets.length; i++) if (st.fleets[i].id === fid) f = st.fleets[i];
+    if (!f) return;
+    var opt = '';
+    for (i = 0; i < st.planets.length; i++) {
+      if (i === f.pi) continue;
+      opt += '<option value="' + i + '">' + U.esc(st.planets[i].ten) + ' ' +
+        G.tdStr(st.planets[i].c) + '</option>';
+    }
+    if (!opt) return U.toast('Đế quốc chỉ có một hành tinh — chưa có căn cứ nào khác để về.', 'loi');
+    var canCu = st.planets[f.pi];
+    U.hop('Đổi căn cứ trở về của hạm đội #' + fid,
+      '<p>Hạm đội đang lấy <b>' + U.esc(canCu ? canCu.ten : '—') + ' ' +
+      (canCu ? G.tdStr(canCu.c) : '') + '</b> làm căn cứ. Chọn hành tinh khác để hạm đội quay về đó — ' +
+      'tàu và toàn bộ hàng trong khoang sẽ nhập vào kho hành tinh mới. Mục tiêu đang bay tới <b>' +
+      G.tdStr(f.den) + '</b> không đổi.</p>' +
+      '<p class="mo">Phí: <b>' + G.C.DOI_CAN_CU_GALANA + ' Galana</b>, cộng nhiên liệu phụ trội nếu ' +
+      'chặng về mới dài hơn chặng cũ.</p>' +
+      '<div class="hd-td"><select id="dc-pi">' + opt + '</select>' +
+      '<button class="nut oke" data-act="docancu-ok" data-fid="' + fid + '">Đổi căn cứ</button></div>');
+  },
+  'docancu-ok': function (el) {
+    var o = document.getElementById('dc-pi');
+    APP.lam('docancu', {
+      fid: +el.getAttribute('data-fid'),
+      pi: o ? Math.floor(+o.value) : -1
+    }, function (err) { U.dongHop(); veLai(err, err ? null : 'Hạm đội đã đổi căn cứ trở về.'); });
+  },
+
   'xh-loai': function (el) {
     U.xhLoai = el.getAttribute('data-loai');
     if (APP.taiXepHang) APP.taiXepHang(U.xhLoai); else U.ve();

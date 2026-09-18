@@ -1105,5 +1105,99 @@ var kq3 = G.danhTran(
   { ten: 'D', tech: { weapon: 8 }, ships: {}, def: { plasma: 20, orbitalStation: 10 } }, 999);
 ktra(kq3.kq === 'thua', 'hạm đội yếu bị nghiền');
 
+/* ---- 15. chọn căn cứ trở về ----
+ * Bàn chơi riêng để khỏi đụng vào state của các mục trên. */
+(function () {
+  var s2 = G.moiGame('Căn Cứ', 'THDC-CAN-CU');
+  var t2 = s2.now, p0 = s2.planets[0];
+  p0.res.metal += 5e7; p0.res.crystal += 5e7; p0.res.deut += 2e7;
+  s2.galana += 500000;
+  p0.ships.cargoL = (p0.ships.cargoL || 0) + 60;
+  p0.ships.colony = (p0.ships.colony || 0) + 1;
+
+  var oTrong = null;
+  for (var h = p0.c.h; h < p0.c.h + 20 && !oTrong; h++) {
+    var he = G.xemHe(s2, p0.c.g, h);
+    for (var k = 0; k < he.length; k++) if (he[k].loai === 'trong') { oTrong = he[k]; break; }
+  }
+  ktra(!!oTrong, 'căn cứ: tìm được ô trống để lập thuộc địa');
+  if (!oTrong) return;
+  ktra(!G.guiHam(s2, 0, { colony: 1 }, oTrong.c, 'colonize', {}, 100), 'căn cứ: gửi được tàu thực dân');
+  t2 += 12 * 3600; G.tick(s2, t2);
+  ktra(s2.planets.length === 2, 'căn cứ: có hành tinh thứ hai để làm căn cứ mới');
+  if (s2.planets.length !== 2) return;
+
+  /* mục tiêu ở thiên hà khác cho chặng bay đủ dài để bắt được lúc đang về */
+  var xa = { g: p0.c.g === 1 ? 2 : 1, h: 30, p: 4 };
+  ktra(!G.guiHam(s2, 0, { cargoL: 20 }, xa, 'transport', { metal: 100000 }, 100),
+    'căn cứ: gửi được đoàn vận tải đi xa');
+  var fid = s2.fleets[s2.fleets.length - 1].id;
+  function ham() { return s2.fleets.filter(function (x) { return x.id === fid; })[0]; }
+
+  /* --- đang BAY ĐI: đổi căn cứ chỉ dời chặng về, không đụng mục tiêu --- */
+  var fDi = ham();
+  var denCu = G.tdKey(fDi.den), denT = fDi.den_t;
+  ktra(G.doiCanCu(s2, fid, 0) === 'Hạm đội đã lấy hành tinh này làm căn cứ.',
+    'căn cứ: từ chối đổi sang chính căn cứ đang dùng');
+  ktra(G.doiCanCu(s2, fid, 9) === 'Hành tinh không tồn tại.',
+    'căn cứ: từ chối chỉ số hành tinh không tồn tại');
+  ktra(G.doiCanCu(s2, 987654, 1) === 'Không tìm thấy hạm đội.',
+    'căn cứ: từ chối hạm đội không tồn tại');
+  ktra(!G.doiCanCu(s2, fid, 1), 'căn cứ: đổi được căn cứ khi đang bay đi');
+  fDi = ham();
+  ktra(fDi.pi === 1 && G.tdKey(fDi.tu) === G.tdKey(s2.planets[1].c),
+    'căn cứ: pi và toạ độ xuất phát trỏ sang hành tinh mới');
+  ktra(G.tdKey(fDi.den) === denCu && fDi.den_t === denT && fDi.pha === 'di',
+    'căn cứ: đổi căn cứ KHÔNG đổi mục tiêu đang bay tới');
+  /* trả về căn cứ cũ để kiểm tiếp nhánh đang về */
+  ktra(!G.doiCanCu(s2, fid, 0), 'căn cứ: đổi ngược lại được về hành tinh mẹ');
+
+  for (var i = 0; i < 400 && ham() && ham().pha !== 've'; i++) { t2 += 600; G.tick(s2, t2); }
+  var f = ham();
+  ktra(!!f && f.pha === 've', 'căn cứ: bắt được hạm đội ở chặng về');
+  if (!f || f.pha !== 've') return;
+
+  /* --- đang VỀ: tính lại giờ tới từ vị trí hiện tại và thu phí --- */
+  t2 += 600; G.tick(s2, t2); f = ham();
+  var galCu = s2.galana, conCu = f.ve_t - t2;
+  ktra(!G.doiCanCu(s2, fid, 1), 'căn cứ: đổi được căn cứ khi đang trên đường về');
+  f = ham();
+  ktra(f.pi === 1 && G.tdKey(f.tu) === G.tdKey(s2.planets[1].c),
+    'căn cứ: chặng về trỏ sang hành tinh mới');
+  ktra(s2.galana <= galCu - G.C.DOI_CAN_CU_GALANA,
+    'căn cứ: thu ít nhất phí lệnh điều động (' + G.so(galCu - s2.galana) + ' Galana)');
+  ktra(f.veLuc === s2.now && f.ve_t > s2.now && (f.ve_t - t2) !== conCu,
+    'căn cứ: giờ tới nơi được tính lại từ vị trí đang bay');
+
+  /* --- về tới nơi: hàng phải vào kho CĂN CỨ MỚI --- */
+  var kho0 = s2.planets[0].res.metal, kho1 = s2.planets[1].res.metal;
+  var tau1 = s2.planets[1].ships.cargoL || 0;
+  for (var j = 0; j < 600 && ham(); j++) { t2 += 600; G.tick(s2, t2); }
+  ktra(!ham(), 'căn cứ: hạm đội đã về tới nơi');
+  ktra(s2.planets[0].res.metal === kho0, 'căn cứ: hành tinh mẹ KHÔNG nhận hàng nữa');
+  ktra(s2.planets[1].res.metal > kho1, 'căn cứ: hàng dỡ vào kho căn cứ mới');
+  ktra((s2.planets[1].ships.cargoL || 0) === tau1 + 20, 'căn cứ: tàu nhập biên chế căn cứ mới');
+
+  /* --- hết tiền thì không đổi được --- */
+  s2.planets[1].res.deut += 5e6;
+  var loiGui2 = G.guiHam(s2, 1, { cargoL: 5 }, xa, 'transport', {}, 100);
+  ktra(!loiGui2, 'căn cứ: gửi được đoàn thứ hai' + (loiGui2 ? ': ' + loiGui2 : ''));
+  var f2 = s2.fleets[s2.fleets.length - 1];
+  s2.galana = 0;
+  var loiTien = G.doiCanCu(s2, f2.id, 0);
+  ktra(typeof loiTien === 'string' && /Galana/.test(loiTien),
+    'căn cứ: thiếu Galana thì từ chối đổi căn cứ');
+  ktra(f2.pi === 1, 'căn cứ: lệnh bị từ chối không làm đổi căn cứ');
+
+  /* --- đi qua bảng hành động dùng chung (đường mà server gọi) --- */
+  s2.galana = 100000;
+  ktra(!G.HANHDONG.docancu(s2, { fid: f2.id, pi: 0 }), 'căn cứ: gọi được qua G.HANHDONG.docancu');
+  ktra(ham2(s2, f2.id).pi === 0, 'căn cứ: hành động dùng chung đổi đúng căn cứ');
+  ktra(typeof G.HANHDONG.docancu(s2, { fid: f2.id, pi: 'abc' }) === 'string',
+    'căn cứ: hành động từ chối pi rác từ client');
+  quetNaN(s2.fleets);
+})();
+function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id; })[0]; }
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);
