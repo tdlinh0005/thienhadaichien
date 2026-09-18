@@ -422,8 +422,17 @@ G.doiMucTieu = function (st, fid, den) {
   var dau = dangGiu ? f.den : (dangVe ? f.den : f.tu);
   var cuoi = dangGiu ? f.den : (dangVe ? f.tu : f.den);
   if (G.bang(den, cuoi)) return 'Đã đang bay tới đó rồi.';
-  if (f.mission === 'hold' && G.oHanhTinh(st, den).loai === 'sau')
-    return 'Vùng không gian sâu không neo quỹ đạo được.';
+  /* Ô 16 là vùng không gian sâu, KHÔNG phải hành tinh. guiHam đã ép cặp
+     nhiệm vụ↔ô này, nhưng đổi mục tiêu thì chưa — và đó là một lỗ thật: đổi
+     hướng một hạm Tấn Công vào ô 16 làm G.hamToiDich rơi vào nhánh NPC với
+     o.npc rỗng và NÉM, khiến mọi lần tua sau đều ném — tài khoản kẹt vĩnh
+     viễn. Ép đúng một bất biến ở cả hai đường phát lệnh. */
+  if (f.mission === 'thamhiem') {
+    if (den.p !== G.C.O_THAM_HIEM)
+      return 'Đoàn thám hiểm chỉ bay tới ô ' + G.C.O_THAM_HIEM + ' — vùng không gian sâu ở rìa hệ.';
+  } else if (den.p === G.C.O_THAM_HIEM) {
+    return 'Ô ' + G.C.O_THAM_HIEM + ' là vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm.';
+  }
   if (G.HOOK && G.HOOK.kiemTraGui) {
     var pGoc = st.planets[f.pi] || st.planets[0];
     var loiQuyen = G.HOOK.kiemTraGui(st, pGoc, den, f.mission);
@@ -595,6 +604,11 @@ G.tachHam = function (st, fid, ships, linh, cargo) {
     moi.tiepNL_t = f.tiepNL_t;
     moi.giuTaiTk = f.giuTaiTk === undefined ? null : f.giuTaiTk;
     moi.giuRules = f.giuRules;
+    /* Cờ phong toả PHẢI theo sang đội mới. Thiếu nó thì đội tách ra bị coi là
+       neo thân thiện: nó không chạm trán ở mốc sau, và tệ hơn là lọt vào
+       G.hamGiuTai / bảng hamgiu, tức là quay ra phòng thủ chính cái hành tinh
+       mà nó đang phong toả. */
+    if (f.phongToa) moi.phongToa = true;
   }
   st.fleets.push(moi);
   G.ghi(st, 'Hạm đội #' + f.id + ' tách ra hạm đội #' + moi.id + ' (' + U_dsTauNgan(tauMoi) +
@@ -703,6 +717,15 @@ G.hamToiDich = function (st, f) {
     G.batDauVe(st, f, true, ghi);
   };
 
+  /* Hàng rào cuối: ô 16 không phải hành tinh, mọi nhánh bên dưới trừ thám
+     hiểm đều giả định có hành tinh/NPC ở đó. Save cũ đã dính lỗi đổi hướng
+     thì tới đây được cho quay về thay vì ném và kẹt mãi. */
+  if (o.loai === 'sau' && f.mission !== 'thamhiem') {
+    veNha('Hạm đội #' + f.id + ': ' + G.tdStr(f.den) +
+      ' là vùng không gian sâu, không có gì để làm ở đó — hạm đội quay về.');
+    return;
+  }
+
   if (f.mission === 'thamhiem') {
     if (!f.dangGiu) {                     /* dừng lại lùng sục một lúc rồi mới có kết quả */
       f.dangGiu = true;
@@ -794,6 +817,14 @@ G.hamToiDich = function (st, f) {
     for (var kk in f.cargo) if (f.cargo[kk] > 0) np.res[kk] = (np.res[kk] || 0) + f.cargo[kk];
     f.ships.colony--; if (!f.ships.colony) delete f.ships.colony;
     st.planets.push(np);
+    /* Ô này vừa thành hành tinh của ta: đội nào đang neo ở đây thôi là phong
+       toả ngay lập tức, đừng đợi mốc nhiên liệu sau mới dọn cờ — trong quãng
+       đó chúng bị loại khỏi lực lượng phòng thủ chính thuộc địa mới. */
+    var khoaMoi = G.tdKey(f.den);
+    for (var fq = 0; fq < st.fleets.length; fq++) {
+      var fz = st.fleets[fq];
+      if (fz.phongToa && G.tdKey(fz.den) === khoaMoi) fz.phongToa = false;
+    }
     G.tin(st, 'he', 'Thuộc địa mới!', 'Đã dựng thuộc địa tại ' + G.tdStr(f.den) + ' — nhiệt độ ' + np.temp +
       '°C, ' + np.oDat + ' ô đất.');
     if (G.trong(f.ships)) { G.xoaHam(st, f); return; }
@@ -1774,6 +1805,11 @@ G.banTenLua = function (st, pi, den, n) {
   if ((p.mis.icbm || 0) < n) return 'Chỉ có ' + G.so(p.mis.icbm || 0) + ' Tên Lửa Liên Hành Tinh.';
   if (den.g !== p.c.g) return 'Tên lửa chỉ bay được trong cùng thiên hà.';
   if (G.bang(den, p.c)) return 'Không bắn vào chính hành tinh của mình.';
+  /* Ô 16 không phải hành tinh. Thiếu chặn này thì G.tenLuaToiDich rơi vào
+     nhánh NPC với o.npc rỗng và NÉM — ở bản nhiều người, UoW rollback trả lại
+     quả tên lửa nên lần tua sau lại ném đúng chỗ đó: tài khoản kẹt vĩnh viễn. */
+  if (den.p === G.C.O_THAM_HIEM)
+    return 'Ô ' + G.C.O_THAM_HIEM + ' là vùng không gian sâu, không có gì để bắn ở đó.';
   var tam = G.tamTenLua(st);
   if (!tam) return 'Cần Động Cơ Xung cấp 1 trở lên mới có tầm bắn.';
   var soHe = Math.abs(den.h - p.c.h);
@@ -1830,6 +1866,13 @@ G.tenLuaToiDich = function (st, tl) {
   var o = G.oHanhTinh(st, tl.den);
 
   if (o.loai === 'nguoi' && G.HOOK && G.HOOK.tenLuaNguoi) { G.HOOK.tenLuaNguoi(st, tl, o); return; }
+
+  /* Hàng rào cuối cho save đã dính lỗi bắn vào ô 16 trước khi có chặn ở trên. */
+  if (o.loai === 'sau') {
+    G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) +
+      ' là vùng không gian sâu — ' + tl.n + ' quả tên lửa nổ trong chân không.');
+    return;
+  }
 
   if (o.loai === 'trong') {
     G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) + ' là ô trống — ' + tl.n +

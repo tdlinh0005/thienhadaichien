@@ -1455,5 +1455,134 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
     'kinh tế: state kinh tế lưu/nạp được JSON');
 })();
 
+/* ---- 19. audit: các lỗi từng làm state KẸT hoặc lệch ---- */
+(function () {
+  function banMoi(seed) {
+    var s = G.moiGame('Audit', seed), pp = s.planets[0];
+    pp.res.metal += 5e8; pp.res.crystal += 5e8; pp.res.deut += 2e8;
+    s.galana += 1e6;
+    pp.b.fleetHQ = (pp.b.fleetHQ || 0) + 8;
+    pp.b.missileSilo = (pp.b.missileSilo || 0) + 20;
+    s.tech.impulse = 10; s.tech.weapon = 6; s.tech.shield = 6; s.tech.armor = 6;
+    return s;
+  }
+  function timNPC(s) {
+    var pp = s.planets[0], hh, kk;
+    for (hh = pp.c.h; hh < pp.c.h + 12; hh++) {
+      var he = G.xemHe(s, pp.c.g, hh);
+      for (kk = 0; kk < he.length; kk++) if (he[kk].loai === 'npc') return he[kk];
+    }
+    return null;
+  }
+  function timTrong(s) {
+    var pp = s.planets[0], hh, kk;
+    for (hh = pp.c.h; hh < pp.c.h + 12; hh++) {
+      var he = G.xemHe(s, pp.c.g, hh);
+      for (kk = 0; kk < he.length; kk++) if (he[kk].loai === 'trong') return he[kk];
+    }
+    return null;
+  }
+  function tuaDuoc(s, buoc, lan) {
+    var t = s.now, i;
+    try {
+      for (i = 0; i < lan; i++) { t += buoc; G.tick(s, t); }
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* --- 19a. đổi mục tiêu vào ô 16 từng làm mọi lần tua sau đều ném --- */
+  var a = banMoi('THDC-AUD-A'), pa = a.planets[0];
+  pa.ships.cruiser = 200;
+  var npcA = timNPC(a);
+  ktra(!!npcA, 'audit: tìm được NPC');
+  ktra(!G.guiHam(a, 0, { cruiser: 100 }, npcA.c, 'attack', {}, 100), 'audit: gửi được hạm tấn công');
+  var o16 = { g: pa.c.g, h: pa.c.h, p: G.C.O_THAM_HIEM };
+  ktra(/vùng không gian sâu/.test(String(G.doiMucTieu(a, a.fleets[0].id, o16))),
+    'audit: chặn đổi mục tiêu hạm Tấn Công vào ô thám hiểm');
+  ktra(tuaDuoc(a, 600, 400), 'audit: tua tiếp không ném');
+
+  /* đoàn thám hiểm cũng không được rời ô 16 */
+  var b = banMoi('THDC-AUD-B'), pb = b.planets[0];
+  pb.ships.cargoL = 20;
+  ktra(!G.guiHam(b, 0, { cargoL: 5 }, { g: pb.c.g, h: pb.c.h, p: G.C.O_THAM_HIEM },
+    'thamhiem', {}, 100), 'audit: gửi được đoàn thám hiểm');
+  ktra(/chỉ bay tới ô/.test(String(G.doiMucTieu(b, b.fleets[0].id, { g: pb.c.g, h: pb.c.h, p: 1 }))),
+    'audit: chặn đoàn thám hiểm đổi hướng ra khỏi ô thám hiểm');
+
+  /* save đã hỏng từ trước phải tự lành, không kẹt mãi */
+  var c = banMoi('THDC-AUD-C'), pc2 = c.planets[0];
+  pc2.ships.cruiser = 200;
+  var npcC = timNPC(c);
+  G.guiHam(c, 0, { cruiser: 100 }, npcC.c, 'attack', {}, 100);
+  c.fleets[0].den = { g: pc2.c.g, h: pc2.c.h, p: G.C.O_THAM_HIEM };   // giả lập state cũ đã hỏng
+  ktra(tuaDuoc(c, 600, 400), 'audit: save đã dính lỗi vẫn tua được (hạm quay về)');
+  ktra(c.fleets.length === 0, 'audit: hạm đội kẹt ở ô thám hiểm được cho quay về');
+
+  /* --- 19b. tên lửa bắn vào ô 16: cùng lớp lỗi --- */
+  var d = banMoi('THDC-AUD-D'), pd = d.planets[0];
+  G.xepTau(d, pd, 'icbm', 20);
+  tuaDuoc(d, 600, 200);
+  ktra(/vùng không gian sâu/.test(String(G.banTenLua(d, 0, { g: pd.c.g, h: pd.c.h, p: G.C.O_THAM_HIEM }, 2))),
+    'audit: chặn bắn tên lửa vào ô thám hiểm');
+  d.tenLua = [{
+    id: 9991, pi: 0, tu: pd.c, den: { g: pd.c.g, h: pd.c.h, p: G.C.O_THAM_HIEM },
+    n: 2, diLuc: d.now, khi: d.now + 20
+  }];
+  ktra(tuaDuoc(d, 300, 200), 'audit: tên lửa đã lỡ nhắm ô thám hiểm không làm kẹt state');
+
+  /* --- 19c. bỏ hoang phải dời chuyến hàng siêu thị --- */
+  var e = banMoi('THDC-AUD-E'), pe = e.planets[0];
+  e.planets.push(JSON.parse(JSON.stringify(pe)));
+  e.planets[1].c = { g: pe.c.g, h: pe.c.h, p: (pe.c.p % 14) + 1 };
+  e.planets[1].ten = 'Tiền Đồn'; e.planets[1].thuDo = false;
+  ktra(!G.HANHDONG.mua(e, { pi: 1, res: 'metal', n: 10000 }), 'audit: mua hàng giao về thuộc địa');
+  ktra(G.giaoHang(e).length === 1 && e.giaoHang[0].pi === 1, 'audit: chuyến giao trỏ đúng thuộc địa');
+  ktra(!G.boHoang(e, 1), 'audit: bỏ hoang được thuộc địa');
+  ktra(e.giaoHang[0].pi === 0,
+    'audit: bỏ hoang đổi hướng chuyến hàng về thủ phủ thay vì trỏ vào chỉ số đã biến mất');
+  var khoTruocE = e.planets[0].res.metal;
+  ktra(tuaDuoc(e, 3600, 12), 'audit: tua qua mốc giao hàng không ném');
+  ktra(e.giaoHang.length === 0 && e.planets[0].res.metal > khoTruocE,
+    'audit: hàng về đúng thủ phủ');
+
+  /* --- 19d. tách đội đang phong toả phải giữ cờ phong toả --- */
+  var f2 = banMoi('THDC-AUD-F'), pf = f2.planets[0];
+  f2.tech.weapon = 8; f2.tech.shield = 8; f2.tech.armor = 8; f2.tech.combustion = 8;
+  pf.ships.cruiser = 400; pf.ships.cargoL = 80;
+  var npcF = timNPC(f2);
+  ktra(!G.guiHam(f2, 0, { cruiser: 300, cargoL: 60 }, npcF.c, 'hold', { deut: 900000 }, 100, 24),
+    'audit: gửi được đội phong toả');
+  var tF = f2.now, zz;
+  for (zz = 0; zz < 400 && f2.fleets[0] && f2.fleets[0].pha !== 'giu'; zz++) { tF += 300; G.tick(f2, tF); }
+  if (f2.fleets[0] && f2.fleets[0].pha === 'giu') {
+    ktra(f2.fleets[0].phongToa === true, 'audit: đội gốc đang phong toả');
+    ktra(!G.tachHam(f2, f2.fleets[0].id, { cruiser: 50, cargoL: 20 }, {}, { deut: 200000 }),
+      'audit: tách được đội đang phong toả');
+    ktra(f2.fleets.length === 2 && f2.fleets[1].phongToa === true,
+      'audit: đội tách ra GIỮ cờ phong toả');
+    ktra(G.hamGiuTai(f2, npcF.c).length === 0,
+      'audit: không đội phong toả nào bị tính là quân phòng thủ của mục tiêu');
+  }
+
+  /* --- 19e. ô trống thành thuộc địa thì cờ phong toả phải tắt ngay --- */
+  var g2 = banMoi('THDC-AUD-G'), pg = g2.planets[0];
+  pg.ships.cruiser = 50; pg.ships.cargoL = 20; pg.ships.colony = 2;
+  var oT = timTrong(g2);
+  ktra(!!oT, 'audit: tìm được ô trống');
+  ktra(!G.guiHam(g2, 0, { cruiser: 20, cargoL: 10 }, oT.c, 'hold', { deut: 200000 }, 100, 12),
+    'audit: neo được ở ô trống');
+  var tG = g2.now, zg;
+  for (zg = 0; zg < 400 && g2.fleets[0] && g2.fleets[0].pha !== 'giu'; zg++) { tG += 300; G.tick(g2, tG); }
+  ktra(g2.fleets[0] && g2.fleets[0].phongToa === true, 'audit: neo ở ô trống là phong toả');
+  ktra(!G.guiHam(g2, 0, { colony: 1 }, oT.c, 'colonize', {}, 100), 'audit: gửi thực dân tới chính ô đó');
+  for (zg = 0; zg < 400 && g2.planets.length < 2; zg++) { tG += 300; G.tick(g2, tG); }
+  ktra(g2.planets.length === 2, 'audit: lập được thuộc địa ở ô đang neo');
+  var fGiu = g2.fleets.filter(function (x) { return x.mission === 'hold'; })[0];
+  ktra(fGiu && fGiu.phongToa === false,
+    'audit: ô thành hành tinh của ta thì cờ phong toả tắt ngay, không đợi mốc sau');
+  ktra(G.hamGiuTai(g2, oT.c).length === 1,
+    'audit: đội đó lập tức tính vào phòng thủ thuộc địa mới');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

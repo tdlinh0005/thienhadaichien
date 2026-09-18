@@ -784,11 +784,20 @@ G.boHoang = function (st, pi) {
     if (st.toi[i].pi === pi) return 'Đang có hạm đội địch bay tới hành tinh này — không bỏ chạy giữa chừng được.';
 
   var ten = p.ten;
+  /* Hàng siêu thị đã trả tiền và đang trên đường: không được để nó trỏ vào
+     một chỉ số hành tinh đã biến mất. Chuyến nào nhắm đúng hành tinh bị bỏ
+     thì đổi hướng về thủ phủ, còn lại dời chỉ số như hạm đội và tên lửa. */
+  var dsGiao = Array.isArray(st.giaoHang) ? st.giaoHang : [];
+  var doiHuongGiao = 0;
+  for (i = 0; i < dsGiao.length; i++) if (dsGiao[i].pi === pi) { dsGiao[i].pi = 0; doiHuongGiao++; }
   st.planets.splice(pi, 1);
   var doi = function (o) { if (o && o.pi > pi) o.pi--; };
   for (i = 0; i < st.fleets.length; i++) doi(st.fleets[i]);
   for (i = 0; i < (st.tenLua || []).length; i++) doi(st.tenLua[i]);
   for (i = 0; i < st.toi.length; i++) doi(st.toi[i]);
+  for (i = 0; i < dsGiao.length; i++) doi(dsGiao[i]);
+  if (doiHuongGiao) G.ghi(st, doiHuongGiao + ' chuyến hàng siêu thị đang tới ' + ten +
+    ' được đổi hướng về thủ phủ.');
   G.tin(st, 'he', 'Đã bỏ hoang ' + ten,
     'Toàn bộ công trình, tàu và tài nguyên trên ' + ten + ' ' + G.tdStr(p.c) + ' bị bỏ lại. ' +
     'Ô toạ độ này giờ trống, ai cũng có thể tới chiếm.');

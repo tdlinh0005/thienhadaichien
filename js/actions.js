@@ -20,6 +20,14 @@ function soDuong(v, toiDa) {
   return toiDa !== undefined ? Math.min(v, toiDa) : v;
 }
 function chuoi(v, dai) { return String(v === undefined || v === null ? '' : v).slice(0, dai || 40); }
+/* Tên tài nguyên đến từ client. Tra thẳng G.C.TY_GIA[r] là bẫy: r = '__proto__'
+   trả về Object.prototype (truthy) nên lọt qua mọi kiểm tra rồi ném ở dòng sau.
+   Chỉ nhận khoá do CHÍNH object sở hữu và phải có trong bảng tài nguyên. */
+function resGiaoDich(v) {
+  var r = chuoi(v, 10);
+  if (!Object.prototype.hasOwnProperty.call(G.C.TY_GIA, r)) return null;
+  return G.byId(G.RES, r) ? r : null;
+}
 
 G.HANHDONG = {
   /* --- xây dựng --- */
@@ -97,8 +105,8 @@ G.HANHDONG = {
    * tới hành tinh sau 6 giờ, và có thể HẾT TIỀN MẶT — không phải bộ đổi vô hạn. */
   ban: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không bán được loại này.';
+    var r = resGiaoDich(d.res);
+    if (!r) return 'Không bán được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần bán.';
     if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
@@ -125,8 +133,8 @@ G.HANHDONG = {
   },
   mua: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
+    var r = resGiaoDich(d.res);
+    if (!r) return 'Không mua được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần mua.';
     var s = G.sieuThi(st);

@@ -1512,7 +1512,7 @@ G.thuyThu = function (ships) {
   return t;
 };
 
-/* source: js/engine.js sha256:914d89a33aeefba96ee64a4ca00233c2d1b8be48feda3660a56d8606dd01f228 */
+/* source: js/engine.js sha256:c0a52e8f646e396239c8c2371f7b478c207cee2b1ccc5c6bfbc002e9daab3590 */
 /* THIÊN HÀ ĐẠI CHIẾN — lõi mô phỏng
  * Toàn bộ game chạy theo mốc thời gian thực: state chỉ lưu các mốc, mỗi lần
  * tick (hoặc mở lại game sau nhiều giờ) engine tua lại từng sự kiện theo
@@ -2299,11 +2299,20 @@ G.boHoang = function (st, pi) {
     if (st.toi[i].pi === pi) return 'Đang có hạm đội địch bay tới hành tinh này — không bỏ chạy giữa chừng được.';
 
   var ten = p.ten;
+  /* Hàng siêu thị đã trả tiền và đang trên đường: không được để nó trỏ vào
+     một chỉ số hành tinh đã biến mất. Chuyến nào nhắm đúng hành tinh bị bỏ
+     thì đổi hướng về thủ phủ, còn lại dời chỉ số như hạm đội và tên lửa. */
+  var dsGiao = Array.isArray(st.giaoHang) ? st.giaoHang : [];
+  var doiHuongGiao = 0;
+  for (i = 0; i < dsGiao.length; i++) if (dsGiao[i].pi === pi) { dsGiao[i].pi = 0; doiHuongGiao++; }
   st.planets.splice(pi, 1);
   var doi = function (o) { if (o && o.pi > pi) o.pi--; };
   for (i = 0; i < st.fleets.length; i++) doi(st.fleets[i]);
   for (i = 0; i < (st.tenLua || []).length; i++) doi(st.tenLua[i]);
   for (i = 0; i < st.toi.length; i++) doi(st.toi[i]);
+  for (i = 0; i < dsGiao.length; i++) doi(dsGiao[i]);
+  if (doiHuongGiao) G.ghi(st, doiHuongGiao + ' chuyến hàng siêu thị đang tới ' + ten +
+    ' được đổi hướng về thủ phủ.');
   G.tin(st, 'he', 'Đã bỏ hoang ' + ten,
     'Toàn bộ công trình, tàu và tài nguyên trên ' + ten + ' ' + G.tdStr(p.c) + ' bị bỏ lại. ' +
     'Ô toạ độ này giờ trống, ai cũng có thể tới chiếm.');
@@ -2468,7 +2477,7 @@ G.giaoHangToi = function (st, i) {
     G.tdStr(p.c) + '.');
 };
 
-/* source: js/fleet.js sha256:38379fb0df6a82c153dd13455786caf926e44b3fb4984b7d749c09d4bff836a5 */
+/* source: js/fleet.js sha256:5afa9a9233259fb3441d916276d12f9d21e1ba2ca77a0a1b57eeb4490198f74c */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -2893,8 +2902,17 @@ G.doiMucTieu = function (st, fid, den) {
   var dau = dangGiu ? f.den : (dangVe ? f.den : f.tu);
   var cuoi = dangGiu ? f.den : (dangVe ? f.tu : f.den);
   if (G.bang(den, cuoi)) return 'Đã đang bay tới đó rồi.';
-  if (f.mission === 'hold' && G.oHanhTinh(st, den).loai === 'sau')
-    return 'Vùng không gian sâu không neo quỹ đạo được.';
+  /* Ô 16 là vùng không gian sâu, KHÔNG phải hành tinh. guiHam đã ép cặp
+     nhiệm vụ↔ô này, nhưng đổi mục tiêu thì chưa — và đó là một lỗ thật: đổi
+     hướng một hạm Tấn Công vào ô 16 làm G.hamToiDich rơi vào nhánh NPC với
+     o.npc rỗng và NÉM, khiến mọi lần tua sau đều ném — tài khoản kẹt vĩnh
+     viễn. Ép đúng một bất biến ở cả hai đường phát lệnh. */
+  if (f.mission === 'thamhiem') {
+    if (den.p !== G.C.O_THAM_HIEM)
+      return 'Đoàn thám hiểm chỉ bay tới ô ' + G.C.O_THAM_HIEM + ' — vùng không gian sâu ở rìa hệ.';
+  } else if (den.p === G.C.O_THAM_HIEM) {
+    return 'Ô ' + G.C.O_THAM_HIEM + ' là vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm.';
+  }
   if (G.HOOK && G.HOOK.kiemTraGui) {
     var pGoc = st.planets[f.pi] || st.planets[0];
     var loiQuyen = G.HOOK.kiemTraGui(st, pGoc, den, f.mission);
@@ -3066,6 +3084,11 @@ G.tachHam = function (st, fid, ships, linh, cargo) {
     moi.tiepNL_t = f.tiepNL_t;
     moi.giuTaiTk = f.giuTaiTk === undefined ? null : f.giuTaiTk;
     moi.giuRules = f.giuRules;
+    /* Cờ phong toả PHẢI theo sang đội mới. Thiếu nó thì đội tách ra bị coi là
+       neo thân thiện: nó không chạm trán ở mốc sau, và tệ hơn là lọt vào
+       G.hamGiuTai / bảng hamgiu, tức là quay ra phòng thủ chính cái hành tinh
+       mà nó đang phong toả. */
+    if (f.phongToa) moi.phongToa = true;
   }
   st.fleets.push(moi);
   G.ghi(st, 'Hạm đội #' + f.id + ' tách ra hạm đội #' + moi.id + ' (' + U_dsTauNgan(tauMoi) +
@@ -3174,6 +3197,15 @@ G.hamToiDich = function (st, f) {
     G.batDauVe(st, f, true, ghi);
   };
 
+  /* Hàng rào cuối: ô 16 không phải hành tinh, mọi nhánh bên dưới trừ thám
+     hiểm đều giả định có hành tinh/NPC ở đó. Save cũ đã dính lỗi đổi hướng
+     thì tới đây được cho quay về thay vì ném và kẹt mãi. */
+  if (o.loai === 'sau' && f.mission !== 'thamhiem') {
+    veNha('Hạm đội #' + f.id + ': ' + G.tdStr(f.den) +
+      ' là vùng không gian sâu, không có gì để làm ở đó — hạm đội quay về.');
+    return;
+  }
+
   if (f.mission === 'thamhiem') {
     if (!f.dangGiu) {                     /* dừng lại lùng sục một lúc rồi mới có kết quả */
       f.dangGiu = true;
@@ -3265,6 +3297,14 @@ G.hamToiDich = function (st, f) {
     for (var kk in f.cargo) if (f.cargo[kk] > 0) np.res[kk] = (np.res[kk] || 0) + f.cargo[kk];
     f.ships.colony--; if (!f.ships.colony) delete f.ships.colony;
     st.planets.push(np);
+    /* Ô này vừa thành hành tinh của ta: đội nào đang neo ở đây thôi là phong
+       toả ngay lập tức, đừng đợi mốc nhiên liệu sau mới dọn cờ — trong quãng
+       đó chúng bị loại khỏi lực lượng phòng thủ chính thuộc địa mới. */
+    var khoaMoi = G.tdKey(f.den);
+    for (var fq = 0; fq < st.fleets.length; fq++) {
+      var fz = st.fleets[fq];
+      if (fz.phongToa && G.tdKey(fz.den) === khoaMoi) fz.phongToa = false;
+    }
     G.tin(st, 'he', 'Thuộc địa mới!', 'Đã dựng thuộc địa tại ' + G.tdStr(f.den) + ' — nhiệt độ ' + np.temp +
       '°C, ' + np.oDat + ' ô đất.');
     if (G.trong(f.ships)) { G.xoaHam(st, f); return; }
@@ -4245,6 +4285,11 @@ G.banTenLua = function (st, pi, den, n) {
   if ((p.mis.icbm || 0) < n) return 'Chỉ có ' + G.so(p.mis.icbm || 0) + ' Tên Lửa Liên Hành Tinh.';
   if (den.g !== p.c.g) return 'Tên lửa chỉ bay được trong cùng thiên hà.';
   if (G.bang(den, p.c)) return 'Không bắn vào chính hành tinh của mình.';
+  /* Ô 16 không phải hành tinh. Thiếu chặn này thì G.tenLuaToiDich rơi vào
+     nhánh NPC với o.npc rỗng và NÉM — ở bản nhiều người, UoW rollback trả lại
+     quả tên lửa nên lần tua sau lại ném đúng chỗ đó: tài khoản kẹt vĩnh viễn. */
+  if (den.p === G.C.O_THAM_HIEM)
+    return 'Ô ' + G.C.O_THAM_HIEM + ' là vùng không gian sâu, không có gì để bắn ở đó.';
   var tam = G.tamTenLua(st);
   if (!tam) return 'Cần Động Cơ Xung cấp 1 trở lên mới có tầm bắn.';
   var soHe = Math.abs(den.h - p.c.h);
@@ -4301,6 +4346,13 @@ G.tenLuaToiDich = function (st, tl) {
   var o = G.oHanhTinh(st, tl.den);
 
   if (o.loai === 'nguoi' && G.HOOK && G.HOOK.tenLuaNguoi) { G.HOOK.tenLuaNguoi(st, tl, o); return; }
+
+  /* Hàng rào cuối cho save đã dính lỗi bắn vào ô 16 trước khi có chặn ở trên. */
+  if (o.loai === 'sau') {
+    G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) +
+      ' là vùng không gian sâu — ' + tl.n + ' quả tên lửa nổ trong chân không.');
+    return;
+  }
 
   if (o.loai === 'trong') {
     G.tin(st, 'he', 'Tên lửa bắn trượt', G.tdStr(tl.den) + ' là ô trống — ' + tl.n +
@@ -4536,7 +4588,7 @@ G.doBoXuong = function (st, f, ben) {
   return { kq: kq, thang: thang, phaCT: phaCT };
 };
 
-/* source: js/actions.js sha256:7bd51cb96cb9ca266ac0d7f69786f1dd9699b881eaefcbca6ff9aecf0ed2f17c */
+/* source: js/actions.js sha256:723f9d5deee295c01dbf33251e74f20fe60f9fbd968caef4c7887f88ec5f1ead */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
  * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
  * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
@@ -4559,6 +4611,14 @@ function soDuong(v, toiDa) {
   return toiDa !== undefined ? Math.min(v, toiDa) : v;
 }
 function chuoi(v, dai) { return String(v === undefined || v === null ? '' : v).slice(0, dai || 40); }
+/* Tên tài nguyên đến từ client. Tra thẳng G.C.TY_GIA[r] là bẫy: r = '__proto__'
+   trả về Object.prototype (truthy) nên lọt qua mọi kiểm tra rồi ném ở dòng sau.
+   Chỉ nhận khoá do CHÍNH object sở hữu và phải có trong bảng tài nguyên. */
+function resGiaoDich(v) {
+  var r = chuoi(v, 10);
+  if (!Object.prototype.hasOwnProperty.call(G.C.TY_GIA, r)) return null;
+  return G.byId(G.RES, r) ? r : null;
+}
 
 G.HANHDONG = {
   /* --- xây dựng --- */
@@ -4636,8 +4696,8 @@ G.HANHDONG = {
    * tới hành tinh sau 6 giờ, và có thể HẾT TIỀN MẶT — không phải bộ đổi vô hạn. */
   ban: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không bán được loại này.';
+    var r = resGiaoDich(d.res);
+    if (!r) return 'Không bán được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần bán.';
     if ((p.res[r] || 0) < n) return 'Không đủ ' + G.byId(G.RES, r).ten + '.';
@@ -4664,8 +4724,8 @@ G.HANHDONG = {
   },
   mua: function (st, d) {
     var p = ht(st, d.pi); if (!p) return 'Hành tinh không tồn tại.';
-    var r = chuoi(d.res, 10);
-    if (!G.C.TY_GIA[r]) return 'Không mua được loại này.';
+    var r = resGiaoDich(d.res);
+    if (!r) return 'Không mua được loại này.';
     var n = soDuong(d.n);
     if (!n) return 'Nhập số lượng cần mua.';
     var s = G.sieuThi(st);
