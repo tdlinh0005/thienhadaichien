@@ -695,6 +695,15 @@ U.m_phongthu = function () {
     'Lớp quỹ đạo giao chiến ngay từ vòng 1; hạm đội địch chỉ xuống tới tầng khí quyển và đụng phòng thủ mặt đất ' +
     'từ vòng ' + G.VONG_XUONG_DAT + '. Công sự bị phá có 70% cơ hội được sửa lại sau trận.</p>';
   h += '<b>Đang có:</b> ' + U.dsTau(p.def) + '<br><b>Tên lửa:</b> ' + U.dsTau(p.mis);
+  if (G.quanThuTong) {
+    var tenBCHp = G.B(G.C.CT_BCH) ? G.B(G.C.CT_BCH).ten : 'Bộ Chỉ Huy';
+    h += '<p class="mo" style="margin:8px 0 0"><b>Quân trấn giữ mặt đất:</b> <b class="luc">' +
+      G.so(G.quanThuTong(p)) + '</b> — mỗi công trình tự có ' + G.C.QUAN_THU_MOI_CT +
+      ' quân giữ nhóm của mình. Quân đổ bộ phải dẹp xong quân thủ của một nhóm mới chạm được ' +
+      'vào công trình nhóm đó; nhóm nào bị tràn thì ' + Math.round(G.C.THOAT_VE_BCH * 100) +
+      '% quân còn sống rút về <b>' + U.esc(tenBCHp) + '</b> và cố thủ ở đó. ' +
+      '<b>' + U.esc(tenBCHp) + '</b> chỉ bị đánh khi mọi công trình khác đã bị san phẳng.</p>';
+  }
   h += '</div></div>';
   var nhom = [['quydao', 'Lớp quỹ đạo'], ['dat', 'Lớp mặt đất']];
   for (var n = 0; n < nhom.length; n++) {
@@ -1284,6 +1293,17 @@ U.veBaoCao = function (d) {
           ')</span></p>';
     else if (db.thang)
       h += '<p class="mo">Làm chủ mặt đất nhưng không đủ sức phá công trình nào — cần nhiều Robot/Tank hơn.</p>';
+    if (db.phaCT && (db.phaCT.quanThuDiet || db.phaCT.tanQuanVeBCH)) {
+      var tenBCH = G.B(G.C.CT_BCH) ? G.B(G.C.CT_BCH).ten : 'Bộ Chỉ Huy';
+      h += '<p class="mo">Quân trấn giữ bị diệt: <b>' + G.so(db.phaCT.quanThuDiet || 0) + '</b>' +
+        (db.phaCT.tanQuanVeBCH
+          ? ' · tàn quân rút về <b>' + U.esc(tenBCH) + '</b>: <b class="vang">' +
+            G.so(db.phaCT.tanQuanVeBCH) + '</b>'
+          : '') +
+        (db.phaCT.chanTaiNhom && G.B(db.phaCT.chanTaiNhom)
+          ? ' · <span class="do">bị chặn lại ở ' + U.esc(G.B(db.phaCT.chanTaiNhom).ten) + '</span>'
+          : '') + '</p>';
+    }
   }
   h += '<p><b>Cướp được:</b> ' + U.dsRes(d.cuop) + '<br>' +
     '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Thạch Anh ' +

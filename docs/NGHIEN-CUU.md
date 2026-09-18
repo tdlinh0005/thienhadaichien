@@ -127,6 +127,15 @@ và **tàu thăm dò / gián điệp**.
   tường thuật ghi hạm đổ bộ chờ tới sau khi quỹ đạo MIMI thất thủ.
 - **Mỗi nhóm công trình có quân trấn giữ riêng**: *"số quân thủ mỗi công trình vẫn còn
   rất nhiều"*; tàn quân có thể **rút hết về BCH**.
+  **Đã dựng lại** (`G.quanThuNhom`, `G.phaCongTrinh`): quân thủ suy thẳng từ số công
+  trình của từng nhóm, quân đổ bộ phải dẹp xong quân thủ một nhóm mới chạm được vào
+  công trình nhóm đó, nhóm nào bị tràn thì một phần quân còn sống rút về **Bộ Chỉ Huy**
+  (`G.C.CT_BCH`) và cố thủ; BCH chỉ bị đánh khi mọi công trình khác đã bị san phẳng.
+  **[TÁI DỰNG] toàn bộ con số.** Nguồn nêu "2.000 quân thủ/công trình" nhưng đó là thang
+  của bản gốc, nơi đơn vị đếm bằng hàng triệu; bản này đếm bằng hàng nghìn nên
+  `QUAN_THU_MOI_CT` hạ xuống cho khớp thang nội bộ — ép đúng 2.000 thì không đội đổ bộ
+  nào hạ nổi một hành tinh. Trần phá 25% **không** tính BCH: nếu tính, xây thêm BCH lại
+  nới trần và làm chính các công trình khác dễ mất hơn, ngược hẳn ý nghĩa của nó.
 - Đổ bộ thành công thì **phá huỷ công trình**: *"Hạm đổ bộ rảnh tay tấn công xuống và
   phá hủy toàn bộ những công trình của MiMi. Cuối cùng chỉ chừa lại đúng **1.000 Nhà
   Máy Tàu Bay**"*.

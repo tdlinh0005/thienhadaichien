@@ -410,7 +410,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 <div id="toast"></div>
 
 <script>
-/* source: js/data.js sha256:dc75c361279eec9dda1329ad7aa36295ff9e75625e3a1e90878926ec3d867631 */
+/* source: js/data.js sha256:9740be21d0dedc62b2dc21aef56e4d8c0bab3f666e244a007680ca1bf1391750 */
 /* =========================================================================
  * THIÊN HÀ ĐẠI CHIẾN — Bảng dữ liệu game
  * -------------------------------------------------------------------------
@@ -836,6 +836,11 @@ G.C = {
   SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
   PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
+  /* --- quân trấn giữ theo nhóm công trình (cơ chế bản gốc) --- */
+  CT_BCH: 'fleetHQ',         // Bộ Chỉ Huy: nhóm đánh SAU CÙNG, nơi tàn quân dồn về
+  QUAN_THU_MOI_CT: 40,       // [TÁI DỰNG] mỗi công trình có bấy nhiêu quân trấn giữ
+  SUC_MOI_QUAN_THU: 3,       // [TÁI DỰNG] sức đổ bộ phải bỏ ra cho mỗi quân trấn giữ
+  THOAT_VE_BCH: 0.25,        // [TÁI DỰNG] phần quân thủ của nhóm bị tràn rút được về BCH
   TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu Nhiên Liệu cho chuyến bay
   EP_NHIEN_LIEU_VE: false,   // bật = ép đúng luật gốc: không đủ nhiên liệu về thì không cho đi
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)
@@ -2530,7 +2535,7 @@ G.giaoHangToi = function (st, i) {
     G.tdStr(p.c) + '.');
 };
 
-/* source: js/fleet.js sha256:5608bf050b93827a6c2cd29ad89cd55d0c11f11aaccb9d7e3c1779f43449c3e8 */
+/* source: js/fleet.js sha256:b05f32f1926d733d019efc049d50589adbdf6f52e0b19c0bd5b84e10360a28bd */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -4664,17 +4669,70 @@ G.sucPhaCT = function (linh) {
 
 /* Phá công trình bằng sức đổ bộ còn lại. Mỗi loại được xử lý
  * theo lô, nên thời gian là O(số loại), không phụ thuộc hàng triệu nhà máy. */
+/* Quân trấn giữ của MỘT nhóm công trình, suy thẳng từ số công trình đang có.
+   Suy ra chứ không lưu thành state mới: save cũ vẫn chạy, và không thể lệch
+   khỏi số công trình thật. */
+G.quanThuNhom = function (p, id) {
+  return Math.max(0, Math.floor((p.b[id] || 0) * G.C.QUAN_THU_MOI_CT));
+};
+
+/* Tổng quân trấn giữ mặt đất của cả hành tinh — dùng cho báo cáo và giao diện. */
+G.quanThuTong = function (p) {
+  var t = 0;
+  for (var k in p.b) t += G.quanThuNhom(p, k);
+  return t;
+};
+
+/* --- PHÁ CÔNG TRÌNH: TỪNG NHÓM MỘT, TÀN QUÂN RÚT VỀ BCH -----------------
+ * [XÁC NHẬN] Tường thuật Start War III: "số quân thủ mỗi công trình vẫn còn
+ * rất nhiều" và tàn quân "có thể rút hết về BCH". Trước đây bản phục dựng
+ * coi mặt đất là một hồ chung rồi phá công trình theo phần trăm; nay mỗi
+ * nhóm công trình có quân trấn giữ riêng và phải dẹp xong mới chạm được vào
+ * công trình của nhóm đó.
+ *
+ * [TÁI DỰNG] toàn bộ con số. Nguồn có nêu "2.000 quân thủ/công trình" nhưng
+ * đó là thang của bản gốc — nơi đơn vị đếm bằng hàng triệu. Bản này đếm bằng
+ * hàng nghìn, nên QUAN_THU_MOI_CT hạ xuống cho khớp thang nội bộ; ép đúng
+ * 2.000 thì không đội đổ bộ nào hạ nổi một hành tinh.
+ *
+ * Bộ Chỉ Huy (G.C.CT_BCH) luôn được xét SAU CÙNG: mọi nhóm bị tràn đều để
+ * lại một phần quân rút về đó, nên trận cuối ở BCH là trận khó nhất — và đó
+ * cũng là lý do một hành tinh bị san phẳng vẫn thường còn sót vài công trình.
+ */
 G.phaCongTrinh = function (st, p, suc) {
-  var tong = G.tongSoCT(p);
-  var conPha = tong > 0 ? Math.max(1, Math.floor(tong * G.C.PHA_CT_TOI_DA)) : 0;
-  var pha = {}, soPha = 0, ds = [], k;
+  var soBCH = Math.max(0, p.b[G.C.CT_BCH] || 0);
+  var tongKhac = G.tongSoCT(p) - soBCH;
+  /* Trần phá KHÔNG tính Bộ Chỉ Huy. Nếu tính, xây thêm BCH lại nới trần và
+     làm chính các công trình khác dễ mất hơn — ngược hẳn ý nghĩa của nó. */
+  var conPha = tongKhac > 0 ? Math.max(1, Math.floor(tongKhac * G.C.PHA_CT_TOI_DA)) : 0;
+  var pha = {}, soPha = 0, ds = [], bch = null, k;
   for (k in p.b) {
     var d = G.B(k);
-    if (d && p.b[k] > 0) ds.push({ id: k, gia: G.giaTriDiem(d.cost) * 1000 });
+    if (!d || !(p.b[k] > 0)) continue;
+    var muc = { id: k, gia: G.giaTriDiem(d.cost) * 1000 };
+    if (k === G.C.CT_BCH) bch = muc; else ds.push(muc);
   }
   ds.sort(function (a, b) { return b.gia - a.gia || (a.id < b.id ? -1 : 1); });
+
+  var tanQuan = 0, quanDiet = 0, chanNhom = null;
   for (var i = 0; i < ds.length && suc > 0 && soPha < conPha; i++) {
     var x = ds[i];
+    var quanThu = G.quanThuNhom(p, x.id) + (x.id === G.C.CT_BCH ? tanQuan : 0);
+    var sucThu = quanThu * G.C.SUC_MOI_QUAN_THU;
+    if (suc < sucThu) {
+      /* Không dẹp nổi nhóm này: công trình của nó đứng vững, số quân còn
+         sống rút về BCH. Đợt đổ bộ dừng ở đây. */
+      var diet = Math.floor(suc / Math.max(1, G.C.SUC_MOI_QUAN_THU));
+      quanDiet += diet;
+      tanQuan += Math.max(0, quanThu - diet);
+      chanNhom = x.id;
+      suc = 0;
+      break;
+    }
+    suc -= sucThu;
+    quanDiet += quanThu;
+    if (x.id !== G.C.CT_BCH) tanQuan += Math.floor(quanThu * G.C.THOAT_VE_BCH);
+
     var canSuc = Math.max(1, x.gia * G.C.SUC_PHA_MOI_TAI_NGUYEN);
     var n = Math.min(p.b[x.id] || 0, conPha - soPha, Math.floor(suc / canSuc));
     if (n < 1) continue;
@@ -4683,8 +4741,43 @@ G.phaCongTrinh = function (st, p, suc) {
     pha[x.id] = mat;
     soPha += mat;
   }
+
+  /* TRẬN CUỐI Ở BỘ CHỈ HUY. Chỉ mở ra khi mọi công trình khác đã bị san
+     phẳng — đúng thứ tự tường thuật bản gốc: BCH là nơi cố thủ sau cùng, và
+     toàn bộ tàn quân của các nhóm đã vỡ đều dồn về đây. Vì trần phá 25% nên
+     một đợt đổ bộ gần như không bao giờ với tới; phải bào mòn qua nhiều đợt.
+     Đó cũng là lý do một hành tinh bị đánh tan vẫn còn sót công trình. */
+  if (bch && suc > 0 && G.tongSoCT(p) - Math.max(0, p.b[G.C.CT_BCH] || 0) === 0) {
+    var quanBCH = G.quanThuNhom(p, bch.id) + tanQuan;
+    var sucBCH = quanBCH * G.C.SUC_MOI_QUAN_THU;
+    if (suc < sucBCH) {
+      var dietBCH = Math.floor(suc / Math.max(1, G.C.SUC_MOI_QUAN_THU));
+      quanDiet += dietBCH;
+      tanQuan = Math.max(0, quanBCH - dietBCH);
+      chanNhom = bch.id;
+      suc = 0;
+    } else {
+      suc -= sucBCH;
+      quanDiet += quanBCH;
+      tanQuan = 0;
+      var conPhaBCH = Math.max(1, Math.floor(soBCH * G.C.PHA_CT_TOI_DA));
+      var canBCH = Math.max(1, bch.gia * G.C.SUC_PHA_MOI_TAI_NGUYEN);
+      var nBCH = Math.min(p.b[bch.id] || 0, conPhaBCH, Math.floor(suc / canBCH));
+      if (nBCH >= 1) {
+        suc -= nBCH * canBCH;
+        var matBCH = G.giamCongTrinh(p, bch.id, nBCH);
+        pha[bch.id] = matBCH;
+        soPha += matBCH;
+      }
+    }
+  }
+
   /* soCap giữ tạm cho server/báo cáo v3; giá trị nay là số lượng. */
-  return { pha: pha, soLuong: soPha, soCap: soPha, chamTran: soPha >= conPha && conPha > 0 };
+  return {
+    pha: pha, soLuong: soPha, soCap: soPha,
+    quanThuDiet: quanDiet, tanQuanVeBCH: tanQuan, chanTaiNhom: chanNhom,
+    chamTran: soPha >= conPha && conPha > 0
+  };
 };
 
 G.moTaPhaCT = function (o) {
@@ -5030,7 +5123,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:526374cf3a5952e145344309a5f060c8d9e56323295f10f59f6155e3c08bb258 */
+/* source: js/ui.js sha256:e100364a5a72a2c500e9cc92fc421b04b5893943577cddc98d7102b0086fe97c */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -5728,6 +5821,15 @@ U.m_phongthu = function () {
     'Lớp quỹ đạo giao chiến ngay từ vòng 1; hạm đội địch chỉ xuống tới tầng khí quyển và đụng phòng thủ mặt đất ' +
     'từ vòng ' + G.VONG_XUONG_DAT + '. Công sự bị phá có 70% cơ hội được sửa lại sau trận.</p>';
   h += '<b>Đang có:</b> ' + U.dsTau(p.def) + '<br><b>Tên lửa:</b> ' + U.dsTau(p.mis);
+  if (G.quanThuTong) {
+    var tenBCHp = G.B(G.C.CT_BCH) ? G.B(G.C.CT_BCH).ten : 'Bộ Chỉ Huy';
+    h += '<p class="mo" style="margin:8px 0 0"><b>Quân trấn giữ mặt đất:</b> <b class="luc">' +
+      G.so(G.quanThuTong(p)) + '</b> — mỗi công trình tự có ' + G.C.QUAN_THU_MOI_CT +
+      ' quân giữ nhóm của mình. Quân đổ bộ phải dẹp xong quân thủ của một nhóm mới chạm được ' +
+      'vào công trình nhóm đó; nhóm nào bị tràn thì ' + Math.round(G.C.THOAT_VE_BCH * 100) +
+      '% quân còn sống rút về <b>' + U.esc(tenBCHp) + '</b> và cố thủ ở đó. ' +
+      '<b>' + U.esc(tenBCHp) + '</b> chỉ bị đánh khi mọi công trình khác đã bị san phẳng.</p>';
+  }
   h += '</div></div>';
   var nhom = [['quydao', 'Lớp quỹ đạo'], ['dat', 'Lớp mặt đất']];
   for (var n = 0; n < nhom.length; n++) {
@@ -6317,6 +6419,17 @@ U.veBaoCao = function (d) {
           ')</span></p>';
     else if (db.thang)
       h += '<p class="mo">Làm chủ mặt đất nhưng không đủ sức phá công trình nào — cần nhiều Robot/Tank hơn.</p>';
+    if (db.phaCT && (db.phaCT.quanThuDiet || db.phaCT.tanQuanVeBCH)) {
+      var tenBCH = G.B(G.C.CT_BCH) ? G.B(G.C.CT_BCH).ten : 'Bộ Chỉ Huy';
+      h += '<p class="mo">Quân trấn giữ bị diệt: <b>' + G.so(db.phaCT.quanThuDiet || 0) + '</b>' +
+        (db.phaCT.tanQuanVeBCH
+          ? ' · tàn quân rút về <b>' + U.esc(tenBCH) + '</b>: <b class="vang">' +
+            G.so(db.phaCT.tanQuanVeBCH) + '</b>'
+          : '') +
+        (db.phaCT.chanTaiNhom && G.B(db.phaCT.chanTaiNhom)
+          ? ' · <span class="do">bị chặn lại ở ' + U.esc(G.B(db.phaCT.chanTaiNhom).ten) + '</span>'
+          : '') + '</p>';
+    }
   }
   h += '<p><b>Cướp được:</b> ' + U.dsRes(d.cuop) + '<br>' +
     '<b>Bãi phế liệu tạo ra:</b> ' + G.so(d.pl.metal) + ' Kim Loại, ' + G.so(d.pl.crystal) + ' Thạch Anh ' +

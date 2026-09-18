@@ -423,6 +423,11 @@ G.C = {
   SAT_THUONG_ICBM: 14000,    // sát thương một quả Tên Lửa Liên Hành Tinh
   PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
+  /* --- quân trấn giữ theo nhóm công trình (cơ chế bản gốc) --- */
+  CT_BCH: 'fleetHQ',         // Bộ Chỉ Huy: nhóm đánh SAU CÙNG, nơi tàn quân dồn về
+  QUAN_THU_MOI_CT: 40,       // [TÁI DỰNG] mỗi công trình có bấy nhiêu quân trấn giữ
+  SUC_MOI_QUAN_THU: 3,       // [TÁI DỰNG] sức đổ bộ phải bỏ ra cho mỗi quân trấn giữ
+  THOAT_VE_BCH: 0.25,        // [TÁI DỰNG] phần quân thủ của nhóm bị tràn rút được về BCH
   TAU_DAU_BU: 600,           // mỗi Tàu Dầu bù được bao nhiêu Nhiên Liệu cho chuyến bay
   EP_NHIEN_LIEU_VE: false,   // bật = ép đúng luật gốc: không đủ nhiên liệu về thì không cho đi
   TOC_TEN_LUA: 26,           // giây bay cho mỗi hệ (chưa chia tốc độ máy chủ)

@@ -1763,5 +1763,83 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   ktra(G.tocDoHam({ tech: {} }, { stealth: 1 }) > 0, 'đơn vị: tàng hình có tốc độ hợp lệ');
 })();
 
+/* ---- 22. quân trấn giữ theo nhóm công trình + tàn quân rút về BCH ---- */
+(function () {
+  function htThu() {
+    var s = G.moiGame('Trấn Giữ', 'THDC-TRAN-GIU'), pp = s.planets[0];
+    pp.b = {
+      metalMine: 200, crystalMine: 150, solar: 180, farm: 120,
+      shipyard: 40, lab: 30, fleetHQ: 25, metalStore: 60
+    };
+    return { st: s, p: pp };
+  }
+
+  var a = htThu();
+  ktra(G.quanThuNhom(a.p, 'metalMine') === 200 * G.C.QUAN_THU_MOI_CT,
+    'trấn giữ: quân thủ mỗi nhóm suy đúng từ số công trình');
+  ktra(G.quanThuTong(a.p) === G.tongSoCT(a.p) * G.C.QUAN_THU_MOI_CT,
+    'trấn giữ: tổng quân thủ bằng tổng công trình nhân định mức');
+  a.p.b.metalMine = 0;
+  ktra(G.quanThuNhom(a.p, 'metalMine') === 0, 'trấn giữ: nhóm không còn công trình thì không còn quân');
+
+  /* sức yếu: dẹp được ít quân, không phá nổi công trình nào, tàn quân rút về BCH */
+  var b = htThu(), tongB = G.tongSoCT(b.p);
+  var kqYeu = G.phaCongTrinh(b.st, b.p, 5000);
+  ktra(kqYeu.soLuong === 0, 'trấn giữ: sức đổ bộ yếu không phá được công trình nào');
+  ktra(kqYeu.quanThuDiet > 0, 'trấn giữ: nhưng vẫn diệt được một phần quân thủ');
+  ktra(kqYeu.tanQuanVeBCH > 0, 'trấn giữ: quân thủ sống sót rút về Bộ Chỉ Huy');
+  ktra(!!kqYeu.chanTaiNhom, 'trấn giữ: báo rõ bị chặn lại ở nhóm nào');
+  ktra(G.tongSoCT(b.p) === tongB, 'trấn giữ: công trình còn nguyên khi bị chặn');
+
+  /* sức mạnh: phá tới trần, BCH vẫn đứng vì còn công trình khác */
+  var c = htThu();
+  var kqManh = G.phaCongTrinh(c.st, c.p, 1e9);
+  ktra(kqManh.soLuong > 0 && kqManh.chamTran === true, 'trấn giữ: sức lớn phá tới trần mỗi trận');
+  ktra((c.p.b.fleetHQ || 0) === 25,
+    'trấn giữ: Bộ Chỉ Huy KHÔNG suy suyển khi còn công trình khác đứng');
+  ktra(kqManh.pha.fleetHQ === undefined, 'trấn giữ: BCH không nằm trong danh sách bị phá');
+
+  /* xây thêm BCH không được làm các công trình khác dễ mất hơn */
+  var soPhaTheoBCH = [0, 25, 200, 1000].map(function (n) {
+    var x = htThu();
+    if (n === 0) delete x.p.b.fleetHQ; else x.p.b.fleetHQ = n;
+    return G.phaCongTrinh(x.st, x.p, 5e6).soLuong;
+  });
+  ktra(soPhaTheoBCH.every(function (v) { return v === soPhaTheoBCH[0]; }),
+    'trấn giữ: số BCH KHÔNG làm đổi số công trình khác bị phá (' + soPhaTheoBCH.join(',') + ')');
+
+  /* trận cuối: chỉ còn BCH thì nó mới bị đánh */
+  function chiBCH(suc) {
+    var s = G.moiGame('Cuối', 'THDC-BCH-CUOI'), pp = s.planets[0];
+    pp.b = { fleetHQ: 40 };
+    var kq = G.phaCongTrinh(s, pp, suc);
+    return { kq: kq, con: pp.b.fleetHQ || 0 };
+  }
+  var it = chiBCH(1000);
+  ktra(it.kq.soLuong === 0 && it.con === 40 && it.kq.chanTaiNhom === G.C.CT_BCH,
+    'trấn giữ: sức yếu không hạ nổi Bộ Chỉ Huy trơ trọi');
+  var du = chiBCH(500000);
+  ktra(du.kq.soLuong > 0 && du.con < 40,
+    'trấn giữ: san phẳng hết rồi thì Bộ Chỉ Huy MỚI đổ được');
+  ktra(du.kq.pha[G.C.CT_BCH] > 0, 'trấn giữ: BCH hiện trong danh sách bị phá ở trận cuối');
+
+  /* tàn quân của các nhóm khác làm trận cuối khó hơn */
+  function haiDot(soKhac) {
+    var s = G.moiGame('Hai Đợt', 'THDC-HAI-DOT'), pp = s.planets[0];
+    pp.b = soKhac ? { metalMine: soKhac, fleetHQ: 10 } : { fleetHQ: 10 };
+    return G.phaCongTrinh(s, pp, 1e9);
+  }
+  ktra(haiDot(100).tanQuanVeBCH > haiDot(0).tanQuanVeBCH,
+    'trấn giữ: càng nhiều nhóm bị tràn thì tàn quân dồn về BCH càng đông');
+
+  /* hành tinh trắng trơn không nổ, và giá trị trả về vẫn đủ trường */
+  var d = G.moiGame('Trống', 'THDC-TRONG-CT'), pd = d.planets[0];
+  pd.b = {};
+  var kqD = G.phaCongTrinh(d, pd, 1e6);
+  ktra(kqD.soLuong === 0 && kqD.quanThuDiet === 0 && kqD.tanQuanVeBCH === 0,
+    'trấn giữ: hành tinh không công trình cho kết quả rỗng, không ném');
+  ktra(kqD.soCap === kqD.soLuong, 'trấn giữ: giữ nguyên trường soCap cho báo cáo cũ');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);
