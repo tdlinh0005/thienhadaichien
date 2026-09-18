@@ -15181,13 +15181,19 @@ if (process.env.THDC_SCHEDULER_PACKAGE_PROBE === '1') {
 }
 
 function task10RunSchedulerPackageProbe() {
+  // NODE_TEST_CONTEXT do node --test đặt cho tiến trình này; nếu để nó lọt sang
+  // tiến trình con thì node --test bên đó chuyển sang báo cáo v8-serialize và
+  // marker dạng chữ không còn nằm trong stdout. Xoá đi để tiến trình con chạy
+  // đúng như `npm run test:scheduler` trên CI: một lần chạy TAP ở mức trên cùng.
+  var childEnv = Object.assign({}, process.env, {
+    THDC_SCHEDULER_PACKAGE_PROBE: '1', THDC_SCHEDULER_PACKAGE_CHILD: '1'
+  });
+  delete childEnv.NODE_TEST_CONTEXT;
   var child = require('node:child_process').spawnSync(
     process.platform === 'win32' ? 'npm.cmd' : 'npm',
     ['run', 'test:scheduler'], {
       cwd: path.join(__dirname, '..'), encoding: 'utf8',
-      env: Object.assign({}, process.env, {
-        THDC_SCHEDULER_PACKAGE_PROBE: '1', THDC_SCHEDULER_PACKAGE_CHILD: '1'
-      })
+      maxBuffer: 64 * 1024 * 1024, env: childEnv
     }
   );
   return child;

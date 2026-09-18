@@ -842,7 +842,11 @@ có thể đổi.
 ### Chuyển sang durable scheduler và quay lui
 
 Chuyển chế độ là thao tác bảo trì cục bộ, không phải API HTTP và không được tự
-chạy khi server khởi động. Trước khi chuyển, dừng tiến trình ghi vào database và
+chạy khi server khởi động. **Hệ quả cho một cài đặt mới:** database vừa tạo ở
+chế độ `legacy`, nên tiến trình lên bình thường và `/healthz` trả 200, nhưng
+`/readyz` trả `SCHEDULER_MODE_LEGACY` và mọi `/api/*` trả 503 cho tới khi chạy
+cutover một lần. Cutover trên database trống là hợp lệ và không nhập gì
+(`{"imported":0}`). Trước khi chuyển, dừng tiến trình ghi vào database và
 tạo bản sao SQLite nhất quán bằng `.backup` (hoặc dừng server rồi copy đủ
 `.db`, `-wal`, `-shm`). Giữ bản sao này cho tới khi đã xác nhận scheduler chạy
 ổn định.

@@ -62,6 +62,11 @@ function metricValue(status, name) {
 }
 
 function renderMetrics(status) {
+  // Chuẩn hoá trước khi vẽ: status thiếu counts/ages (scheduler đang recovering,
+  // hoặc một cài đặt chỉ trả state/ready) phải ra số 0, không được ném lỗi —
+  // /metrics là chỗ để nhìn khi hệ đang hỏng, mất nó là mất luôn chẩn đoán.
+  // Giá trị có mặt nhưng sai (âm, không phải số) vẫn thành NaN và vẫn ném.
+  status = canonicalSchedulerStatus(status);
   var own = Object.assign(newMetricState(), status.metrics || {});
   var scalarNames = METRIC_FIELDS.filter(function (name) {
     return ['scheduler_job_attempts_total', 'scheduler_job_duration_ms',

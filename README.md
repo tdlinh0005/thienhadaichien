@@ -46,12 +46,22 @@ Ngoài bản một người chạy hẳn trong trình duyệt, repo còn có m�
 người chơi** viết bằng Node thuần (`node:http` + `node:sqlite`, không cài gói nào):
 
 ```bash
+# LẦN ĐẦU: chuyển database sang durable scheduler (chỉ làm một lần cho mỗi file .db)
+node tools/scheduler-cutover.js --db server/data/thdc.db --action cutover
+
 node server/index.js                       # hoặc: npm start  ->  http://localhost:8080
 PORT=3000 THDC_DB=/var/lib/thdc/thdc.db node server/index.js
 ```
 
 Cần **Node 22.5 trở lên** (vì `node:sqlite`, nên lúc chạy có một dòng
 `ExperimentalWarning` — bình thường, không phải lỗi).
+
+> **Bước cutover là bắt buộc.** Cutover là thao tác bảo trì thủ công, server
+> **không** tự chạy khi khởi động (xem [`docs/MAY-CHU.md`](docs/MAY-CHU.md)).
+> Database còn ở chế độ `legacy` thì server vẫn lắng nghe và `/healthz` vẫn 200,
+> nhưng `/readyz` trả `{"ready":false,"reason":"SCHEDULER_MODE_LEGACY"}` và **mọi
+> `/api/*` trả 503** — nhìn từ trình duyệt là "Máy chủ đang đồng bộ, hãy thử lại."
+> Nếu gặp tình trạng đó, kiểm tra `/readyz` trước rồi chạy lệnh cutover ở trên.
 
 - **Tài khoản riêng**: đăng ký tên đăng nhập + mật khẩu (băm scrypt kèm muối),
   nhận ngay một hành tinh ở một chỗ còn trống trong vũ trụ chung.

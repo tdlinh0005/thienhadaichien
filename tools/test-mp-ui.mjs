@@ -9,8 +9,11 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
+
+const require = createRequire(import.meta.url);
 
 var THUMUC = path.dirname(fileURLToPath(import.meta.url));
 var GOC = path.join(THUMUC, '..');
@@ -127,10 +130,30 @@ function soHang(page) {
  * ======================================================================== */
 var sv = null, browser = null;
 
+/* Cutover là thao tác bảo trì thủ công, server không tự chạy lúc khởi động
+ * (xem docs/MAY-CHU.md). Database mới nào còn ở chế độ legacy thì readiness
+ * trả SCHEDULER_MODE_LEGACY và mọi /api/* là 503 — nên bài test phải chuyển
+ * chế độ trước, đúng như tools/test-server.js và tools/test-tai.js làm. */
+function chuyenSangDurable() {
+  var Kho = require(path.join(GOC, 'server', 'db.js')).Kho;
+  var runMaintenanceCutover =
+    require(path.join(GOC, 'server', 'scheduler', 'cutover.js')).runMaintenanceCutover;
+  var kho = new Kho(DB);
+  try {
+    var kq = runMaintenanceCutover({
+      kho: kho,
+      clock: { nowMs: function () { return Date.now(); } },
+      ownerId: '00000000-0000-4000-8000-0000000000a1'
+    });
+    ktra(kq && kq.mode === 'durable', 'cutover database mới sang durable');
+  } finally { kho.dong(); }
+}
+
 async function chay() {
   /* ---------- 1. dựng máy chủ riêng cho bài test ---------- */
+  chuyenSangDurable();
   sv = spawn(process.execPath, [path.join(GOC, 'server', 'index.js')], {
-    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '60000', THDC_GIOI_HAN: '5000' }),
+    env: Object.assign({}, process.env, { PORT: String(CONG), THDC_DB: DB, THDC_NHIP: '3000', THDC_GIOI_HAN: '5000' }),
     stdio: ['ignore', 'pipe', 'pipe']
   });
   var raSV = '';

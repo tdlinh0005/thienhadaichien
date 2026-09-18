@@ -109,9 +109,19 @@ async function main(env, overrides) {
   return app;
 }
 
+// Chỉ in mã lỗi dạng HOA_GACH_DUOI, không in message tự do/stack: đủ để biết
+// vì sao server không lên (ví dụ SCHEDULER_POLL_MS_INVALID, THDC_DB_NOT_ALLOWLISTED)
+// mà không lộ đường dẫn, payload hay state ra log khởi động.
+function schedulerStartFailureCode(error) {
+  var code = error && typeof error.code === "string" ? error.code : null;
+  if (!code && error && typeof error.message === "string") code = error.message;
+  return /^[A-Z][A-Z0-9_]{0,80}$/.test(code || "") ? code : null;
+}
+
 if (require.main === module) {
-  main(process.env).catch(function () {
-    process.stderr.write("SERVER_START_FAILED\n");
+  main(process.env).catch(function (error) {
+    const code = schedulerStartFailureCode(error);
+    process.stderr.write("SERVER_START_FAILED" + (code ? " " + code : "") + "\n");
     process.exitCode = 1;
   });
 }
