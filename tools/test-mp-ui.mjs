@@ -198,6 +198,64 @@ async function chay() {
   ktra(/Kim Loại/.test(res1) && /Galana/.test(res1), 'thanh tài nguyên hiện đủ các mục');
   var ten1 = await p1.evaluate('window.MP.ten');
   ktra(ten1 === 'Quốc Bình', 'giao diện nhận đúng tên chỉ huy từ máy chủ (' + ten1 + ')');
+
+  /* ---------- đổi giao diện: theme tối <-> 3D Blue ---------- */
+  ktra(await p1.evaluate('document.documentElement.getAttribute("data-theme") === null'),
+    'theme: mặc định là bản tối, không gắn data-theme');
+  ktra(await p1.isVisible('[data-act="doi-theme"]'), 'theme: thanh trên có nút đổi giao diện');
+  await p1.click('[data-act="doi-theme"]');
+  ktra(await p1.evaluate('document.documentElement.getAttribute("data-theme") === "xanh3d"'),
+    'theme: bấm một lần là sang 3D Blue');
+  var nenXanh = await p1.evaluate(
+    'getComputedStyle(document.querySelector(".panel")).backgroundImage'
+  );
+  ktra(/234, 243, 252|rgb\(234/.test(nenXanh), 'theme: 3D Blue đổi thật nền panel sang sáng');
+  var luuTheme = await p1.evaluate('localStorage.getItem("thdc_theme")');
+  ktra(luuTheme === 'xanh3d', 'theme: lựa chọn được lưu lại');
+  /* mọi nhãn có màu trong vùng nội dung phải còn đọc được trên nền sáng */
+  var doTuongPhan = await p1.evaluate(function () {
+    function lum(c) {
+      var m = c.match(/\d+/g).map(Number).map(function (v) {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+      });
+      return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
+    }
+    function nen(el) {
+      while (el) {
+        var cs = getComputedStyle(el);
+        if (cs.backgroundImage && cs.backgroundImage !== 'none') {
+          var m = cs.backgroundImage.match(/rgba?\([^)]*\)/);
+          if (m) return m[0];
+        }
+        if (cs.backgroundColor && !/rgba\(0, 0, 0, 0\)/.test(cs.backgroundColor)) {
+          return cs.backgroundColor;
+        }
+        el = el.parentElement;
+      }
+      return 'rgb(255, 255, 255)';
+    }
+    var kem = 0, tong = 0, te = [];
+    document.querySelectorAll('#noidung [style*="color"]').forEach(function (el) {
+      if (!el.textContent.trim()) return;
+      tong++;
+      var a = lum(getComputedStyle(el).color), b = lum(nen(el));
+      var ty = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      if (ty < 3) {
+        kem++;
+        te.push(el.textContent.trim().slice(0, 24) + ' [' + ty.toFixed(2) + '] ' +
+          el.outerHTML.slice(0, 70));
+      }
+    });
+    return { kem: kem, tong: tong, te: te };
+  });
+  ktra(doTuongPhan.tong > 0 && doTuongPhan.kem === 0,
+    'theme: mọi nhãn có màu trên nền sáng đều đủ tương phản (' +
+      doTuongPhan.kem + '/' + doTuongPhan.tong + ' kém' +
+      (doTuongPhan.te.length ? ': ' + doTuongPhan.te.join(' | ') : '') + ')');
+  await p1.click('[data-act="doi-theme"]');
+  ktra(await p1.evaluate('document.documentElement.getAttribute("data-theme") === null'),
+    'theme: bấm tiếp là quay lại bản tối');
   var tqDanSu = await chuNoiDung(p1);
   ktra(/Dân số/.test(tqDanSu) && /Ủng hộ/.test(tqDanSu) && /Thuế/.test(tqDanSu),
     'tổng quan hiện đủ dân số, ủng hộ và thuế');

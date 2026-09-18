@@ -7,7 +7,7 @@
 <title>Thiên Hà Đại Chiến</title>
 <meta name="description" content="Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến do nhóm Việt phát triển từ 2004.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 fill=%27%23070b14%27/%3E%3Ccircle cx=%2732%27 cy=%2734%27 r=%2716%27 fill=%27%23ff7a18%27/%3E%3Cellipse cx=%2732%27 cy=%2734%27 rx=%2726%27 ry=%277%27 fill=%27none%27 stroke=%27%2357c8ff%27 stroke-width=%273%27/%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%272%27 fill=%27%23fff%27/%3E%3Ccircle cx=%2752%27 cy=%2716%27 r=%271.6%27 fill=%27%23fff%27/%3E%3C/svg%3E">
-<style data-source="css/style.css" data-sha256="6d0653b4e94a100f9ceba0f25d4b3b2e272ef4460fc69ea88940cb6dc751c280">/* THIÊN HÀ ĐẠI CHIẾN — giao diện gợi lại webgame Việt khoảng năm 2010:
+<style data-source="css/style.css" data-sha256="cc83add7a30a2421c39a7a2e4144cd0b65526a8cc6e27ca3229d3e487743e8ba">/* THIÊN HÀ ĐẠI CHIẾN — giao diện gợi lại webgame Việt khoảng năm 2010:
    nền vũ trụ tối, viền kim loại, bảng biểu dày đặc số liệu. */
 :root{
   --den:#05070f; --den2:#0a0e1b; --panel:#101627; --panel2:#0c1120;
@@ -228,6 +228,140 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
   #chon-ht{max-width:150px}
   .kd-logo,.kd-logo span{font-size:26px}
 }
+
+/* =====================================================================
+   THEME "3D BLUE"
+   Tư liệu ghi bản đồ hoạ 1.34/1.35b dùng theme tên "3D Blue", nhưng không
+   còn screenshot nào để đối chiếu. Đây KHÔNG phải bản sao giao diện gốc —
+   là một skin dựng theo đúng lối webgame Việt 2004–2010: khung xanh kim
+   loại bo viền nổi, thanh tiêu đề chữ trắng in hoa, bảng biểu dày số liệu,
+   nút bấm bóng kiểu nút 3D. Đổi qua lại bằng nút ở thanh trên.
+   ===================================================================== */
+:root[data-theme="xanh3d"]{
+  --den:#0a2a4e; --den2:#0d3d6b; --panel:#dce9f7; --panel2:#c3d9ef;
+  --vien:#7ba6d0; --vien2:#4f82b8;
+  --chu:#14304f; --mo:#4f6f92; --sang:#07203a;
+  --cam:#0b4f8f; --cam2:#1873c4; --lam:#1464a8; --luc:#1d7a45; --do:#b32020;
+  --tim:#6b3fae; --vang:#9a6a08;
+}
+:root[data-theme="xanh3d"] body{
+  background:
+    linear-gradient(180deg,#1f6fb4 0%,#12518c 140px,#0b3a68 320px,#082c50 100%) fixed,
+    var(--den);
+}
+:root[data-theme="xanh3d"] body::before{opacity:.12}
+:root[data-theme="xanh3d"] b{color:#062a4b}
+
+/* khung nổi kiểu "3D": viền sáng ở trên, viền tối ở dưới */
+:root[data-theme="xanh3d"] .panel,
+:root[data-theme="xanh3d"] .the,
+:root[data-theme="xanh3d"] .kd-hop{
+  background:linear-gradient(180deg,#eaf3fc 0%,#cfe0f2 100%);
+  border:1px solid #5b8cbe;
+  border-radius:3px;
+  box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 #a9c6e2, 0 1px 3px rgba(4,26,48,.35);
+}
+:root[data-theme="xanh3d"] .panel>h3{
+  background:linear-gradient(180deg,#2a7cc4 0%,#1a63a6 48%,#155692 52%,#0d4578 100%);
+  border-bottom:1px solid #0b3d6d;
+  color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,.45);
+  letter-spacing:1.6px;
+}
+:root[data-theme="xanh3d"] #thanh-tren{
+  background:linear-gradient(180deg,#1f6cb0 0%,#12558f 50%,#0d497e 51%,#093a68 100%);
+  border-bottom:1px solid #072e55;
+  box-shadow:0 2px 4px rgba(3,20,38,.45);
+}
+:root[data-theme="xanh3d"] .tt-logo{color:#ffe08a;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+:root[data-theme="xanh3d"] .tt-res .o .n{color:#bcdcf7}
+:root[data-theme="xanh3d"] .tt-res .o .v{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+:root[data-theme="xanh3d"] .tt-res .o .r{color:#9ec9ea}
+
+:root[data-theme="xanh3d"] #menu a{
+  background:linear-gradient(180deg,#f2f8fd,#d3e3f3);
+  border:1px solid #6f9dcb;border-left:3px solid transparent;color:#123252;
+  box-shadow:inset 0 1px 0 #fff;
+}
+:root[data-theme="xanh3d"] #menu a:hover{border-left-color:#1873c4;color:#04203c}
+:root[data-theme="xanh3d"] #menu a.on{
+  background:linear-gradient(180deg,#2a7cc4,#0f4f85);border-left-color:#ffd75e;color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,.4);
+}
+:root[data-theme="xanh3d"] #menu a .dem-nho{background:#d13b1f;color:#fff}
+
+:root[data-theme="xanh3d"] .nut{
+  background:linear-gradient(180deg,#fbfdff 0%,#dbe9f7 48%,#cadef1 52%,#b3cfe9 100%);
+  border:1px solid #5b8cbe;color:#11314f;
+  box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(6,30,54,.3);
+}
+:root[data-theme="xanh3d"] .nut:hover{border-color:#1873c4;color:#062a4b}
+:root[data-theme="xanh3d"] .nut.lon{
+  background:linear-gradient(180deg,#ffd06a 0%,#f2a81f 48%,#e09612 52%,#c87c06 100%);
+  border-color:#945c03;color:#3a2200;text-shadow:0 1px 0 rgba(255,255,255,.35);
+}
+:root[data-theme="xanh3d"] .nut.oke{
+  background:linear-gradient(180deg,#9fe0b6 0%,#4eb578 48%,#3da266 52%,#2a8850 100%);
+  border-color:#1f6d40;color:#05301a;
+}
+:root[data-theme="xanh3d"] .nut.xoa{
+  background:linear-gradient(180deg,#f2b4b4 0%,#d76565 48%,#c85252 52%,#ac3a3a 100%);
+  border-color:#8d2828;color:#3a0808;
+}
+:root[data-theme="xanh3d"] input,
+:root[data-theme="xanh3d"] select,
+:root[data-theme="xanh3d"] textarea{
+  background:#fff;border:1px solid #7ba6d0;color:#0d2a47;
+  box-shadow:inset 0 1px 2px rgba(20,60,100,.18);
+}
+:root[data-theme="xanh3d"] input:focus,
+:root[data-theme="xanh3d"] select:focus{
+  border-color:#1873c4;box-shadow:0 0 0 2px rgba(24,115,196,.2);
+}
+
+:root[data-theme="xanh3d"] th{
+  background:linear-gradient(180deg,#cbdff2,#aecbe6);color:#0d3057;border-bottom:1px solid #7ba6d0;
+}
+:root[data-theme="xanh3d"] th,
+:root[data-theme="xanh3d"] td{border-bottom:1px solid #b6cfe6}
+:root[data-theme="xanh3d"] tr:hover>td{background:#eaf3fc}
+:root[data-theme="xanh3d"] tr.trong td{color:#5a7694}
+:root[data-theme="xanh3d"] tr.toi td{background:#d9f0e2}
+
+:root[data-theme="xanh3d"] .thanh{background:#e7f0f9;border-color:#8fb4d8}
+:root[data-theme="xanh3d"] .thanh>i{background:linear-gradient(90deg,#1873c4,#4fb0ef)}
+:root[data-theme="xanh3d"] .canh{background:#fadede;color:#6d1414;border-left-color:#b32020}
+:root[data-theme="xanh3d"] .canh.bt{background:#fdf3d6;color:#6b4c05;border-left-color:#c79208}
+:root[data-theme="xanh3d"] .canh.ok{background:#dcf3e4;color:#11512d;border-left-color:#1d7a45}
+:root[data-theme="xanh3d"] .kd-nam{background:#e6f1fb;color:#123252}
+:root[data-theme="xanh3d"] .kd-logo{color:#eaf4ff;text-shadow:0 2px 6px rgba(0,0,0,.5)}
+:root[data-theme="xanh3d"] .kd-logo span{color:#ffd06a}
+:root[data-theme="xanh3d"] .kd-sub,
+:root[data-theme="xanh3d"] .kd-ghi{color:#4f6f92}
+:root[data-theme="xanh3d"] #chan{color:#a7c8e6;border-top-color:#2a5f92}
+:root[data-theme="xanh3d"] .the .cap{color:#0b4f8f;border-color:#7ba6d0}
+:root[data-theme="xanh3d"] .tag-lm{color:#0b4f8f}
+
+/* Những chỗ còn hardcode màu tối: phải lật sang nền sáng, nếu không sẽ là
+   chữ tối trên nền tối. */
+:root[data-theme="xanh3d"] #toast .t{
+  background:linear-gradient(180deg,#ffffff,#e4eef9);border:1px solid #5b8cbe;color:#11314f;
+  box-shadow:0 4px 14px rgba(6,30,54,.35);
+}
+:root[data-theme="xanh3d"] .tn{background:linear-gradient(180deg,#f4f9fd,#e2edf8)}
+:root[data-theme="xanh3d"] .tn>.d:hover{color:#04203c}
+:root[data-theme="xanh3d"] .chat-ds{background:#fff;border-color:#7ba6d0;scrollbar-color:#7ba6d0 #fff}
+:root[data-theme="xanh3d"] .hd-tau{background:linear-gradient(180deg,#f4f9fd,#dfeaf6);border-color:#7ba6d0}
+:root[data-theme="xanh3d"] .ht-trong{background:#eaf3fc;border-color:#5b8cbe;box-shadow:0 20px 70px rgba(4,26,48,.55)}
+:root[data-theme="xanh3d"] .ht-dau{
+  background:linear-gradient(180deg,#2a7cc4,#0d4578);border-bottom:1px solid #0b3d6d;color:#fff;
+}
+:root[data-theme="xanh3d"] tr.nguoi td{background:#fdf0d8}
+:root[data-theme="xanh3d"] tr.nguoi:hover>td{background:#fae6c2}
+:root[data-theme="xanh3d"] tr.npc-bo td{background:#f4ecdd}
+:root[data-theme="xanh3d"] .bc .kq.thang{background:#dcf3e4}
+:root[data-theme="xanh3d"] .bc .kq.thua{background:#fadede}
+:root[data-theme="xanh3d"] .bc .kq.hoa{background:#fdf3d6}
 </style>
 </head>
 <body>
@@ -257,6 +391,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
     <div id="tt-res" class="tt-res"></div>
     <div class="tt-phu">
       <select id="chon-ht" title="Chọn hành tinh"></select>
+      <button class="nut nho" data-act="doi-theme" title="Đổi giao diện">Giao diện</button>
       <button class="nut nho" data-act="luu">Lưu</button>
       <button class="nut nho" id="nut-menu">☰</button>
     </div>
@@ -4690,7 +4825,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:4c497d8d808915a8c3a836d32fd863c4bf86c38143fb6857dc72ca4702302004 */
+/* source: js/ui.js sha256:5352568e0f1411991c588cff01444c87ad68b9cf47d61fda688ebafc52ff9245 */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -4702,6 +4837,57 @@ U.form = null;
 U.moTin = {};
 U.cho = {};        // số lượng đang gõ ở Chợ Thiên Hà, giữ qua các lần vẽ lại
 U.sigCu = '';
+
+/* --- GIAO DIỆN: theme tối mặc định và theme "3D Blue" ------------------
+ * Tư liệu ghi bản đồ hoạ 1.34/1.35b dùng theme tên "3D Blue" nhưng không còn
+ * screenshot để đối chiếu, nên đây là skin dựng theo lối webgame Việt
+ * 2004–2010, không phải bản sao giao diện gốc. Lựa chọn lưu ở localStorage
+ * nên giữ qua các lần mở lại; trình duyệt chặn storage thì vẫn chạy bình
+ * thường, chỉ là không nhớ. */
+U.THEME = [
+  { id: 'toi', ten: 'Vũ trụ tối' },
+  { id: 'xanh3d', ten: '3D Blue (2010)' }
+];
+U.themeKhoa = 'thdc_theme';
+
+U.themeDangDung = function () {
+  var t = null;
+  try { t = window.localStorage.getItem(U.themeKhoa); } catch (e) { t = null; }
+  for (var i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === t) return t;
+  return 'toi';
+};
+
+U.datTheme = function (id) {
+  var hop = null, i;
+  for (i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === id) hop = id;
+  if (!hop) hop = 'toi';
+  if (hop === 'toi') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', hop);
+  try { window.localStorage.setItem(U.themeKhoa, hop); } catch (e) { /* riêng tư */ }
+  return hop;
+};
+
+U.doiTheme = function () {
+  var dang = U.themeDangDung(), i = 0, j;
+  for (j = 0; j < U.THEME.length; j++) if (U.THEME[j].id === dang) i = j;
+  return U.datTheme(U.THEME[(i + 1) % U.THEME.length].id);
+};
+
+if (typeof document !== 'undefined' && document.documentElement) U.datTheme(U.themeDangDung());
+
+/* Bảng màu của tài nguyên và loại hành tinh vốn chỉnh cho nền TỐI, đặt trên
+ * nền sáng của theme 3D Blue thì nhạt tới mức khó đọc. U.mau() trả bản đậm
+ * tương đương khi đang ở theme sáng. Riêng THANH TRÊN vẫn nền xanh đậm nên
+ * chỗ đó giữ nguyên màu gốc. */
+U.MAU_SANG = {
+  onhoa: '#1a6b3d', runggia: '#3c6f10', nuoc: '#0e5f8e', samac: '#8d5205', banghai: '#3a668f',
+  metal: '#7d5a1c', crystal: '#0e5f8e', deut: '#1a6b3d', food: '#7d5f0e',
+  galana: '#7d379c', tech: '#37509c'
+};
+U.mau = function (id, macDinh) {
+  if (U.themeDangDung() === 'xanh3d' && U.MAU_SANG[id]) return U.MAU_SANG[id];
+  return macDinh;
+};
 
 U.esc = function (s) {
   return String(s === undefined || s === null ? '' : s)
@@ -4737,7 +4923,8 @@ U.gia = function (cost, p, st) {
     var r = G.byId(G.RES, k);
     var co = (k === 'galana') ? st.galana : (k === 'tech' ? st.techPts : (p.res[k] || 0));
     var thieu = co < cost[k];
-    out.push('<span class="' + (thieu ? 'thieu' : '') + '" style="color:' + (thieu ? '' : r.mau) + '">' +
+    out.push('<span class="' + (thieu ? 'thieu' : '') + '" style="color:' +
+      (thieu ? '' : U.mau(r.id, r.mau)) + '">' +
       r.ten + ': ' + G.so(cost[k]) + '</span>');
   }
   return out.join(' &middot; ');
@@ -4748,7 +4935,8 @@ U.dsRes = function (o, chiSo) {
     if (!o[k]) continue;
     var r = G.byId(G.RES, k);
     if (!r) continue;
-    out.push('<span style="color:' + r.mau + '">' + (chiSo ? '' : r.ten + ' ') + G.so(o[k]) + '</span>');
+    out.push('<span style="color:' + U.mau(r.id, r.mau) + '">' +
+      (chiSo ? '' : r.ten + ' ') + G.so(o[k]) + '</span>');
   }
   return out.length ? out.join(' &middot; ') : '<span class="mo">—</span>';
 };
@@ -4915,7 +5103,8 @@ U.m_tongquan = function () {
   h += '<div><b>Hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
   var Lp = G.loaiHT(st, p);
-  h += '<div><b>Loại hành tinh</b><br><b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b></div>';
+  h += '<div><b>Loại hành tinh</b><br><b style="color:' + U.mau(Lp.id, Lp.mau) + '">' +
+    U.esc(Lp.ten) + '</b></div>';
   h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
   h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
@@ -5018,16 +5207,16 @@ U.m_tainguyen = function () {
   for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
     var id = G.RES_HANH_TINH[i], r = G.byId(G.RES, id), v = p.res[id] || 0, rate = s.r[id];
     var day = rate > 0 && v < cap[id] ? G.tg((cap[id] - v) / rate * 3600) : (rate <= 0 ? '—' : 'đã đầy');
-    h += '<tr><td style="color:' + r.mau + '">' + r.ten + '</td><td class="r sz">' + G.so(v) +
+    h += '<tr><td style="color:' + U.mau(r.id, r.mau) + '">' + r.ten + '</td><td class="r sz">' + G.so(v) +
       '</td><td class="r sz">' +
       G.so(cap[id]) + '</td><td class="r sz ' + (rate < 0 ? 'do' : '') + '">' + (rate >= 0 ? '+' : '') + G.so(rate) +
       '</td><td class="r sz">' + (rate >= 0 ? '+' : '') + G.so(rate * 6) + '</td><td class="sz">' + day + '</td></tr>';
   }
-  h += '<tr><td style="color:' + G.byId(G.RES, 'galana').mau +
+  h += '<tr><td style="color:' + U.mau('galana', G.byId(G.RES, 'galana').mau) +
     '">Galana <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.galana) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.galana) +
     '</td><td class="r sz">+' + G.so(s.r.galana * 6) + '</td><td class="mo">—</td></tr>';
-  h += '<tr><td style="color:' + G.byId(G.RES, 'tech').mau +
+  h += '<tr><td style="color:' + U.mau('tech', G.byId(G.RES, 'tech').mau) +
     '">Kỹ Thuật <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.techPts) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.tech) +
     '</td><td class="r sz">+' + G.so(s.r.tech * 6) + '</td><td class="mo">—</td></tr>';
@@ -5088,7 +5277,7 @@ U.m_tainguyen = function () {
   for (var t in tg) {
     var rr = G.byId(G.RES, t);
     var con = Math.floor(sieu.kho[t] || 0), tranT = (sieu.tran && sieu.tran.kho[t]) || 1;
-    h += '<tr><td><span style="color:' + rr.mau + '">' + U.esc(rr.ten) + '</span></td>' +
+    h += '<tr><td><span style="color:' + U.mau(rr.id, rr.mau) + '">' + U.esc(rr.ten) + '</span></td>' +
       '<td class="r sz">' + G.so(con) + '<br><span class="mo">' +
       Math.round(con / tranT * 100) + '% kho</span></td>' +
       '<td class="r"><input type="number" min="0" step="1000" id="cho-' + t +
@@ -5634,7 +5823,8 @@ U.m_hamdoi = function () {
   h += '<b style="display:block;margin-top:10px">Xếp hàng lên tàu</b><div class="hd-luoi" style="margin-top:6px">';
   for (i = 0; i < G.RES_HANH_TINH.length; i++) {
     var rid = G.RES_HANH_TINH[i], rr = G.byId(G.RES, rid);
-    h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '<br><span class="mo sz">' +
+    h += '<div class="hd-tau"><span style="color:' + U.mau(rr.id, rr.mau) + '">' + rr.ten +
+      '<br><span class="mo sz">' +
       G.so(p.res[rid] || 0) + '</span></span><input id="fc-' + rid + '" type="number" min="0" step="1000" value="' +
       (f.cargo[rid] || 0) + '"></div>';
   }
@@ -5681,7 +5871,7 @@ U.m_thienha = function () {
         'nhận nhiệm vụ Thám Hiểm</td><td></td><td class="r"></td>';
     } else if (o.loai === 'trong') {
       var Lt = G.LHT(G.loaiTheoViTri(st.seed, c));
-      h += '<td class="mo">— trống — <span style="color:' + Lt.mau + '">' + U.esc(Lt.ten) +
+      h += '<td class="mo">— trống — <span style="color:' + U.mau(Lt.id, Lt.mau) + '">' + U.esc(Lt.ten) +
         '</span></td><td></td><td></td><td class="r"></td>';
     } else if (o.loai === 'toi') {
       h += '<td><b>' + U.esc(o.p.ten) + '</b></td><td class="luc">' + U.esc(st.ten) + ' (ta)</td><td class="tag-lm">' +
@@ -5694,7 +5884,8 @@ U.m_thienha = function () {
     } else {
       var n = o.npc;
       var Ln = G.LHT(G.loaiTheoViTri(st.seed, c));
-      h += '<td>' + U.esc(n.htTen) + ' <span class="mo" style="color:' + Ln.mau + '">' + U.esc(Ln.ten) +
+      h += '<td>' + U.esc(n.htTen) + ' <span class="mo" style="color:' + U.mau(Ln.id, Ln.mau) + '">' +
+        U.esc(Ln.ten) +
         '</span></td><td>' +
         U.esc(n.ten) + (n.bo ? ' <span class="vang">(bỏ hoang)</span>' : '') +
         '</td><td class="tag-lm">' + U.esc(n.lm) + '</td><td class="r sz">' + G.so(n.diem) + '</td>';
@@ -6066,7 +6257,7 @@ U.m_huongdan = function () {
     '<th class="r">Điện</th><th class="r">Thủ đất</th></tr>';
   for (var li = 0; li < G.LOAI_HT.length; li++) {
     var L2 = G.LOAI_HT[li];
-    h += '<tr><td><b style="color:' + L2.mau + '">' + U.esc(L2.ten) +
+    h += '<tr><td><b style="color:' + U.mau(L2.id, L2.mau) + '">' + U.esc(L2.ten) +
       '</b></td><td class="mo" style="font-size:11.5px">' +
       U.esc(L2.mota) + '</td>' +
       ['oDat', 'kl', 'tt', 'dt', 'lt', 'dien', 'thuDat'].map(function (k) {
@@ -6442,7 +6633,7 @@ U.m_mophong = function () {
   return h;
 };
 
-/* source: js/app.js sha256:8d001243a383053dffd5a685cfecc37329192512f707d105c6b4134c5d186edf */
+/* source: js/app.js sha256:4e54b91697ab9a25eea1ae5e7ae436c8ec26e548f852e65d2a73c98542de59b8 */
 /* THIÊN HÀ ĐẠI CHIẾN — tầng thao tác giao diện (dùng chung cho 1 người & nhiều người)
  * Mọi thao tác của người chơi đi qua APP.lam(ten, dl, xong):
  *   - bản một người  (js/main.js): chạy G.chay() ngay trên state trong máy
@@ -6514,6 +6705,15 @@ var ACT = {
     var r = el.getAttribute('data-res');
     U.cho[r] = soO('cho-' + r);
     lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
+  },
+
+  'doi-theme': function () {
+    var id = U.doiTheme(), ten = id;
+    for (var i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === id) ten = U.THEME[i].ten;
+    /* Phải vẽ lại: một số nhãn (loại hành tinh, tài nguyên) mang màu inline
+       chọn theo theme, không vẽ lại thì chúng giữ màu của theme cũ. */
+    U.ve();
+    U.toast('Giao diện: ' + ten, 'ok');
   },
 
   /* ---------- Ngân Hàng Thiên Hà ---------- */

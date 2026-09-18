@@ -219,3 +219,137 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
   #chon-ht{max-width:150px}
   .kd-logo,.kd-logo span{font-size:26px}
 }
+
+/* =====================================================================
+   THEME "3D BLUE"
+   Tư liệu ghi bản đồ hoạ 1.34/1.35b dùng theme tên "3D Blue", nhưng không
+   còn screenshot nào để đối chiếu. Đây KHÔNG phải bản sao giao diện gốc —
+   là một skin dựng theo đúng lối webgame Việt 2004–2010: khung xanh kim
+   loại bo viền nổi, thanh tiêu đề chữ trắng in hoa, bảng biểu dày số liệu,
+   nút bấm bóng kiểu nút 3D. Đổi qua lại bằng nút ở thanh trên.
+   ===================================================================== */
+:root[data-theme="xanh3d"]{
+  --den:#0a2a4e; --den2:#0d3d6b; --panel:#dce9f7; --panel2:#c3d9ef;
+  --vien:#7ba6d0; --vien2:#4f82b8;
+  --chu:#14304f; --mo:#4f6f92; --sang:#07203a;
+  --cam:#0b4f8f; --cam2:#1873c4; --lam:#1464a8; --luc:#1d7a45; --do:#b32020;
+  --tim:#6b3fae; --vang:#9a6a08;
+}
+:root[data-theme="xanh3d"] body{
+  background:
+    linear-gradient(180deg,#1f6fb4 0%,#12518c 140px,#0b3a68 320px,#082c50 100%) fixed,
+    var(--den);
+}
+:root[data-theme="xanh3d"] body::before{opacity:.12}
+:root[data-theme="xanh3d"] b{color:#062a4b}
+
+/* khung nổi kiểu "3D": viền sáng ở trên, viền tối ở dưới */
+:root[data-theme="xanh3d"] .panel,
+:root[data-theme="xanh3d"] .the,
+:root[data-theme="xanh3d"] .kd-hop{
+  background:linear-gradient(180deg,#eaf3fc 0%,#cfe0f2 100%);
+  border:1px solid #5b8cbe;
+  border-radius:3px;
+  box-shadow:inset 0 1px 0 #fff, inset 0 -1px 0 #a9c6e2, 0 1px 3px rgba(4,26,48,.35);
+}
+:root[data-theme="xanh3d"] .panel>h3{
+  background:linear-gradient(180deg,#2a7cc4 0%,#1a63a6 48%,#155692 52%,#0d4578 100%);
+  border-bottom:1px solid #0b3d6d;
+  color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,.45);
+  letter-spacing:1.6px;
+}
+:root[data-theme="xanh3d"] #thanh-tren{
+  background:linear-gradient(180deg,#1f6cb0 0%,#12558f 50%,#0d497e 51%,#093a68 100%);
+  border-bottom:1px solid #072e55;
+  box-shadow:0 2px 4px rgba(3,20,38,.45);
+}
+:root[data-theme="xanh3d"] .tt-logo{color:#ffe08a;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+:root[data-theme="xanh3d"] .tt-res .o .n{color:#bcdcf7}
+:root[data-theme="xanh3d"] .tt-res .o .v{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4)}
+:root[data-theme="xanh3d"] .tt-res .o .r{color:#9ec9ea}
+
+:root[data-theme="xanh3d"] #menu a{
+  background:linear-gradient(180deg,#f2f8fd,#d3e3f3);
+  border:1px solid #6f9dcb;border-left:3px solid transparent;color:#123252;
+  box-shadow:inset 0 1px 0 #fff;
+}
+:root[data-theme="xanh3d"] #menu a:hover{border-left-color:#1873c4;color:#04203c}
+:root[data-theme="xanh3d"] #menu a.on{
+  background:linear-gradient(180deg,#2a7cc4,#0f4f85);border-left-color:#ffd75e;color:#fff;
+  text-shadow:0 1px 1px rgba(0,0,0,.4);
+}
+:root[data-theme="xanh3d"] #menu a .dem-nho{background:#d13b1f;color:#fff}
+
+:root[data-theme="xanh3d"] .nut{
+  background:linear-gradient(180deg,#fbfdff 0%,#dbe9f7 48%,#cadef1 52%,#b3cfe9 100%);
+  border:1px solid #5b8cbe;color:#11314f;
+  box-shadow:inset 0 1px 0 #fff, 0 1px 2px rgba(6,30,54,.3);
+}
+:root[data-theme="xanh3d"] .nut:hover{border-color:#1873c4;color:#062a4b}
+:root[data-theme="xanh3d"] .nut.lon{
+  background:linear-gradient(180deg,#ffd06a 0%,#f2a81f 48%,#e09612 52%,#c87c06 100%);
+  border-color:#945c03;color:#3a2200;text-shadow:0 1px 0 rgba(255,255,255,.35);
+}
+:root[data-theme="xanh3d"] .nut.oke{
+  background:linear-gradient(180deg,#9fe0b6 0%,#4eb578 48%,#3da266 52%,#2a8850 100%);
+  border-color:#1f6d40;color:#05301a;
+}
+:root[data-theme="xanh3d"] .nut.xoa{
+  background:linear-gradient(180deg,#f2b4b4 0%,#d76565 48%,#c85252 52%,#ac3a3a 100%);
+  border-color:#8d2828;color:#3a0808;
+}
+:root[data-theme="xanh3d"] input,
+:root[data-theme="xanh3d"] select,
+:root[data-theme="xanh3d"] textarea{
+  background:#fff;border:1px solid #7ba6d0;color:#0d2a47;
+  box-shadow:inset 0 1px 2px rgba(20,60,100,.18);
+}
+:root[data-theme="xanh3d"] input:focus,
+:root[data-theme="xanh3d"] select:focus{
+  border-color:#1873c4;box-shadow:0 0 0 2px rgba(24,115,196,.2);
+}
+
+:root[data-theme="xanh3d"] th{
+  background:linear-gradient(180deg,#cbdff2,#aecbe6);color:#0d3057;border-bottom:1px solid #7ba6d0;
+}
+:root[data-theme="xanh3d"] th,
+:root[data-theme="xanh3d"] td{border-bottom:1px solid #b6cfe6}
+:root[data-theme="xanh3d"] tr:hover>td{background:#eaf3fc}
+:root[data-theme="xanh3d"] tr.trong td{color:#5a7694}
+:root[data-theme="xanh3d"] tr.toi td{background:#d9f0e2}
+
+:root[data-theme="xanh3d"] .thanh{background:#e7f0f9;border-color:#8fb4d8}
+:root[data-theme="xanh3d"] .thanh>i{background:linear-gradient(90deg,#1873c4,#4fb0ef)}
+:root[data-theme="xanh3d"] .canh{background:#fadede;color:#6d1414;border-left-color:#b32020}
+:root[data-theme="xanh3d"] .canh.bt{background:#fdf3d6;color:#6b4c05;border-left-color:#c79208}
+:root[data-theme="xanh3d"] .canh.ok{background:#dcf3e4;color:#11512d;border-left-color:#1d7a45}
+:root[data-theme="xanh3d"] .kd-nam{background:#e6f1fb;color:#123252}
+:root[data-theme="xanh3d"] .kd-logo{color:#eaf4ff;text-shadow:0 2px 6px rgba(0,0,0,.5)}
+:root[data-theme="xanh3d"] .kd-logo span{color:#ffd06a}
+:root[data-theme="xanh3d"] .kd-sub,
+:root[data-theme="xanh3d"] .kd-ghi{color:#4f6f92}
+:root[data-theme="xanh3d"] #chan{color:#a7c8e6;border-top-color:#2a5f92}
+:root[data-theme="xanh3d"] .the .cap{color:#0b4f8f;border-color:#7ba6d0}
+:root[data-theme="xanh3d"] .tag-lm{color:#0b4f8f}
+
+/* Những chỗ còn hardcode màu tối: phải lật sang nền sáng, nếu không sẽ là
+   chữ tối trên nền tối. */
+:root[data-theme="xanh3d"] #toast .t{
+  background:linear-gradient(180deg,#ffffff,#e4eef9);border:1px solid #5b8cbe;color:#11314f;
+  box-shadow:0 4px 14px rgba(6,30,54,.35);
+}
+:root[data-theme="xanh3d"] .tn{background:linear-gradient(180deg,#f4f9fd,#e2edf8)}
+:root[data-theme="xanh3d"] .tn>.d:hover{color:#04203c}
+:root[data-theme="xanh3d"] .chat-ds{background:#fff;border-color:#7ba6d0;scrollbar-color:#7ba6d0 #fff}
+:root[data-theme="xanh3d"] .hd-tau{background:linear-gradient(180deg,#f4f9fd,#dfeaf6);border-color:#7ba6d0}
+:root[data-theme="xanh3d"] .ht-trong{background:#eaf3fc;border-color:#5b8cbe;box-shadow:0 20px 70px rgba(4,26,48,.55)}
+:root[data-theme="xanh3d"] .ht-dau{
+  background:linear-gradient(180deg,#2a7cc4,#0d4578);border-bottom:1px solid #0b3d6d;color:#fff;
+}
+:root[data-theme="xanh3d"] tr.nguoi td{background:#fdf0d8}
+:root[data-theme="xanh3d"] tr.nguoi:hover>td{background:#fae6c2}
+:root[data-theme="xanh3d"] tr.npc-bo td{background:#f4ecdd}
+:root[data-theme="xanh3d"] .bc .kq.thang{background:#dcf3e4}
+:root[data-theme="xanh3d"] .bc .kq.thua{background:#fadede}
+:root[data-theme="xanh3d"] .bc .kq.hoa{background:#fdf3d6}

@@ -71,6 +71,15 @@ var ACT = {
     lam('mua', { pi: U.pi, res: r, n: U.cho[r] });
   },
 
+  'doi-theme': function () {
+    var id = U.doiTheme(), ten = id;
+    for (var i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === id) ten = U.THEME[i].ten;
+    /* Phải vẽ lại: một số nhãn (loại hành tinh, tài nguyên) mang màu inline
+       chọn theo theme, không vẽ lại thì chúng giữ màu của theme cũ. */
+    U.ve();
+    U.toast('Giao diện: ' + ten, 'ok');
+  },
+
   /* ---------- Ngân Hàng Thiên Hà ---------- */
   'nh-gui': function () { lam('nhGui', { n: soO('nh-so') }); },
   'nh-rut': function () { lam('nhRut', { n: soO('nh-so') }); },

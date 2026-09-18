@@ -302,7 +302,7 @@ Những chỗ này được đánh dấu trong code bằng comment `[SUY LUẬN]
 | Chat giữa người chơi | **Có:** chat chung được phục dựng; kênh riêng liên minh là thiết kế bù chưa có nguồn độc lập. |
 | Nhiều máy chủ liên thông, giao diện Việt/Anh | **Chưa có:** server hiện là một tiến trình/một SQLite và giao diện chỉ tiếng Việt. |
 | Toạ độ bốn phần như `84.4.4.7` | **Chưa khớp:** hiện dùng ba phần; không đoán phần thứ tư khi chưa biết ý nghĩa. |
-| Giao diện ảnh 1.34/1.35b và theme “3D Blue” | **Chưa khớp:** giao diện hiện tại là CSS tối gợi không khí webgame, không tái tạo screenshot gốc. |
+| Giao diện ảnh 1.34/1.35b và theme “3D Blue” | **Một phần — và cố ý không nhận là bản sao:** ngoài bản tối mặc định nay có thêm skin **“3D Blue (2010)”** đổi bằng nút *Giao diện* ở thanh trên (lưu ở `localStorage`). Skin dựng theo đúng lối webgame Việt 2004–2010 — khung xanh bo viền nổi, thanh tiêu đề chữ trắng in hoa, bảng biểu dày số liệu, nút bấm bóng. **Không còn screenshot gốc nào để đối chiếu**, nên đây là **[TÁI DỰNG]** theo tên theme mà tư liệu ghi lại, không phải tái tạo giao diện thật. |
 
 Các phần như NPC tất định, vũ trụ 9×499×15, trận 6 vòng, ô thám hiểm 16, rapidfire,
 bãi phế liệu 30%, cổng không gian và máy tính trận đánh là nội dung phục dựng/OGame-derived,

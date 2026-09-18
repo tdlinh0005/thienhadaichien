@@ -10,6 +10,57 @@ U.moTin = {};
 U.cho = {};        // số lượng đang gõ ở Chợ Thiên Hà, giữ qua các lần vẽ lại
 U.sigCu = '';
 
+/* --- GIAO DIỆN: theme tối mặc định và theme "3D Blue" ------------------
+ * Tư liệu ghi bản đồ hoạ 1.34/1.35b dùng theme tên "3D Blue" nhưng không còn
+ * screenshot để đối chiếu, nên đây là skin dựng theo lối webgame Việt
+ * 2004–2010, không phải bản sao giao diện gốc. Lựa chọn lưu ở localStorage
+ * nên giữ qua các lần mở lại; trình duyệt chặn storage thì vẫn chạy bình
+ * thường, chỉ là không nhớ. */
+U.THEME = [
+  { id: 'toi', ten: 'Vũ trụ tối' },
+  { id: 'xanh3d', ten: '3D Blue (2010)' }
+];
+U.themeKhoa = 'thdc_theme';
+
+U.themeDangDung = function () {
+  var t = null;
+  try { t = window.localStorage.getItem(U.themeKhoa); } catch (e) { t = null; }
+  for (var i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === t) return t;
+  return 'toi';
+};
+
+U.datTheme = function (id) {
+  var hop = null, i;
+  for (i = 0; i < U.THEME.length; i++) if (U.THEME[i].id === id) hop = id;
+  if (!hop) hop = 'toi';
+  if (hop === 'toi') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', hop);
+  try { window.localStorage.setItem(U.themeKhoa, hop); } catch (e) { /* riêng tư */ }
+  return hop;
+};
+
+U.doiTheme = function () {
+  var dang = U.themeDangDung(), i = 0, j;
+  for (j = 0; j < U.THEME.length; j++) if (U.THEME[j].id === dang) i = j;
+  return U.datTheme(U.THEME[(i + 1) % U.THEME.length].id);
+};
+
+if (typeof document !== 'undefined' && document.documentElement) U.datTheme(U.themeDangDung());
+
+/* Bảng màu của tài nguyên và loại hành tinh vốn chỉnh cho nền TỐI, đặt trên
+ * nền sáng của theme 3D Blue thì nhạt tới mức khó đọc. U.mau() trả bản đậm
+ * tương đương khi đang ở theme sáng. Riêng THANH TRÊN vẫn nền xanh đậm nên
+ * chỗ đó giữ nguyên màu gốc. */
+U.MAU_SANG = {
+  onhoa: '#1a6b3d', runggia: '#3c6f10', nuoc: '#0e5f8e', samac: '#8d5205', banghai: '#3a668f',
+  metal: '#7d5a1c', crystal: '#0e5f8e', deut: '#1a6b3d', food: '#7d5f0e',
+  galana: '#7d379c', tech: '#37509c'
+};
+U.mau = function (id, macDinh) {
+  if (U.themeDangDung() === 'xanh3d' && U.MAU_SANG[id]) return U.MAU_SANG[id];
+  return macDinh;
+};
+
 U.esc = function (s) {
   return String(s === undefined || s === null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -44,7 +95,8 @@ U.gia = function (cost, p, st) {
     var r = G.byId(G.RES, k);
     var co = (k === 'galana') ? st.galana : (k === 'tech' ? st.techPts : (p.res[k] || 0));
     var thieu = co < cost[k];
-    out.push('<span class="' + (thieu ? 'thieu' : '') + '" style="color:' + (thieu ? '' : r.mau) + '">' +
+    out.push('<span class="' + (thieu ? 'thieu' : '') + '" style="color:' +
+      (thieu ? '' : U.mau(r.id, r.mau)) + '">' +
       r.ten + ': ' + G.so(cost[k]) + '</span>');
   }
   return out.join(' &middot; ');
@@ -55,7 +107,8 @@ U.dsRes = function (o, chiSo) {
     if (!o[k]) continue;
     var r = G.byId(G.RES, k);
     if (!r) continue;
-    out.push('<span style="color:' + r.mau + '">' + (chiSo ? '' : r.ten + ' ') + G.so(o[k]) + '</span>');
+    out.push('<span style="color:' + U.mau(r.id, r.mau) + '">' +
+      (chiSo ? '' : r.ten + ' ') + G.so(o[k]) + '</span>');
   }
   return out.length ? out.join(' &middot; ') : '<span class="mo">—</span>';
 };
@@ -222,7 +275,8 @@ U.m_tongquan = function () {
   h += '<div><b>Hành tinh</b><br>' + U.esc(p.ten) + ' <button class="nut nho" data-act="doi-ten">đổi tên</button>' +
     (p.thuDo || U.pi === 0 ? '' : ' <button class="nut nho xoa" data-act="bo-hoang">bỏ hoang</button>') + '</div>';
   var Lp = G.loaiHT(st, p);
-  h += '<div><b>Loại hành tinh</b><br><b style="color:' + Lp.mau + '">' + U.esc(Lp.ten) + '</b></div>';
+  h += '<div><b>Loại hành tinh</b><br><b style="color:' + U.mau(Lp.id, Lp.mau) + '">' +
+    U.esc(Lp.ten) + '</b></div>';
   h += '<div><b>Nhiệt độ</b><br>' + p.temp + '°C</div>';
   h += '<div><b>Ô đất</b><br>' + G.oDaDung(p) + ' / ' + G.oToiDa(p) + '</div>';
   h += '<div><b>Khe hạm đội</b><br>' + st.fleets.length + ' / ' + G.khe(st) +
@@ -325,16 +379,16 @@ U.m_tainguyen = function () {
   for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
     var id = G.RES_HANH_TINH[i], r = G.byId(G.RES, id), v = p.res[id] || 0, rate = s.r[id];
     var day = rate > 0 && v < cap[id] ? G.tg((cap[id] - v) / rate * 3600) : (rate <= 0 ? '—' : 'đã đầy');
-    h += '<tr><td style="color:' + r.mau + '">' + r.ten + '</td><td class="r sz">' + G.so(v) +
+    h += '<tr><td style="color:' + U.mau(r.id, r.mau) + '">' + r.ten + '</td><td class="r sz">' + G.so(v) +
       '</td><td class="r sz">' +
       G.so(cap[id]) + '</td><td class="r sz ' + (rate < 0 ? 'do' : '') + '">' + (rate >= 0 ? '+' : '') + G.so(rate) +
       '</td><td class="r sz">' + (rate >= 0 ? '+' : '') + G.so(rate * 6) + '</td><td class="sz">' + day + '</td></tr>';
   }
-  h += '<tr><td style="color:' + G.byId(G.RES, 'galana').mau +
+  h += '<tr><td style="color:' + U.mau('galana', G.byId(G.RES, 'galana').mau) +
     '">Galana <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.galana) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.galana) +
     '</td><td class="r sz">+' + G.so(s.r.galana * 6) + '</td><td class="mo">—</td></tr>';
-  h += '<tr><td style="color:' + G.byId(G.RES, 'tech').mau +
+  h += '<tr><td style="color:' + U.mau('tech', G.byId(G.RES, 'tech').mau) +
     '">Kỹ Thuật <span class="mo">(toàn đế quốc)</span></td><td class="r sz">' +
     G.so(st.techPts) + '</td><td class="r mo">không giới hạn</td><td class="r sz">+' + G.so(s.r.tech) +
     '</td><td class="r sz">+' + G.so(s.r.tech * 6) + '</td><td class="mo">—</td></tr>';
@@ -395,7 +449,7 @@ U.m_tainguyen = function () {
   for (var t in tg) {
     var rr = G.byId(G.RES, t);
     var con = Math.floor(sieu.kho[t] || 0), tranT = (sieu.tran && sieu.tran.kho[t]) || 1;
-    h += '<tr><td><span style="color:' + rr.mau + '">' + U.esc(rr.ten) + '</span></td>' +
+    h += '<tr><td><span style="color:' + U.mau(rr.id, rr.mau) + '">' + U.esc(rr.ten) + '</span></td>' +
       '<td class="r sz">' + G.so(con) + '<br><span class="mo">' +
       Math.round(con / tranT * 100) + '% kho</span></td>' +
       '<td class="r"><input type="number" min="0" step="1000" id="cho-' + t +
@@ -941,7 +995,8 @@ U.m_hamdoi = function () {
   h += '<b style="display:block;margin-top:10px">Xếp hàng lên tàu</b><div class="hd-luoi" style="margin-top:6px">';
   for (i = 0; i < G.RES_HANH_TINH.length; i++) {
     var rid = G.RES_HANH_TINH[i], rr = G.byId(G.RES, rid);
-    h += '<div class="hd-tau"><span style="color:' + rr.mau + '">' + rr.ten + '<br><span class="mo sz">' +
+    h += '<div class="hd-tau"><span style="color:' + U.mau(rr.id, rr.mau) + '">' + rr.ten +
+      '<br><span class="mo sz">' +
       G.so(p.res[rid] || 0) + '</span></span><input id="fc-' + rid + '" type="number" min="0" step="1000" value="' +
       (f.cargo[rid] || 0) + '"></div>';
   }
@@ -988,7 +1043,7 @@ U.m_thienha = function () {
         'nhận nhiệm vụ Thám Hiểm</td><td></td><td class="r"></td>';
     } else if (o.loai === 'trong') {
       var Lt = G.LHT(G.loaiTheoViTri(st.seed, c));
-      h += '<td class="mo">— trống — <span style="color:' + Lt.mau + '">' + U.esc(Lt.ten) +
+      h += '<td class="mo">— trống — <span style="color:' + U.mau(Lt.id, Lt.mau) + '">' + U.esc(Lt.ten) +
         '</span></td><td></td><td></td><td class="r"></td>';
     } else if (o.loai === 'toi') {
       h += '<td><b>' + U.esc(o.p.ten) + '</b></td><td class="luc">' + U.esc(st.ten) + ' (ta)</td><td class="tag-lm">' +
@@ -1001,7 +1056,8 @@ U.m_thienha = function () {
     } else {
       var n = o.npc;
       var Ln = G.LHT(G.loaiTheoViTri(st.seed, c));
-      h += '<td>' + U.esc(n.htTen) + ' <span class="mo" style="color:' + Ln.mau + '">' + U.esc(Ln.ten) +
+      h += '<td>' + U.esc(n.htTen) + ' <span class="mo" style="color:' + U.mau(Ln.id, Ln.mau) + '">' +
+        U.esc(Ln.ten) +
         '</span></td><td>' +
         U.esc(n.ten) + (n.bo ? ' <span class="vang">(bỏ hoang)</span>' : '') +
         '</td><td class="tag-lm">' + U.esc(n.lm) + '</td><td class="r sz">' + G.so(n.diem) + '</td>';
@@ -1373,7 +1429,7 @@ U.m_huongdan = function () {
     '<th class="r">Điện</th><th class="r">Thủ đất</th></tr>';
   for (var li = 0; li < G.LOAI_HT.length; li++) {
     var L2 = G.LOAI_HT[li];
-    h += '<tr><td><b style="color:' + L2.mau + '">' + U.esc(L2.ten) +
+    h += '<tr><td><b style="color:' + U.mau(L2.id, L2.mau) + '">' + U.esc(L2.ten) +
       '</b></td><td class="mo" style="font-size:11.5px">' +
       U.esc(L2.mota) + '</td>' +
       ['oDat', 'kl', 'tt', 'dt', 'lt', 'dien', 'thuDat'].map(function (k) {

@@ -197,6 +197,10 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
   cả hai chiều, và **hàng mua tới hành tinh sau 6 giờ** chứ không tới ngay.
 - **Ngân Hàng Thiên Hà**: gửi Galana lấy lãi **2%/ngày** cộng ở mỗi checkpoint bảo trì — kỳ nào
   lỡ bảo trì thì không có lãi. Ngoài ra có khoản **đầu tư khoá kỳ** lãi cao hơn, không rút giữa chừng.
+- **Hai giao diện**: bản *vũ trụ tối* mặc định, và skin **“3D Blue (2010)”** gợi lại lối webgame
+  Việt 2004–2010 — khung xanh bo viền nổi, thanh tiêu đề chữ trắng in hoa, nút bấm bóng. Đổi bằng
+  nút **Giao diện** ở thanh trên, lựa chọn được nhớ lại. Tư liệu chỉ còn ghi *tên* theme gốc là
+  “3D Blue” chứ không còn screenshot nào, nên đây là dựng theo lối chứ **không phải bản sao**.
 - **Màn Hướng Dẫn ngay trong game**: 6 bước mở đầu, bốn cơ chế đặc trưng, cách trận
   đánh diễn ra, hệ toạ độ — mọi con số đọc trực tiếp từ bảng luật nên không lệch.
 - **Phòng Chat & Bộ Chỉ Huy Liên Minh**: chat chung/liên minh lưu trong SQLite; đơn xin
@@ -230,7 +234,7 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 
 ```
 index.html            khung trang bản MỘT NGƯỜI, nạp 10 file script
-css/style.css         giao diện gợi lại webgame Việt khoảng năm 2010
+css/style.css         hai giao diện: vũ trụ tối (mặc định) và "3D Blue (2010)"
 
 js/                   BỘ LUẬT DÙNG CHUNG — chạy cả trên trình duyệt lẫn trên server
   data.js             bảng dữ liệu: công trình, nghiên cứu, tàu, phòng thủ, hằng số cân bằng
