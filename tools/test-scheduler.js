@@ -9416,7 +9416,12 @@ test('Task 5 durable advance preserves every accepted legacy tick bridge', funct
   var expected = {
     _tickNoiBo: '80227e10e8180f1a0f032fe7c250ac15abf63d053f35fb48643c1989f1493db8',
     danhNguoi: '283ce7477a6a74d1b7403c68a41833aeff79923f1785b2e87add6dc4bb84590a',
-    doThamNguoi: '6f8ae6410b807936fdefd0fee2947ebe1af4ebcb12540af30c9b726a02739b37',
+    /* Cập nhật có chủ ý: thân hàm nay lọc tàu tàng hình khỏi báo cáo do thám
+       (G.locTangHinh). Phải lọc ở ĐÂY chứ không phải ở giao diện — lọc phía
+       client thì dữ liệu thật vẫn đi qua mạng và tàng hình chỉ là trang trí.
+       Hợp đồng mà phép ghim này bảo vệ vẫn nguyên: đúng một lần gọi G.tick(
+       trong thân hàm, và cầu nối mutation không đổi. */
+    doThamNguoi: '3a1e34760d7cc7e1cf20f88c5027d215c22d57b4103a6a4d73c848b83610c6d4',
     tangNguoi: '8e98d10ec31bbfd7b86a0e25715e0f9ce132c2e4b5a803811f4a6dcddf6a89e6',
     tenLuaNguoi: 'f0a690572f25cc8277ece2d05fd83df5eb9a26902a82d088772b31d296d70f22'
   };

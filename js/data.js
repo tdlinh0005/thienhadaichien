@@ -139,6 +139,23 @@ G.BUILDINGS = [
     mota: 'Ụ tàu trên quỹ đạo. Không có xưởng thì không có hạm đội.',
     cost: { metal: 400, crystal: 200, deut: 100 }, factor: 2 },
 
+  /* [XÁC NHẬN tên] Tường thuật Start War III ghi hành tinh MIMI còn "đúng
+     1.000 Nhà Máy Tàu Bay" — một tên công trình có thật. Vai trò ở đây là
+     [SUY LUẬN]: công suất đóng RIÊNG cho dòng máy bay, song song Xưởng Đóng Tàu. */
+  { id: 'airFactory', ten: 'Nhà Máy Tàu Bay', nhom: 'cn', req: { b: { shipyard: 4 } },
+    mota: 'Dây chuyền riêng cho Máy Bay Chiến Đấu, Tiêm Kích và Tàng Hình — ' +
+      'cộng thẳng vào công suất đóng của riêng dòng máy bay.',
+    cost: { metal: 600, crystal: 300, deut: 120 }, factor: 2,
+    use: function (n) { return 8 * n; } },
+
+  /* [XÁC NHẬN tên] GVN trang 19–20 liệt kê Thành Phố, Nông Trại, Trường Kỹ
+     Thuật cùng nhà máy và kho. Vai trò sinh Kỹ Thuật là [SUY LUẬN]. */
+  { id: 'techSchool', ten: 'Trường Kỹ Thuật', nhom: 'cn', req: { b: { lab: 3, city: 2 } },
+    mota: 'Đào tạo kỹ sư: ra Kỹ Thuật nhanh hơn Phòng Nghiên Cứu nhiều, đổi lại tốn điện.',
+    cost: { metal: 500, crystal: 900, deut: 300 }, factor: 2,
+    prod: function (n) { return { tech: 9 * n }; },
+    use: function (n) { return 14 * n; } },
+
   { id: 'lab', ten: 'Phòng Nghiên Cứu', nhom: 'cn',
     mota: 'Tạo ra Kỹ Thuật — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
     cost: { metal: 200, crystal: 400, deut: 200 }, factor: 2,
@@ -225,15 +242,27 @@ G.SHIPS = [
     atk: 5, shield: 25, hull: 12000, speed: 7500, cargo: 25000, fuel: 50, crew: 8, choLinh: 300, dc: 'combustion',
     req: { b: { shipyard: 4 }, r: { combustion: 6 } },
     mota: 'Khoang hàng gấp năm lần tàu nhỏ mà vẫn bay nhanh hơn.' },
-  { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 },
+  { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 }, lop: 'maybay',
     atk: 50, shield: 10, hull: 4000, speed: 12500, cargo: 50, fuel: 20, crew: 2, dc: 'combustion',
     req: { b: { shipyard: 1 }, r: { combustion: 1 } },
     mota: 'MBCD — xương sống của mọi hạm đội quỹ đạo trong bản gốc, đếm bằng hàng triệu chiếc. ' +
       'Rẻ, nhanh, chết cũng nhanh.' },
-  { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 },
+  { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 }, lop: 'maybay',
     atk: 150, shield: 25, hull: 10000, speed: 10000, cargo: 100, fuel: 75, crew: 4, dc: 'impulse',
     req: { b: { shipyard: 3 }, r: { armor: 2, impulse: 2 } },
     mota: 'MBTK — bản nặng của Máy Bay Chiến Đấu, mặc thêm giáp và gắn laser.' },
+
+  /* [XÁC NHẬN tên] Nguồn GVN nhắc "10.000 Máy Bay Tàng Hình/ngày" với khoảng
+     1.000 nhà máy và Kỹ Thuật Nhà Xưởng 20. Chỉ số và giá là [SUY LUẬN]: neo
+     đó là ước lượng của người chơi, không phải bảng số gốc, nên bản này đặt
+     Tàng Hình giữa Tiêm Kích và Tiểu Chiến Hạm cho khớp thang giá sẵn có
+     (vỏ thép luôn bằng Kim Loại + Thạch Anh). */
+  { id: 'stealth', ten: 'Máy Bay Tàng Hình', cost: { metal: 11000, crystal: 7000 },
+    lop: 'maybay', tangHinh: true,
+    atk: 260, shield: 35, hull: 18000, speed: 14000, cargo: 120, fuel: 90, crew: 5, dc: 'impulse',
+    req: { b: { airFactory: 2 }, r: { spy: 4, impulse: 5 } },
+    mota: 'MBTH — không hiện trong báo cáo do thám trừ khi bên do thám đạt mức tình báo cao nhất. ' +
+      'Đóng ở Nhà Máy Tàu Bay.' },
   { id: 'cruiser', ten: 'Tiểu Chiến Hạm', cost: { metal: 20000, crystal: 7000, deut: 2000 },
     atk: 400, shield: 50, hull: 27000, speed: 15000, cargo: 800, fuel: 300, crew: 12, dc: 'impulse',
     req: { b: { shipyard: 5 }, r: { impulse: 4, ion: 2 } },
@@ -487,6 +516,23 @@ G.MOC_LICH_SU = {
 };
 G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
 G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
+
+/* Mức tình báo tối thiểu để báo cáo do thám nhìn thấy tàu tàng hình. */
+G.MUC_THAY_TANG_HINH = 5;
+
+/* Bỏ tàu tàng hình khỏi một bảng đội hình khi mức tình báo chưa đủ. Trả về
+   null y như đầu vào null để chỗ gọi giữ nguyên ngữ nghĩa "không thấy gì". */
+G.locTangHinh = function (ships, mucDo) {
+  if (!ships) return ships;
+  if (Number(mucDo) >= G.MUC_THAY_TANG_HINH) return ships;
+  var ra = {}, id;
+  for (id in ships) {
+    var u = G.byId(G.SHIPS, id);
+    if (u && u.tangHinh) continue;
+    ra[id] = ships[id];
+  }
+  return ra;
+};
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };

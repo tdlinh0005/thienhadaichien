@@ -159,13 +159,14 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 
 ## Nội dung
 
-- **21 công trình**: 4 mỏ, Thành Phố, 2 nguồn điện, 4 kho, xưởng đóng tàu, phòng nghiên cứu,
-  nhà máy robot/nano, trung tâm tình báo, đài chỉ huy hạm đội, trung tâm bảo trì, hầm tên lửa,
-  cải tạo hành tinh, cổng không gian.
+- **23 công trình**: 4 mỏ, Thành Phố, 2 nguồn điện, 4 kho, xưởng đóng tàu, **Nhà Máy Tàu Bay**,
+  phòng nghiên cứu, **Trường Kỹ Thuật**, nhà máy robot/nano, trung tâm tình báo, đài chỉ huy hạm đội,
+  trung tâm bảo trì, hầm tên lửa, cải tạo hành tinh, cổng không gian.
 - **17 đề tài nghiên cứu**: Kỹ Thuật Khai Thác Mỏ/Nhà Xưởng, vũ khí/khiên/giáp,
   3 dòng động cơ, laser–ion–plasma, tình báo, máy tính, liên hành tinh, trọng trường.
-- **15 loại tàu**: từ Phi Thuyền Nhẹ tới **Pháo Đài Di Động** (9 triệu vỏ thép), kèm tàu vận
-  tải, do thám, thu hồi, thực dân.
+- **16 loại tàu**: từ Phi Thuyền Nhẹ tới **Pháo Đài Di Động** (9 triệu vỏ thép), kèm tàu vận
+  tải, do thám, thu hồi, thực dân, và **Máy Bay Tàng Hình** — tàu duy nhất **không hiện trong báo
+  cáo do thám** trừ khi bên do thám đạt mức tình báo cao nhất.
 - **10 công trình phòng thủ** chia hai lớp + 2 loại tên lửa.
 - **8 nhiệm vụ hạm đội**: Tấn Công, Vận Chuyển, Triển Khai, Do Thám, Thực Dân, Thu Hồi,
   Giữ Chỗ, Thám Hiểm. Giữ Chỗ neo thật tại hành tinh của mình/đồng minh; chủ hạm
@@ -173,6 +174,11 @@ bằng mới bị hiểu nhầm thành luật lịch sử; chi tiết nguồn n�
 - **Chọn căn cứ trở về**: hạm đội đang bay đi, đang neo hay đang trên đường về đều đổi được
   hành tinh sẽ quay về — mục tiêu đang bay tới giữ nguyên, chỉ chặng về đổi chỗ, và tàu lẫn
   hàng trong khoang nhập vào kho căn cứ mới. Đang về thì giờ tới nơi tính lại từ vị trí hiện tại.
+- **Ba cái tên có thật**: tư liệu còn giữ được tên **Nhà Máy Tàu Bay** (tường thuật Start War III),
+  **Trường Kỹ Thuật** và **Máy Bay Tàng Hình** (diễn đàn GVN). Nay cả ba đều có trong game: Nhà Máy
+  Tàu Bay là dây chuyền riêng chỉ tăng tốc dòng máy bay, Trường Kỹ Thuật sinh Kỹ Thuật nhanh hơn
+  Phòng Nghiên Cứu nhưng tốn điện, còn Tàng Hình thì địch do thám không thấy. Tên là **[XÁC NHẬN]**,
+  còn chỉ số và vai trò là **[SUY LUẬN]** — nguồn không để lại bảng số.
 - **Nhiên liệu theo giờ bay**: màn gửi hạm bày đúng phép cân của chỉ huy bản gốc — chuyến
   này bay mấy giờ mỗi chiều, nhiên liệu chở theo đủ mấy giờ, chặng về cần bao nhiêu. Chặng
   về đòi một khoản **dự trữ** trong khoang — cái giá của nó là chỗ chứa, nên Tàu Dầu và số

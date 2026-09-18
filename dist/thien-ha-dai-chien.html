@@ -418,7 +418,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 <div id="toast"></div>
 
 <script>
-/* source: js/data.js sha256:c91b66339d090021e0659c120de01d5e3c0d968e9cf818e99e73ea5512d88dd8 */
+/* source: js/data.js sha256:dc75c361279eec9dda1329ad7aa36295ff9e75625e3a1e90878926ec3d867631 */
 /* =========================================================================
  * THIÊN HÀ ĐẠI CHIẾN — Bảng dữ liệu game
  * -------------------------------------------------------------------------
@@ -560,6 +560,23 @@ G.BUILDINGS = [
     mota: 'Ụ tàu trên quỹ đạo. Không có xưởng thì không có hạm đội.',
     cost: { metal: 400, crystal: 200, deut: 100 }, factor: 2 },
 
+  /* [XÁC NHẬN tên] Tường thuật Start War III ghi hành tinh MIMI còn "đúng
+     1.000 Nhà Máy Tàu Bay" — một tên công trình có thật. Vai trò ở đây là
+     [SUY LUẬN]: công suất đóng RIÊNG cho dòng máy bay, song song Xưởng Đóng Tàu. */
+  { id: 'airFactory', ten: 'Nhà Máy Tàu Bay', nhom: 'cn', req: { b: { shipyard: 4 } },
+    mota: 'Dây chuyền riêng cho Máy Bay Chiến Đấu, Tiêm Kích và Tàng Hình — ' +
+      'cộng thẳng vào công suất đóng của riêng dòng máy bay.',
+    cost: { metal: 600, crystal: 300, deut: 120 }, factor: 2,
+    use: function (n) { return 8 * n; } },
+
+  /* [XÁC NHẬN tên] GVN trang 19–20 liệt kê Thành Phố, Nông Trại, Trường Kỹ
+     Thuật cùng nhà máy và kho. Vai trò sinh Kỹ Thuật là [SUY LUẬN]. */
+  { id: 'techSchool', ten: 'Trường Kỹ Thuật', nhom: 'cn', req: { b: { lab: 3, city: 2 } },
+    mota: 'Đào tạo kỹ sư: ra Kỹ Thuật nhanh hơn Phòng Nghiên Cứu nhiều, đổi lại tốn điện.',
+    cost: { metal: 500, crystal: 900, deut: 300 }, factor: 2,
+    prod: function (n) { return { tech: 9 * n }; },
+    use: function (n) { return 14 * n; } },
+
   { id: 'lab', ten: 'Phòng Nghiên Cứu', nhom: 'cn',
     mota: 'Tạo ra Kỹ Thuật — tài nguyên ẩn của đế quốc — và cho phép nghiên cứu.',
     cost: { metal: 200, crystal: 400, deut: 200 }, factor: 2,
@@ -646,15 +663,27 @@ G.SHIPS = [
     atk: 5, shield: 25, hull: 12000, speed: 7500, cargo: 25000, fuel: 50, crew: 8, choLinh: 300, dc: 'combustion',
     req: { b: { shipyard: 4 }, r: { combustion: 6 } },
     mota: 'Khoang hàng gấp năm lần tàu nhỏ mà vẫn bay nhanh hơn.' },
-  { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 },
+  { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 }, lop: 'maybay',
     atk: 50, shield: 10, hull: 4000, speed: 12500, cargo: 50, fuel: 20, crew: 2, dc: 'combustion',
     req: { b: { shipyard: 1 }, r: { combustion: 1 } },
     mota: 'MBCD — xương sống của mọi hạm đội quỹ đạo trong bản gốc, đếm bằng hàng triệu chiếc. ' +
       'Rẻ, nhanh, chết cũng nhanh.' },
-  { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 },
+  { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 }, lop: 'maybay',
     atk: 150, shield: 25, hull: 10000, speed: 10000, cargo: 100, fuel: 75, crew: 4, dc: 'impulse',
     req: { b: { shipyard: 3 }, r: { armor: 2, impulse: 2 } },
     mota: 'MBTK — bản nặng của Máy Bay Chiến Đấu, mặc thêm giáp và gắn laser.' },
+
+  /* [XÁC NHẬN tên] Nguồn GVN nhắc "10.000 Máy Bay Tàng Hình/ngày" với khoảng
+     1.000 nhà máy và Kỹ Thuật Nhà Xưởng 20. Chỉ số và giá là [SUY LUẬN]: neo
+     đó là ước lượng của người chơi, không phải bảng số gốc, nên bản này đặt
+     Tàng Hình giữa Tiêm Kích và Tiểu Chiến Hạm cho khớp thang giá sẵn có
+     (vỏ thép luôn bằng Kim Loại + Thạch Anh). */
+  { id: 'stealth', ten: 'Máy Bay Tàng Hình', cost: { metal: 11000, crystal: 7000 },
+    lop: 'maybay', tangHinh: true,
+    atk: 260, shield: 35, hull: 18000, speed: 14000, cargo: 120, fuel: 90, crew: 5, dc: 'impulse',
+    req: { b: { airFactory: 2 }, r: { spy: 4, impulse: 5 } },
+    mota: 'MBTH — không hiện trong báo cáo do thám trừ khi bên do thám đạt mức tình báo cao nhất. ' +
+      'Đóng ở Nhà Máy Tàu Bay.' },
   { id: 'cruiser', ten: 'Tiểu Chiến Hạm', cost: { metal: 20000, crystal: 7000, deut: 2000 },
     atk: 400, shield: 50, hull: 27000, speed: 15000, cargo: 800, fuel: 300, crew: 12, dc: 'impulse',
     req: { b: { shipyard: 5 }, r: { impulse: 4, ion: 2 } },
@@ -908,6 +937,23 @@ G.MOC_LICH_SU = {
 };
 G.hsKhaiMo = function (tech) { return Math.pow(G.C.HE_SO_KHAI_MO, (tech && tech.mining) || 0); };
 G.hsNhaXuong = function (tech) { return Math.pow(G.C.HE_SO_NHA_XUONG, (tech && tech.workshop) || 0); };
+
+/* Mức tình báo tối thiểu để báo cáo do thám nhìn thấy tàu tàng hình. */
+G.MUC_THAY_TANG_HINH = 5;
+
+/* Bỏ tàu tàng hình khỏi một bảng đội hình khi mức tình báo chưa đủ. Trả về
+   null y như đầu vào null để chỗ gọi giữ nguyên ngữ nghĩa "không thấy gì". */
+G.locTangHinh = function (ships, mucDo) {
+  if (!ships) return ships;
+  if (Number(mucDo) >= G.MUC_THAY_TANG_HINH) return ships;
+  var ra = {}, id;
+  for (id in ships) {
+    var u = G.byId(G.SHIPS, id);
+    if (u && u.tangHinh) continue;
+    ra[id] = ships[id];
+  }
+  return ra;
+};
 
 /* --- Tra cứu nhanh ----------------------------------------------------- */
 G.byId = function (arr, id) { for (var i = 0; i < arr.length; i++) if (arr[i].id === id) return arr[i]; return null; };
@@ -1521,7 +1567,7 @@ G.thuyThu = function (ships) {
   return t;
 };
 
-/* source: js/engine.js sha256:c0a52e8f646e396239c8c2371f7b478c207cee2b1ccc5c6bfbc002e9daab3590 */
+/* source: js/engine.js sha256:0dfe6edf05f589bc38fcd36fe5a4c583a114d94006474372b9b6eb5021490277 */
 /* THIÊN HÀ ĐẠI CHIẾN — lõi mô phỏng
  * Toàn bộ game chạy theo mốc thời gian thực: state chỉ lưu các mốc, mỗi lần
  * tick (hoặc mở lại game sau nhiều giờ) engine tua lại từng sự kiện theo
@@ -2147,9 +2193,15 @@ G.tgXay = function (st, p, cost) {
   var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
-G.tgTau = function (st, p, cost) {
+/* `id` không bắt buộc: thiếu thì tính như trước. Có id và đó là dòng máy bay
+   thì Nhà Máy Tàu Bay cộng thẳng vào công suất — dây chuyền riêng, đúng như
+   tên công trình gợi ra. */
+G.tgTau = function (st, p, cost, id) {
   var mc = (cost.metal || 0) + (cost.crystal || 0);
-  var congSuat = Math.max(1, p.b.shipyard || 0) * G.hsNhaXuong(st.tech) + 10 * (p.b.nanite || 0);
+  var hs = G.hsNhaXuong(st.tech);
+  var congSuat = Math.max(1, p.b.shipyard || 0) * hs + 10 * (p.b.nanite || 0);
+  var u = id ? G.byId(G.SHIPS, id) : null;
+  if (u && u.lop === 'maybay') congSuat += (p.b.airFactory || 0) * hs;
   var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
@@ -2232,7 +2284,7 @@ G.xepTau = function (st, p, id, n) {
   var cost = G.giaDonVi(d, n);
   if (!G.duTien(st, p, cost)) return 'Không đủ tài nguyên.';
   G.truTien(st, p, cost);
-  var tEach = G.tgTau(st, p, G.giaDonVi(d, 1));
+  var tEach = G.tgTau(st, p, G.giaDonVi(d, 1), id);
   p.qS.push({ id: id, n: n, tEach: tEach, tLeft: p.qS.length === 0 ? tEach : tEach, cost1: G.giaDonVi(d, 1) });
   return null;
 };
@@ -2486,7 +2538,7 @@ G.giaoHangToi = function (st, i) {
     G.tdStr(p.c) + '.');
 };
 
-/* source: js/fleet.js sha256:19bf0dff679ddeb81ae8a524e0becbe11a3ec34ec2a4eb4e2edc5426ba68c32d */
+/* source: js/fleet.js sha256:5608bf050b93827a6c2cd29ad89cd55d0c11f11aaccb9d7e3c1779f43449c3e8 */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -3529,7 +3581,7 @@ G.doThamNPC = function (st, f, n) {
     td: f.den, ten: n.ten, ht: n.htTen, lm: n.lm, diem: n.diem, bo: n.bo, mucDo: mucDo, mat: mat,
     res: { metal: Math.floor(n.res.metal), crystal: Math.floor(n.res.crystal), deut: Math.floor(n.res.deut),
       food: Math.floor(n.res.food) },
-    ships: mucDo >= 2 ? G.clone(n.ships) : null,
+    ships: mucDo >= 2 ? G.locTangHinh(G.clone(n.ships), mucDo) : null,
     def: mucDo >= 3 ? G.clone(n.def) : null,
     tech: mucDo >= 4 ? G.clone(n.tech) : null,
     t: st.now
@@ -4986,7 +5038,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:55137d15782917735eb7328cb816eef9bb42c866a9a62c39db4db90c7cc96fdf */
+/* source: js/ui.js sha256:526374cf3a5952e145344309a5f060c8d9e56323295f10f59f6155e3c08bb258 */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -5614,7 +5666,7 @@ U.theDonVi = function (st, p, u, loai) {
     : (loai === 'bo' ? ((p.linh || {})[u.id] || 0) : (p.def[u.id] || 0)));
   var dang = G.dangDong(p, u.id);
   var thieuDK = G.thieuDK(st, p, u), du = G.duTien(st, p, u.cost);
-  var tg = G.tgTau(st, p, u.cost);
+  var tg = G.tgTau(st, p, u.cost, u.id);
   var h = '<div class="the' + (thieuDK.length ? ' tat' : '') + '">';
   h += '<span class="cap">có ' + G.so(co) + (dang ? ' (+' + G.so(dang) + ')' : '') + '</span>';
   h += '<h4>' + U.esc(u.ten) + '</h4><div class="mt">' + U.esc(u.mota) + '</div>';
@@ -6634,7 +6686,7 @@ U.mpMoi = function () {
     A: { ships: G.clone(p.ships || {}), tech: { weapon: st.tech.weapon || 0, shield: st.tech.shield || 0, armor:
       st.tech.armor || 0 } },
     D: { ships: {}, def: {}, tech: { weapon: 0, shield: 0, armor: 0 }, res: null },
-    nguon: '', kq: null
+    nguon: '', thieuTangHinh: false, kq: null
   };
 };
 
@@ -6648,6 +6700,9 @@ U.mpNapDoTham = function (key) {
   var t = bc.tech || {};
   U.mp.D.tech = { weapon: t.weapon || 0, shield: t.shield || 0, armor: t.armor || 0 };
   U.mp.nguon = (bc.ten || '') + ' ' + G.tdStr(bc.td);
+  /* Báo cáo dưới mức tình báo cao nhất có thể đã bị giấu tàu tàng hình, nên
+     con số máy tính trận đưa ra là ước lượng LẠC QUAN. Nói thẳng ra. */
+  U.mp.thieuTangHinh = bc.ships ? Number(bc.mucDo) < G.MUC_THAY_TANG_HINH : false;
 };
 
 U.mpDoc = function () {
@@ -6739,6 +6794,9 @@ U.m_mophong = function () {
   h += '</div>';
   if (m.nguon) h += '<div class="mo" style="margin-top:6px">Bên phòng thủ lấy từ báo cáo do thám: <b>' +
     U.esc(m.nguon) + '</b></div>';
+  if (m.thieuTangHinh) h += '<div class="vang" style="margin-top:4px">Báo cáo này chưa đạt mức tình báo ' +
+    'cao nhất, nên có thể đã <b>giấu mất Máy Bay Tàng Hình</b> của đối phương — con số dưới đây là ước ' +
+    'lượng lạc quan. Muốn chắc thì do thám lại bằng nhiều Tàu Do Thám hơn và Công Nghệ Tình Báo cao hơn.</div>';
   h += '</div></div>';
 
   /* kết quả */

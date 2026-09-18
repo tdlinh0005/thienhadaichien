@@ -1065,7 +1065,7 @@ TheGioi.prototype.doThamNguoi = function (st, f, o) {
         deut: Math.floor(dp.res.deut || 0),
         food: Math.floor(dp.res.food || 0)
       },
-      ships: mucDo >= 2 ? G.clone(dp.ships) : null,
+      ships: mucDo >= 2 ? G.locTangHinh(G.clone(dp.ships), mucDo) : null,
       /* [TÁI DỰNG] Dân số/ủng hộ/thuế là chỉ số do thám có nguồn; chọn mức
          tình báo 2 để báo cáo cấp thấp nhất vẫn không làm lộ chúng. */
       danSu: mucDo >= 2 && dp.danSu ? {

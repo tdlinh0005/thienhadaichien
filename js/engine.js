@@ -623,9 +623,15 @@ G.tgXay = function (st, p, cost) {
   var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
-G.tgTau = function (st, p, cost) {
+/* `id` không bắt buộc: thiếu thì tính như trước. Có id và đó là dòng máy bay
+   thì Nhà Máy Tàu Bay cộng thẳng vào công suất — dây chuyền riêng, đúng như
+   tên công trình gợi ra. */
+G.tgTau = function (st, p, cost, id) {
   var mc = (cost.metal || 0) + (cost.crystal || 0);
-  var congSuat = Math.max(1, p.b.shipyard || 0) * G.hsNhaXuong(st.tech) + 10 * (p.b.nanite || 0);
+  var hs = G.hsNhaXuong(st.tech);
+  var congSuat = Math.max(1, p.b.shipyard || 0) * hs + 10 * (p.b.nanite || 0);
+  var u = id ? G.byId(G.SHIPS, id) : null;
+  if (u && u.lop === 'maybay') congSuat += (p.b.airFactory || 0) * hs;
   var h = mc / 2500 / congSuat / G.C.TOC_DO_SERVER;
   return Math.max(1, Math.round(h * 3600));
 };
@@ -708,7 +714,7 @@ G.xepTau = function (st, p, id, n) {
   var cost = G.giaDonVi(d, n);
   if (!G.duTien(st, p, cost)) return 'Không đủ tài nguyên.';
   G.truTien(st, p, cost);
-  var tEach = G.tgTau(st, p, G.giaDonVi(d, 1));
+  var tEach = G.tgTau(st, p, G.giaDonVi(d, 1), id);
   p.qS.push({ id: id, n: n, tEach: tEach, tLeft: p.qS.length === 0 ? tEach : tEach, cost1: G.giaDonVi(d, 1) });
   return null;
 };

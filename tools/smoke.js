@@ -1540,10 +1540,17 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   ktra(!G.boHoang(e, 1), 'audit: bỏ hoang được thuộc địa');
   ktra(e.giaoHang[0].pi === 0,
     'audit: bỏ hoang đổi hướng chuyến hàng về thủ phủ thay vì trỏ vào chỉ số đã biến mất');
-  var khoTruocE = e.planets[0].res.metal;
+  var soTinE = e.msgs.length;
   ktra(tuaDuoc(e, 3600, 12), 'audit: tua qua mốc giao hàng không ném');
-  ktra(e.giaoHang.length === 0 && e.planets[0].res.metal > khoTruocE,
-    'audit: hàng về đúng thủ phủ');
+  ktra(e.giaoHang.length === 0, 'audit: chuyến giao đã kết thúc');
+  /* Không đo bằng tồn kho: G.moiGame lấy giờ thực nên pha checkpoint bảo trì
+     đổi theo lúc chạy, và kho Kim Loại vốn đã vượt xa dung tích nên phần cộng
+     thêm có thể bị sản xuất/tiêu thụ của kỳ đó che mất — phép kiểm sẽ chập
+     chờn. Đo thẳng cái đang cần chứng minh: hàng được giao TỚI THỦ PHỦ. */
+  var tinGiaoE = e.msgs.filter(function (m) { return m.td === 'Siêu Thị giao hàng'; });
+  ktra(tinGiaoE.length === 1 && String(tinGiaoE[0].nd).indexOf(e.planets[0].ten) >= 0,
+    'audit: hàng được giao về đúng thủ phủ, không trỏ vào chỉ số đã biến mất');
+  void soTinE;
 
   /* --- 19d. tách đội đang phong toả phải giữ cờ phong toả --- */
   var f2 = banMoi('THDC-AUD-F'), pf = f2.planets[0];
@@ -1669,6 +1676,91 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   ktra(!G.goiVe(s4, fH.id), 'giờ bay: gọi được đoàn Giữ Chỗ về');
   ktra(fH.cargo.deut === deutGiu && !fH.nlVeThieu,
     'giờ bay: Giữ Chỗ đứng ngoài luật dự trữ (đã trả theo đoạn 6 giờ)');
+})();
+
+/* ---- 21. ba đơn vị/công trình có tên thật trong tư liệu ---- */
+(function () {
+  ktra(!!G.S('stealth') && G.S('stealth').ten === 'Máy Bay Tàng Hình', 'đơn vị: có Máy Bay Tàng Hình');
+  ktra(!!G.B('airFactory') && G.B('airFactory').ten === 'Nhà Máy Tàu Bay', 'đơn vị: có Nhà Máy Tàu Bay');
+  ktra(!!G.B('techSchool') && G.B('techSchool').ten === 'Trường Kỹ Thuật', 'đơn vị: có Trường Kỹ Thuật');
+  ktra(G.S('stealth').hull === G.S('stealth').cost.metal + G.S('stealth').cost.crystal,
+    'đơn vị: Tàng Hình giữ đúng quy ước vỏ thép = Kim Loại + Thạch Anh của cả bảng tàu');
+
+  var s = G.moiGame('Đơn Vị', 'THDC-DON-VI'), p = s.planets[0];
+  p.res.metal += 5e8; p.res.crystal += 5e8; p.res.deut += 5e8;
+  s.galana += 1e7; s.techPts += 1e7; p.b.solar = 5000;
+
+  /* --- Nhà Máy Tàu Bay chỉ tăng tốc dòng máy bay --- */
+  p.b.shipyard = 10;
+  var truoc = {}, ds = ['fighterL', 'fighterH', 'stealth', 'cruiser', 'destroyer'], z;
+  for (z = 0; z < ds.length; z++) truoc[ds[z]] = G.tgTau(s, p, G.giaDonVi(G.S(ds[z]), 1), ds[z]);
+  p.b.airFactory = 40;
+  var nhanh = [], khongDoi = [];
+  for (z = 0; z < ds.length; z++) {
+    var sau = G.tgTau(s, p, G.giaDonVi(G.S(ds[z]), 1), ds[z]);
+    (sau < truoc[ds[z]] ? nhanh : khongDoi).push(ds[z]);
+  }
+  ktra(nhanh.join(',') === 'fighterL,fighterH,stealth',
+    'đơn vị: Nhà Máy Tàu Bay chỉ tăng tốc máy bay (' + nhanh.join(',') + ')');
+  ktra(khongDoi.join(',') === 'cruiser,destroyer',
+    'đơn vị: chiến hạm KHÔNG được Nhà Máy Tàu Bay tăng tốc');
+  ktra(G.tgTau(s, p, G.giaDonVi(G.S('fighterL'), 1)) === truoc.fighterL,
+    'đơn vị: gọi tgTau không kèm id vẫn tính như cũ (tương thích ngược)');
+
+  /* --- Trường Kỹ Thuật sinh Kỹ Thuật và tốn điện --- */
+  var s2 = G.moiGame('Trường', 'THDC-TRUONG'), p2 = s2.planets[0];
+  p2.b.solar = 5000; p2.b.lab = 10;
+  var a = G.sanLuong(s2, p2);
+  p2.b.techSchool = 10;
+  var b = G.sanLuong(s2, p2);
+  ktra(b.r.tech > a.r.tech, 'đơn vị: Trường Kỹ Thuật làm tăng sản lượng Kỹ Thuật');
+  ktra(b.r.tech - a.r.tech > a.r.tech, 'đơn vị: mỗi Trường mạnh hơn mỗi Phòng Nghiên Cứu');
+  ktra(b.dienDung > a.dienDung, 'đơn vị: Trường Kỹ Thuật có tiêu thụ điện');
+
+  /* --- Tàng hình giấu khỏi báo cáo do thám --- */
+  ktra(JSON.stringify(G.locTangHinh({ fighterL: 10, stealth: 5 }, 2)) === '{"fighterL":10}',
+    'đơn vị: mức tình báo thấp không thấy tàu tàng hình');
+  ktra(JSON.stringify(G.locTangHinh({ fighterL: 10, stealth: 5 }, G.MUC_THAY_TANG_HINH)) ===
+    '{"fighterL":10,"stealth":5}', 'đơn vị: đủ mức tình báo cao nhất thì thấy');
+  ktra(G.locTangHinh(null, 2) === null, 'đơn vị: không có đội hình thì giữ nguyên null');
+  ktra(JSON.stringify(G.locTangHinh({ cruiser: 3 }, 1)) === '{"cruiser":3}',
+    'đơn vị: tàu thường không bị lọc');
+
+  function doTham(soProbe, spyTech) {
+    var sx = G.moiGame('Do Thám', 'THDC-DO-THAM'), px = sx.planets[0];
+    px.res.deut += 1e8;
+    px.ships.probe = soProbe;
+    sx.tech.spy = spyTech;
+    var muc = null, h, k;
+    for (h = px.c.h; h < px.c.h + 12 && !muc; h++) {
+      var he = G.xemHe(sx, px.c.g, h);
+      for (k = 0; k < he.length; k++) if (he[k].loai === 'npc') { muc = he[k]; break; }
+    }
+    if (!muc) return null;
+    muc.npc.ships.stealth = 77;
+    muc.npc.ships.fighterL = 40;
+    muc.npc.tech.spy = 0;
+    if (G.guiHam(sx, 0, { probe: soProbe }, muc.c, 'spy', {}, 100)) return null;
+    var t = sx.now, i;
+    for (i = 0; i < 400 && sx.fleets.length; i++) { t += 300; G.tick(sx, t); }
+    return (sx.spy && sx.spy[G.tdKey(muc.c)]) || null;
+  }
+  var bcThap = doTham(3, 2);
+  ktra(bcThap && bcThap.mucDo < G.MUC_THAY_TANG_HINH && bcThap.ships &&
+    bcThap.ships.stealth === undefined && bcThap.ships.fighterL === 40,
+    'đơn vị: báo cáo do thám cấp thấp thấy máy bay thường nhưng KHÔNG thấy tàng hình');
+  var bcCao = doTham(200, 12);
+  ktra(bcCao && bcCao.mucDo >= G.MUC_THAY_TANG_HINH && bcCao.ships && bcCao.ships.stealth === 77,
+    'đơn vị: báo cáo cấp cao nhất thấy đủ cả tàng hình');
+
+  /* --- tàng hình vẫn là tàu bình thường ở mọi chỗ khác --- */
+  var kq = G.danhTran(
+    { ten: 'A', tech: { weapon: 8, shield: 8, armor: 8 }, ships: { stealth: 400 } },
+    { ten: 'D', tech: {}, ships: { fighterL: 200 }, def: {} }, 4242);
+  ktra(kq.kq === 'thang', 'đơn vị: tàng hình tham chiến bình thường');
+  ktra(G.khoangHang({ stealth: 10 }) === G.S('stealth').cargo * 10,
+    'đơn vị: tàng hình có khoang hàng như mọi tàu');
+  ktra(G.tocDoHam({ tech: {} }, { stealth: 1 }) > 0, 'đơn vị: tàng hình có tốc độ hợp lệ');
 })();
 
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');

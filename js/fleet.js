@@ -1040,7 +1040,7 @@ G.doThamNPC = function (st, f, n) {
     td: f.den, ten: n.ten, ht: n.htTen, lm: n.lm, diem: n.diem, bo: n.bo, mucDo: mucDo, mat: mat,
     res: { metal: Math.floor(n.res.metal), crystal: Math.floor(n.res.crystal), deut: Math.floor(n.res.deut),
       food: Math.floor(n.res.food) },
-    ships: mucDo >= 2 ? G.clone(n.ships) : null,
+    ships: mucDo >= 2 ? G.locTangHinh(G.clone(n.ships), mucDo) : null,
     def: mucDo >= 3 ? G.clone(n.def) : null,
     tech: mucDo >= 4 ? G.clone(n.tech) : null,
     t: st.now

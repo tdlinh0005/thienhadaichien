@@ -625,7 +625,7 @@ U.theDonVi = function (st, p, u, loai) {
     : (loai === 'bo' ? ((p.linh || {})[u.id] || 0) : (p.def[u.id] || 0)));
   var dang = G.dangDong(p, u.id);
   var thieuDK = G.thieuDK(st, p, u), du = G.duTien(st, p, u.cost);
-  var tg = G.tgTau(st, p, u.cost);
+  var tg = G.tgTau(st, p, u.cost, u.id);
   var h = '<div class="the' + (thieuDK.length ? ' tat' : '') + '">';
   h += '<span class="cap">có ' + G.so(co) + (dang ? ' (+' + G.so(dang) + ')' : '') + '</span>';
   h += '<h4>' + U.esc(u.ten) + '</h4><div class="mt">' + U.esc(u.mota) + '</div>';
@@ -1645,7 +1645,7 @@ U.mpMoi = function () {
     A: { ships: G.clone(p.ships || {}), tech: { weapon: st.tech.weapon || 0, shield: st.tech.shield || 0, armor:
       st.tech.armor || 0 } },
     D: { ships: {}, def: {}, tech: { weapon: 0, shield: 0, armor: 0 }, res: null },
-    nguon: '', kq: null
+    nguon: '', thieuTangHinh: false, kq: null
   };
 };
 
@@ -1659,6 +1659,9 @@ U.mpNapDoTham = function (key) {
   var t = bc.tech || {};
   U.mp.D.tech = { weapon: t.weapon || 0, shield: t.shield || 0, armor: t.armor || 0 };
   U.mp.nguon = (bc.ten || '') + ' ' + G.tdStr(bc.td);
+  /* Báo cáo dưới mức tình báo cao nhất có thể đã bị giấu tàu tàng hình, nên
+     con số máy tính trận đưa ra là ước lượng LẠC QUAN. Nói thẳng ra. */
+  U.mp.thieuTangHinh = bc.ships ? Number(bc.mucDo) < G.MUC_THAY_TANG_HINH : false;
 };
 
 U.mpDoc = function () {
@@ -1750,6 +1753,9 @@ U.m_mophong = function () {
   h += '</div>';
   if (m.nguon) h += '<div class="mo" style="margin-top:6px">Bên phòng thủ lấy từ báo cáo do thám: <b>' +
     U.esc(m.nguon) + '</b></div>';
+  if (m.thieuTangHinh) h += '<div class="vang" style="margin-top:4px">Báo cáo này chưa đạt mức tình báo ' +
+    'cao nhất, nên có thể đã <b>giấu mất Máy Bay Tàng Hình</b> của đối phương — con số dưới đây là ước ' +
+    'lượng lạc quan. Muốn chắc thì do thám lại bằng nhiều Tàu Do Thám hơn và Công Nghệ Tình Báo cao hơn.</div>';
   h += '</div></div>';
 
   /* kết quả */

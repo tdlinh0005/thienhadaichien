@@ -155,7 +155,14 @@ Hai nguồn độc lập cùng nói:
 
 Đây từng là khác biệt kiến trúc lớn nhất của bản phục dựng. State v6 giữ marker
 `so-luong-v1` và dùng `p.b[id]` theo số lượng; **tên công trình có thật đã biết:
-"Nhà Máy Tàu Bay"**.
+"Nhà Máy Tàu Bay"** — nay đã có trong game (`airFactory`) như dây chuyền đóng
+riêng cho dòng máy bay. Hai cái tên có thật khác cũng đã được dựng: **Trường Kỹ
+Thuật** (`techSchool`, sinh Kỹ Thuật) và **Máy Bay Tàng Hình** (`stealth`, không
+hiện trong báo cáo do thám dưới mức tình báo cao nhất). Với cả ba, **tên là
+[XÁC NHẬN]** còn **chỉ số, giá và vai trò là [SUY LUẬN]**: neo "1.000 nhà máy,
+KT nhà xưởng 20 → 10.000 Máy Bay Tàng Hình/ngày" là ước lượng của người chơi,
+chính tư liệu đã đánh giá là không đủ để suy ra công thức, nên bản này đặt chỉ
+số theo thang giá nội bộ sẵn có thay vì ép khớp con số đó.
 Phép đổi save cấp cũ sang số lượng và mọi đường giá/sản lượng vẫn là **[TÁI DỰNG]**.
 
 Các bài trao đổi sau đó còn cho vài **neo định lượng**, nhưng đều là phát biểu của
