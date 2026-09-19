@@ -1930,5 +1930,145 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
     'phong toả: hết nhiên liệu trong khoang thì không neo được');
 })();
 
+/* ======================================================================
+ * 24. MỘT KHOÁ LẠ TRONG STATE KHÔNG ĐƯỢC LÀM KẸT TÀI KHOẢN
+ * ----------------------------------------------------------------------
+ * Save của bản mới mở bằng bản cũ, một lần đổi tên id, hay một save bị sửa
+ * tay đều có thể để lại một khoá không còn trong luật. Trước bản này, G.diem
+ * ném ở `G.S(k).cost` và các hàng đợi ném ở `.ten` — mà cả hai đều nằm TRÊN
+ * ĐƯỜNG TICK, nên mỗi lần tua lại ném đúng chỗ ấy: tài khoản kẹt vĩnh viễn,
+ * đúng lớp lỗi với chuyện đổi hướng hạm đội vào ô 16 trước đây.
+ * ==================================================================== */
+(function () {
+  function thuLa(ten, dat) {
+    var s = G.moiGame('Khoá Lạ', 'THDC-KHOA-LA'), pp = s.planets[0];
+    dat(s, pp);
+    var nem = null;
+    try {
+      G.diem(s);
+      G.sanLuong(s, pp);
+      G.tongSoCT(pp);
+      G.thuyThu(pp.ships);
+      G.khoangHang(pp.ships);
+      G.quanThuTong(pp);
+      /* tua đủ dài để mọi hàng đợi tới hạn ít nhất một lần */
+      for (var i = 0; i < 40; i++) G.tick(s, s.now + 3600);
+    } catch (e) { nem = e.message; }
+    ktra(!nem, 'khoá lạ: ' + ten + (nem ? ' -> NÉM: ' + nem : ''));
+    return s;
+  }
+
+  thuLa('tàu không có trong luật đậu ở hành tinh', function (s, pp) { pp.ships.tauMa = 5; });
+  thuLa('công trình không có trong luật', function (s, pp) { pp.b.thapMa = 3; });
+  thuLa('phòng thủ không có trong luật', function (s, pp) { pp.def.phaoMa = 7; });
+  thuLa('nghiên cứu không có trong luật', function (s, pp) { s.tech.phepThuat = 4; });
+  thuLa('bộ binh không có trong luật', function (s, pp) { pp.linh = { nguoiMa: 9 }; });
+  thuLa('tài nguyên không có trong luật', function (s, pp) { pp.res.vangRong = 100; });
+  thuLa('hạm đội đang bay chở tàu không có trong luật', function (s, pp) {
+    s.fleets.push({ id: 1, pi: 0, tu: pp.c, den: { g: pp.c.g, h: pp.c.h, p: (pp.c.p % 15) + 1 },
+      mission: 'attack', ships: { tauMa: 3 }, cargo: {}, linh: {}, pct: 100,
+      diLuc: s.now, den_t: s.now + 60, veLuc: null, ve_t: null, pha: 'di',
+      giu: 0, nl: 0, kc: 1, doiHuong: 0 });
+  });
+  thuLa('chuyến hàng chở tài nguyên không có trong luật', function (s, pp) {
+    G.giaoHang(s).push({ pi: 0, res: 'vangRong', n: 50, den_t: s.now + 60 });
+  });
+
+  /* Hàng đợi là trường hợp nặng nhất: mục hỏng phải bị BỎ, nếu không nó nằm
+     lại đầu hàng đợi và chặn mọi thứ phía sau mãi mãi. */
+  var sB = thuLa('hàng đợi xây trỏ tới công trình không có trong luật', function (s, pp) {
+    pp.qB.push({ id: 'thapMa', n: 1, lv: 1, tg: 10, xong: s.now + 10 });
+    pp.qB.push({ id: 'metalMine', n: 1, lv: 1, tg: 20, xong: s.now + 30 });
+  });
+  ktra(sB.planets[0].qB.length === 0, 'khoá lạ: hàng đợi xây được dọn sạch, không kẹt lại');
+  ktra((sB.planets[0].b.metalMine || 0) > 0,
+    'khoá lạ: mục hợp lệ đứng SAU mục hỏng vẫn xây xong — mục hỏng không chặn hàng');
+  ktra(sB.nk.some(function (x) { return /không còn trong luật/.test(x.s); }),
+    'khoá lạ: nhật ký nói rõ đã bỏ mục nào');
+
+  var sS = thuLa('hàng đợi đóng trỏ tới đơn vị không có trong luật', function (s, pp) {
+    pp.b.shipyard = 10;
+    pp.qS.push({ id: 'tauMa', n: 1, tEach: 5, tLeft: 5 });
+    pp.qS.push({ id: 'fighterL', n: 2, tEach: 5, tLeft: 5 });
+  });
+  ktra(sS.planets[0].qS.length === 0, 'khoá lạ: hàng đợi đóng được dọn sạch');
+  ktra((sS.planets[0].ships.fighterL || 0) >= 2,
+    'khoá lạ: lô hợp lệ đứng sau lô hỏng vẫn đóng xong');
+
+  var sR = thuLa('đề tài nghiên cứu không có trong luật', function (s, pp) {
+    s.ncQueue = { id: 'phepThuat', lv: 1, status: 'active', installmentsLeft: 0,
+      installmentsTotal: 1, finishAt: s.now + 10, cost: { metal: 1 }, totalCost: { metal: 1 },
+      paidCost: { metal: 1 }, conLai: 10 };
+  });
+  ktra(sR.ncQueue === null, 'khoá lạ: đề tài hỏng bị bỏ khỏi hàng đợi nghiên cứu');
+
+  /* điểm vẫn tính đúng phần hợp lệ, chỉ bỏ qua phần lạ */
+  var sD = G.moiGame('Điểm', 'THDC-DIEM-LA'), pD = sD.planets[0];
+  pD.ships = { fighterL: 10 };
+  var diemSach = G.diem(sD).ham;
+  pD.ships.tauMa = 999999;
+  ktra(G.diem(sD).ham === diemSach,
+    'khoá lạ: đơn vị lạ không được tính điểm, cũng không phá mất điểm phần hợp lệ');
+  ktra((pD.ships.tauMa || 0) === 999999,
+    'khoá lạ: KHÔNG xoá tài sản của người chơi — chỉ bỏ qua khi tính điểm');
+})();
+
+/* ======================================================================
+ * 25. CẢNH BÁO TẦM GIỮ QUỸ ĐẠO
+ * ----------------------------------------------------------------------
+ * Thiếu một kỳ nhiên liệu sau khi đã đậu là XOÁ SẠCH hạm đội — hình phạt
+ * nặng nhất trong game. Con số "còn trả nổi mấy kỳ" phải đúng, vì giao diện
+ * dựa hẳn vào nó để cảnh báo trước khi chuyện đó xảy ra.
+ * ==================================================================== */
+(function () {
+  var s = G.moiGame('Tầm Giữ', 'THDC-TAM-GIU');
+  var doi = { fighterL: 100 };
+  var moi = G.nhienLieuGiu(s, doi, G.QUY_DAO_V1.segmentSeconds);
+  ktra(moi > 0, 'tầm giữ: một đoạn quỹ đạo có định mức dương');
+  function ham(deut, caGio) {
+    return { id: 1, ships: doi, cargo: deut ? { deut: deut } : {}, pha: 'giu',
+      giuLuc: s.now, giuDen_t: s.now + caGio * 3600,
+      tiepNL_t: s.now + G.QUY_DAO_V1.segmentSeconds };
+  }
+  var rong = G.tamGiu(s, ham(0, 24));
+  ktra(rong.doanCon === 0 && rong.duToiHetCa === false,
+    'tầm giữ: khoang rỗng thì báo 0 kỳ và KHÔNG đủ tới hết ca');
+  var hai = G.tamGiu(s, ham(moi * 2 + 1, 24));
+  ktra(hai.doanCon === 2, 'tầm giữ: đếm đúng số kỳ còn trả nổi');
+  ktra(hai.duToiHetCa === false, 'tầm giữ: 2 kỳ không phủ nổi ca 24 giờ');
+  var thua = G.tamGiu(s, ham(moi * 100, 12));
+  ktra(thua.duToiHetCa === true, 'tầm giữ: thừa nhiên liệu thì báo đủ tới hết ca');
+  ktra(thua.denKhi <= s.now + 12 * 3600,
+    'tầm giữ: mốc cạn không bao giờ vượt quá lúc rời quỹ đạo');
+  var trong = G.tamGiu(s, { id: 2, ships: {}, cargo: { deut: 100 }, pha: 'giu',
+    giuLuc: s.now, giuDen_t: s.now + 3600, tiepNL_t: s.now + 600 });
+  ktra(isFinite(trong.denKhi) && trong.duToiHetCa === true,
+    'tầm giữ: đội trắng tàu không chia cho 0');
+
+  /* con số phải khớp với luật thật: đúng số kỳ đó thì đội sống, thêm một kỳ
+     nữa là chết — nếu lệch thì cảnh báo trên giao diện là lời nói dối */
+  var s2 = G.moiGame('Tầm Giữ 2', 'THDC-TAM-GIU-2'), p2 = s2.planets[0];
+  p2.ships = { fighterL: 100 };
+  p2.res.deut = 1e7;
+  var moi2 = G.nhienLieuGiu(s2, { fighterL: 100 }, G.QUY_DAO_V1.segmentSeconds);
+  var muc = { g: p2.c.g, h: p2.c.h, p: (p2.c.p % 15) + 1 };
+  ktra(G.guiHam(s2, 0, { fighterL: 100 }, muc, 'hold', { deut: moi2 * 3 }, 100, 24) === null,
+    'tầm giữ: gửi được đội Giữ Chỗ mang đúng 3 kỳ nhiên liệu');
+  var t2 = s2.now;
+  for (var i = 0; i < 200 && s2.fleets.length && s2.fleets[0].pha === 'di'; i++) {
+    t2 += 60; G.tick(s2, t2);
+  }
+  var fg = s2.fleets[0];
+  if (fg && fg.pha === 'giu') {
+    var bao = G.tamGiu(s2, fg);
+    /* đã trả kỳ đầu lúc neo, nên khoang còn đúng 2 kỳ */
+    ktra(bao.doanCon === 2, 'tầm giữ: sau khi neo, báo đúng số kỳ còn lại (' + bao.doanCon + ')');
+    var song = 0;
+    for (var j = 0; j < 400 && s2.fleets.length; j++) { t2 += 600; G.tick(s2, t2); song++; }
+    ktra(!s2.fleets.length || s2.fleets[0].pha !== 'giu',
+      'tầm giữ: hết nhiên liệu thì đội thật sự rời quỹ đạo hoặc bị phá huỷ');
+  }
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

@@ -547,3 +547,21 @@ G.S = function (id) { return G.byId(G.SHIPS, id); };
 G.D = function (id) { return G.byId(G.DEFENSES, id); };
 G.M = function (id) { return G.byId(G.MISSILES, id); };
 G.UNIT = function (id) { return G.S(id) || G.D(id) || G.BB(id); };
+
+/* Cộng giá trị điểm của một bản đồ đơn vị, BỎ QUA mọi id không có trong luật.
+ * Một khoá lạ lọt vào state — save của bản mới mở bằng bản cũ, một lần đổi tên
+ * id, hay một save bị sửa tay — trước đây làm G.diem NÉM ở `G.S(k).cost`. Và vì
+ * G.diem nằm trên đường tick, đó là kẹt VĨNH VIỄN: mỗi lần tua lại ném đúng chỗ
+ * ấy, không bao giờ qua được. Bỏ qua thì đơn vị lạ không được tính điểm, nhưng
+ * không ai mất tài khoản — đổi một con số sai lấy một tài khoản sống là đáng.
+ * Cố ý KHÔNG xoá đơn vị lạ khỏi state: xoá tài sản của người chơi vì luật đổi
+ * tên là thiệt hại thật, còn bỏ qua khi tính điểm thì không mất gì. */
+G.diemBang = function (bang, map) {
+  var tong = 0, k;
+  for (k in (map || {})) {
+    if (!Object.prototype.hasOwnProperty.call(map, k)) continue;
+    var d = G.byId(bang, k);
+    if (d && map[k] > 0) tong += G.giaTriDiem(d.cost, map[k]);
+  }
+  return tong;
+};

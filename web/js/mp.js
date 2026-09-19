@@ -174,6 +174,77 @@
     return Math.floor(+((e && e.value) || 0));
   }
 
+  /* Giá gốc mỗi đơn vị, đúng công thức server dùng cho Siêu Thị. */
+  function choGiaGoc(res) { return 1 / G.C.TY_GIA[res]; }
+
+  /* Đắt hay rẻ so với giá gốc — con số trần trụi "4 Galana" không nói lên gì
+     nếu người chơi không nhẩm được 1 Galana đổi được 45 Kim Loại. */
+  function choNhanGia(res, gia) {
+    var goc = choGiaGoc(res);
+    if (!(goc > 0)) return '';
+    var ty = gia / goc;
+    var pt = Math.round(Math.abs(ty - 1) * 100);
+    if (pt < 3) return '<span class="mo sz">≈ giá gốc</span>';
+    return ty < 1
+      ? '<span class="luc sz">rẻ hơn gốc ' + pt + '%</span>'
+      : '<span class="do sz">đắt hơn gốc ' + pt + '%</span>';
+  }
+
+  /* Người bán phải thấy TRƯỚC mình cầm về bao nhiêu sau thuế, chứ không phải
+     đăng xong rồi mới biết. Đọc thẳng từ các ô đang gõ nên cập nhật tức thì. */
+  function choUocBan() {
+    var c = MP.cho;
+    if (!c) return '&nbsp;';
+    var res = (document.getElementById('sap-res') || {}).value || 'metal';
+    var sl = soO('sap-sl');
+    var gia = MP.choLoai === 'sieuthi'
+      ? choGiaGoc(res)
+      : +((document.getElementById('sap-gia') || {}).value || 0);
+    if (!(sl > 0) || !(gia > 0)) return 'Nhập số lượng' +
+      (MP.choLoai === 'sieuthi' ? '' : ' và giá') + ' để xem sẽ nhận về bao nhiêu.';
+    var tho = Math.ceil(gia * sl);
+    var thue = Math.ceil(tho * c.thue);
+    var rd = G.byId(G.RES, res);
+    return 'Bán hết lô này thu <b class="vang">' + G.so(tho - thue) + ' Galana</b> ' +
+      '<span class="mo">(gộp ' + G.so(tho) + ', thuế ' + G.so(thue) + ')</span> — ' +
+      choNhanGia(res, gia) + '. Kho ' + U.esc(rd ? rd.ten : res) + ' bị giữ ' +
+      G.so(sl) + ' ngay khi đăng.';
+  }
+
+  /* Tính lại các con số ước tính TẠI CHỖ, không vẽ lại cả màn — vẽ lại sẽ
+     xoá mất số người chơi đang gõ dở. Dùng tiền tố `sap-` chứ không phải
+     `cho-`: bản một người đã bắt mọi ô `cho-*` cho siêu thị NPC của nó, dùng
+     lại tiền tố đó là hai tính năng giẫm chân nhau. */
+  function choTinhLai() {
+    if (U.man !== 'cho' || !MP.cho) return;
+    var uoc = document.getElementById('sap-uoc');
+    if (uoc) uoc.innerHTML = choUocBan();
+    var ds = (MP.cho.ds || []), i;
+    for (i = 0; i < ds.length; i++) {
+      var x = ds[i];
+      var o = document.getElementById('sap-mua-' + x.id);
+      var ra = document.getElementById('sap-tien-' + x.id);
+      if (!o || !ra) continue;
+      var n = Math.max(0, Math.floor(+o.value || 0));
+      if (!n) { ra.innerHTML = '&nbsp;'; continue; }
+      if (n > Math.floor(x.sl)) { ra.innerHTML = '<span class="do">lô chỉ còn ' +
+        G.so(Math.floor(x.sl)) + '</span>'; continue; }
+      var tien = Math.ceil(x.gia * n);
+      var du = (U.st().galana || 0) >= tien;
+      ra.innerHTML = '<span class="' + (du ? 'vang' : 'do') + '">' + G.so(tien) + ' Galana</span>' +
+        (du ? '' : ' <span class="do">— không đủ</span>');
+    }
+  }
+
+  document.addEventListener('input', function (e) {
+    if (U.man !== 'cho') return;
+    if (/^sap-/.test(e.target.id || '')) choTinhLai();
+  });
+  document.addEventListener('change', function (e) {
+    if (U.man !== 'cho') return;
+    if ((e.target.id || '') === 'sap-res') choTinhLai();
+  });
+
   /* Cả hai chợ dùng chung một bảng lô hàng; khác nhau ở thuế và ở chỗ Siêu Thị
      ép giá gốc còn Chợ Tự Do để người bán tự ra giá. */
   U.m_cho = function () {
@@ -197,7 +268,7 @@
 
     /* ---- đăng bán ---- */
     h += '<h4 style="margin:10px 0 4px">Ký gửi hàng</h4>';
-    h += '<div class="hd-td"><select id="cho-res">';
+    h += '<div class="hd-td"><select id="sap-res">';
     for (var i = 0; i < G.RES.length; i++) {
       var rr = G.RES[i];
       if (!G.C.TY_GIA[rr.id]) continue;
@@ -205,12 +276,13 @@
         G.so(Math.floor(U.ht().res[rr.id] || 0)) + ')</option>';
     }
     h += '</select>' +
-      '<input id="cho-sl" type="number" min="1" step="1000" value="0" placeholder="số lượng">';
-    if (!laST) h += '<input id="cho-gia" type="number" min="0" step="1" value="1" ' +
+      '<input id="sap-sl" type="number" min="1" step="1000" value="0" placeholder="số lượng">';
+    if (!laST) h += '<input id="sap-gia" type="number" min="0" step="1" value="1" ' +
       'placeholder="Galana/đơn vị" title="giá mỗi đơn vị">';
     h += '<button class="nut nho oke" data-act="cho-dang">Đăng bán từ ' +
       U.esc(U.ht().ten) + '</button></div>';
-    if (laST) h += '<p class="mo" style="margin-top:4px">Giá gốc: 1 Galana = ' +
+    h += '<p class="mo" style="margin-top:4px" id="sap-uoc">' + choUocBan() + '</p>';
+    if (laST) h += '<p class="mo">Giá gốc: 1 Galana = ' +
       G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' +
       G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm.</p>';
 
@@ -246,16 +318,23 @@
       for (var k = 0; k < ds.length; k++) {
         var x = ds[k], rx = G.byId(G.RES, x.res);
         var laToi = MP.cho.cuaToi.some(function (y) { return y.id === x.id; });
+        var duMua = Math.max(0, Math.min(Math.floor(x.sl),
+          Math.floor((st.galana || 0) / Math.max(1e-9, x.gia))));
         h += '<tr><td class="sz">' + U.esc(x.tenBan) + (laToi ? ' <span class="mo">(ta)</span>' : '') +
           '</td>' +
           '<td><span style="color:' + U.mau(x.res, rx ? rx.mau : '#fff') + '">' +
             U.esc(rx ? rx.ten : x.res) + '</span></td>' +
           '<td class="r sz">' + G.so(Math.floor(x.sl)) + '</td>' +
-          '<td class="r sz vang">' + G.soNgan(x.gia) + '</td>' +
+          '<td class="r sz"><span class="vang">' + G.soNgan(x.gia) + '</span><br>' +
+            choNhanGia(x.res, x.gia) + '</td>' +
           '<td class="r">' + (laToi ? '<span class="mo sz">—</span>' :
-            '<input type="number" min="1" step="1000" value="0" id="cho-mua-' + x.id +
-              '" style="width:110px"> <button class="nut nho oke" data-act="cho-mua" data-id="' +
-              x.id + '">Mua</button>') + '</td></tr>';
+            '<input type="number" min="1" step="1000" value="0" id="sap-mua-' + x.id +
+              '" data-gia="' + x.gia + '" data-max="' + Math.floor(x.sl) +
+              '" style="width:110px"> ' +
+            '<button class="nut nho" data-act="cho-het" data-id="' + x.id +
+              '" data-n="' + duMua + '" title="Mua nhiều nhất trong khả năng chi trả">Tối đa</button> ' +
+            '<button class="nut nho oke" data-act="cho-mua" data-id="' + x.id + '">Mua</button>' +
+            '<div class="mo sz" id="sap-tien-' + x.id + '">&nbsp;</div>') + '</td></tr>';
       }
       h += '</table>';
     }
@@ -536,18 +615,23 @@
       if (m === 'chat') taiChat(true).catch(function () { });
       if (m === 'cho') taiCho(true).catch(function () { });
     },
+    'cho-het': function (el) {
+      var id = el.getAttribute('data-id');
+      var o = document.getElementById('sap-mua-' + id);
+      if (o) { o.value = String(Math.max(0, Math.floor(+el.getAttribute('data-n') || 0))); choTinhLai(); }
+    },
     'cho-tab': function (el) {
       MP.choLoai = el.getAttribute('data-loai') === 'tudo' ? 'tudo' : 'sieuthi';
       MP.cho = null; U.ve();
       taiCho(true).catch(function () { });
     },
     'cho-dang': function () {
-      var res = (document.getElementById('cho-res') || {}).value || '';
-      var sl = soO('cho-sl');
+      var res = (document.getElementById('sap-res') || {}).value || '';
+      var sl = soO('sap-sl');
       if (!Number.isSafeInteger(sl) || sl < 1) return U.toast('Nhập số lượng cần ký gửi.', 'loi');
       var dl = { loai: MP.choLoai, pi: U.pi, res: res, sl: sl };
       if (MP.choLoai !== 'sieuthi') {
-        var gia = +((document.getElementById('cho-gia') || {}).value || 0);
+        var gia = +((document.getElementById('sap-gia') || {}).value || 0);
         if (!(gia > 0)) return U.toast('Nhập giá mỗi đơn vị.', 'loi');
         dl.gia = gia;
       }
@@ -564,7 +648,7 @@
       }, function (e) { U.toast(e.message, 'loi'); });
     },
     'cho-mua': function (el) {
-      var id = +el.getAttribute('data-id'), sl = soO('cho-mua-' + id);
+      var id = +el.getAttribute('data-id'), sl = soO('sap-mua-' + id);
       if (!Number.isSafeInteger(sl) || sl < 1) return U.toast('Nhập số lượng cần mua.', 'loi');
       api('/api/chomua', { loai: MP.choLoai, id: id, sl: sl }).then(function (r) {
         if (r.loi) { MP.cho = r.cho; U.ve(); return U.toast(r.loi, 'loi'); }

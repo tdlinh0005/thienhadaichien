@@ -615,18 +615,26 @@ async function chay() {
   ktra(/Siêu Thị bán/.test(await chuNoiDung(p1)), 'quầy mặc định là Siêu Thị Thiên Hà');
   await nhan(p1, '[data-act="cho-tab"][data-loai="tudo"]', '/api/cho');
   ktra(await p1.evaluate('MP.choLoai') === 'tudo', 'bấm quầy Tự Do thì đổi được quầy');
-  ktra(await p1.isVisible('#cho-gia'), 'Chợ Tự Do cho người bán tự ra giá');
+  ktra(await p1.isVisible('#sap-gia'), 'Chợ Tự Do cho người bán tự ra giá');
 
   var kimTruocKG = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
-  await p1.selectOption('#cho-res', 'metal');
-  await p1.fill('#cho-sl', '150');
-  await p1.fill('#cho-gia', '4');
+  await p1.selectOption('#sap-res', 'metal');
+  await p1.fill('#sap-sl', '150');
+  await p1.fill('#sap-gia', '4');
   await nhan(p1, '[data-act="cho-dang"]', '/api/chodang');
   var kimSauKG = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
   ktra(kimSauKG <= kimTruocKG - 150, 'ký gửi trừ hàng khỏi kho ngay (' +
     kimTruocKG + ' → ' + kimSauKG + ')');
   var loToi = await p1.evaluate('(MP.cho.cuaToi || []).length');
   ktra(loToi === 1, 'lô ký gửi hiện trong bảng "Lô của ta" (' + loToi + ')');
+  /* người bán phải thấy TRƯỚC mình cầm về bao nhiêu sau thuế */
+  await p1.fill('#sap-sl', '100');
+  await p1.fill('#sap-gia', '4');
+  await nghi(200);
+  var uocBan = await p1.locator('#sap-uoc').evaluate(function (e) { return e.innerText || ''; });
+  ktra(/380 Galana/.test(uocBan) && /thuế 20/.test(uocBan),
+    'chợ: người bán thấy trước tiền về sau thuế 5% (' + uocBan.slice(0, 90) + ')');
+  ktra(/đắt hơn gốc/.test(uocBan), 'chợ: có cảnh báo giá đang đắt hơn giá gốc');
   await chup(p1, 'cho-tudo');
 
   /* người 2 nhìn thấy và mua được */
@@ -638,7 +646,26 @@ async function chay() {
   var loBan = await p2.evaluate('MP.cho.ds[0].id');
   ktra(/Quốc Bình/.test(await chuNoiDung(p2)), 'người 2 thấy sạp hàng của người 1');
   var galTruocMua = await p2.evaluate('window.ST.galana');
-  await p2.fill('#cho-mua-' + loBan, '50');
+  /* giá so với giá gốc hiện ngay trên sạp, không bắt ai nhẩm tỷ giá */
+  ktra(/đắt hơn gốc/.test(await chuNoiDung(p2)), 'chợ: sạp chấm giá so với giá gốc');
+  /* tổng tiền hiện ngay khi gõ số lượng, trước khi bấm Mua */
+  await p2.fill('#sap-mua-' + loBan, '50');
+  await nghi(200);
+  var tienHien = await p2.locator('#sap-tien-' + loBan).evaluate(function (e) {
+    return e.innerText || '';
+  });
+  ktra(/200 Galana/.test(tienHien), 'chợ: tổng tiền hiện ngay khi gõ (' + tienHien + ')');
+  await p2.fill('#sap-mua-' + loBan, '99999');
+  await nghi(200);
+  ktra(/lô chỉ còn/.test(await p2.locator('#sap-tien-' + loBan).evaluate(function (e) {
+    return e.innerText || '';
+  })), 'chợ: gõ quá số hàng còn lại thì báo ngay, không đợi bấm Mua');
+  await nhan(p2, '[data-act="cho-het"][data-id="' + loBan + '"]');
+  var nMax = await p2.evaluate(function (id) {
+    return +(document.getElementById('sap-mua-' + id) || {}).value || 0;
+  }, loBan);
+  ktra(nMax > 0 && nMax <= 150, 'chợ: nút "Tối đa" điền số mua được trong khả năng chi trả (' + nMax + ')');
+  await p2.fill('#sap-mua-' + loBan, '50');
   await nhan(p2, '[data-act="cho-mua"][data-id="' + loBan + '"]', '/api/chomua');
   var sauMua = await p2.evaluate(
     '({gal: window.ST.galana, giao: (window.ST.giaoHang || []).length})');
@@ -764,6 +791,7 @@ async function chay() {
   var tdVu = vaoDB(function (db) {
     return db.prepare('SELECT td FROM ht WHERE tk=? ORDER BY thuDo DESC').get(idTK['Lê Vũ']).td;
   });
+  var nhaVu = { g: +tdVu.split(':')[0], h: +tdVu.split(':')[1], p: +tdVu.split(':')[2] };
   var gioVay = Math.floor(Date.now() / 1000);
   vaoDB(function (db) {
     db.prepare('INSERT INTO phongtoa(tkA,fid,tkD,td,tenA,lmA,tuLuc,denT) VALUES(?,?,?,?,?,?,?,?)')
@@ -784,6 +812,18 @@ async function chay() {
     'phong toả: màn Hạm Đội có bảng vòng vây đang siết');
   ktra(/\[/.test(ndVay) && ndVay.indexOf(tdVu) >= 0, 'phong toả: bảng ghi đúng toạ độ bị vây');
   await chup(p2, 'phongtoa');
+
+  /* vòng vây phải nhìn thấy được ngay trên BẢN ĐỒ, chỗ người chơi ra quyết định */
+  await vaoMan(p2, 'thienha', '/api/he');
+  await diTuiHe(p2, nhaVu.g, nhaVu.h);
+  await p2.waitForFunction(function () {
+    return (document.querySelector('#noidung') || {}).textContent.indexOf('⛒') >= 0;
+  }, null, { timeout: 20000 });
+  var ndBanDo = await chuNoiDung(p2);
+  ktra(/⛒/.test(ndBanDo) && /Quốc Bình/.test(ndBanDo),
+    'phong toả: bản đồ thiên hà đánh dấu toạ độ đang bị vây và tên kẻ vây');
+  ktra((await soHang(p2)) === 16, 'phong toả: thêm cột phong toả không làm hỏng bảng 16 dòng');
+  await chup(p2, 'phongtoa-bando');
 
   /* cửa phát lệnh: hàng không ra được, nhưng đánh trả thì được */
   suaStateUI('Lê Vũ', function (st) {
@@ -814,7 +854,9 @@ async function chay() {
   ktra(!/phong toả/i.test(loiDanh || ''),
     'phong toả: bị vây vẫn đánh trả được (' + (loiDanh || 'không lỗi') + ')');
 
-  /* form Tấn Công có ô khai số giờ ở lại phong toả */
+  /* form Tấn Công có ô khai số giờ ở lại phong toả
+     (quay lại màn Hạm Đội: mục trước đã chuyển p2 sang màn Thiên Hà) */
+  await vaoMan(p2, 'hamdoi');
   await p2.selectOption('#f-mission', 'attack');
   await nghi(250);
   ktra(await p2.isVisible('#f-toa'), 'phong toả: form Tấn Công có ô "ở lại phong toả"');

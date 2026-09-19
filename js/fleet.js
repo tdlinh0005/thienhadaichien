@@ -287,6 +287,26 @@ G.tranQuyDao = function (st, f, o) {
   return 've';
 };
 
+/* Khoang nhiên liệu của một hạm đang đậu còn trả nổi mấy đoạn nữa.
+ * Thiếu một đoạn sau khi đã đậu là XOÁ SẠCH hạm đội — hình phạt nặng nhất
+ * trong game — nên con số này phải hiện ra trước mắt chỉ huy, không để họ
+ * tự nhẩm rồi mất cả hạm đội vì tính sai.
+ * Trả {moiDoan, doanCon, denKhi, duToiHetCa}. */
+G.tamGiu = function (st, f) {
+  var moi = G.nhienLieuGiu(st, f.ships, G.QUY_DAO_V1.segmentSeconds);
+  var co = Math.max(0, Math.floor(Number(f.cargo && f.cargo.deut) || 0));
+  var doan = moi > 0 ? Math.floor(co / moi) : Infinity;
+  var moc = Math.floor(Number(f.tiepNL_t) || Number(f.giuDen_t) || st.now);
+  var het = Math.floor(Number(f.giuDen_t) || moc);
+  var denKhi = isFinite(doan) ? moc + doan * G.QUY_DAO_V1.segmentSeconds : het;
+  return {
+    moiDoan: moi,
+    doanCon: doan,
+    denKhi: Math.min(denKhi, het),
+    duToiHetCa: !isFinite(doan) || denKhi >= het
+  };
+};
+
 /* --- Ở LẠI PHONG TOẢ SAU MỘT TRẬN THẮNG -------------------------------
  * [XÁC NHẬN] bản gốc cho hạm đậu ở bất kỳ quỹ đạo và "gặp lực lượng địch thì
  * đánh". Với hành tinh NGƯỜI CHƠI khác, đường vào quỹ đạo thù địch là thắng
@@ -1183,7 +1203,8 @@ G.thanhToanNCNhip = function (st, dong) {
   q.installmentsLeft = Math.max(0, Math.floor(Number(q.installmentsLeft) || 0) - 1);
   q.status = 'active'; q.treo = false;
   q.conLai = Math.max(0, (Number(q.finishAt) || st.now) - st.now);
-  dong.push('Đã trả nguyên kỳ nghiên cứu "' + G.R(q.id).ten + '": ' + G.moTaVectorNhip(ky) +
+  dong.push('Đã trả nguyên kỳ nghiên cứu "' + ((G.R(q.id) || {}).ten || q.id) + '": ' +
+    G.moTaVectorNhip(ky) +
     ' (còn ' + q.installmentsLeft + '/' + q.installmentsTotal + ' kỳ).');
   return true;
 };
@@ -1360,8 +1381,7 @@ G.hepRaid = function (st, suppliedRandom) {
   var pi = Math.floor(random() * st.planets.length);
   var p = st.planets[pi];
   var sucThu = 0, k;
-  for (k in p.def) sucThu += G.giaTriDiem(G.D(k).cost, p.def[k]);
-  for (k in p.ships) sucThu += G.giaTriDiem(G.S(k).cost, p.ships[k]);
+  sucThu += G.diemBang(G.DEFENSES, p.def) + G.diemBang(G.SHIPS, p.ships);
   var quyMo = Math.max(60, (sucThu * (0.3 + random() * 0.45)));
   quyMo = Math.min(quyMo, n.diem * 0.7);
   if (quyMo < 40) return;
@@ -1629,9 +1649,22 @@ function completeBuilding(st, planetIndex) {
   var p = st.planets[planetIndex];
   if (!p || !p.qB.length) return;
   var m = p.qB.shift();
+  var bd = G.B(m.id);
+  /* Một hàng đợi trỏ tới công trình không còn trong luật KHÔNG BAO GIỜ xong
+     được. Trước đây chỗ này ném ở `.ten`, mà hàng đợi đã shift rồi lại bị
+     rollback cùng unit-of-work — nên lần tua sau gặp đúng nó và ném lại: kẹt
+     vĩnh viễn. Bỏ mục đó đi và nói thẳng cho người chơi biết. */
+  if (!bd) {
+    G.ghi(st, p.ten + ': bỏ một mục xây không còn trong luật chơi ("' + m.id + '").');
+    if (p.qB.length) {
+      var kt = p.qB[0];
+      if (!finiteDue(kt.xong) || kt.xong <= st.now) kt.xong = st.now + kt.tg;
+    }
+    return;
+  }
   var nXong = Math.max(1, Math.floor(Number(m.n) || 1));
   G.themCongTrinh(p, m.id, nXong);
-  G.ghi(st, p.ten + ': hoàn thành ' + G.so(nXong) + ' ' + G.B(m.id).ten +
+  G.ghi(st, p.ten + ': hoàn thành ' + G.so(nXong) + ' ' + bd.ten +
     ' (hiện có ' + G.so(p.b[m.id]) + ').');
   if (p.qB.length) {
     var next = p.qB[0];
@@ -1642,9 +1675,16 @@ function completeBuilding(st, planetIndex) {
 function completeShipyard(st, planetIndex) {
   var p = st.planets[planetIndex], q = p && p.qS[0];
   if (!q) return;
+  var ud = G.UNIT(q.id) || G.M(q.id);
+  if (!ud) {                       /* xem chú thích ở completeBuilding */
+    G.ghi(st, p.ten + ': bỏ một lô đóng không còn trong luật chơi ("' + q.id + '").');
+    p.qS.shift();
+    if (p.qS.length) p.qS[0].tLeft = Math.max(0, Number(p.qS[0].tEach) || 0);
+    return;
+  }
   var nXong = Math.max(1, Math.floor(Number(q.n) || 1));
   G.congDonVi(st, p, q.id, nXong);
-  G.ghi(st, p.ten + ': hoàn thành lô ' + (G.UNIT(q.id) || G.M(q.id)).ten + '.');
+  G.ghi(st, p.ten + ': hoàn thành lô ' + ud.ten + '.');
   p.qS.shift();
   if (p.qS.length) p.qS[0].tLeft = Math.max(0, Number(p.qS[0].tEach) || 0);
 }
@@ -1652,10 +1692,16 @@ function completeShipyard(st, planetIndex) {
 function completeResearch(st) {
   var q2 = st.ncQueue;
   if (!q2) return;
+  var rd = G.R(q2.id);
+  if (!rd) {                       /* xem chú thích ở completeBuilding */
+    st.ncQueue = null;
+    G.ghi(st, 'Bỏ một đề tài nghiên cứu không còn trong luật chơi ("' + q2.id + '").');
+    return;
+  }
   st.tech[q2.id] = q2.lv;
   var thuong = Math.round(G.giaTriDiem(q2.totalCost || q2.cost || {}) * 12);
   st.techPts += thuong;
-  G.tin(st, 'nc', 'Nghiên cứu hoàn thành', G.R(q2.id).ten + ' đã đạt cấp ' + q2.lv +
+  G.tin(st, 'nc', 'Nghiên cứu hoàn thành', rd.ten + ' đã đạt cấp ' + q2.lv +
     '.\nThu được ' + G.so(thuong) + ' điểm Kỹ Thuật. Toàn bộ ' + q2.installmentsTotal +
     ' kỳ tài nguyên đã được thanh toán nguyên khối.');
   st.ncQueue = null;
@@ -2106,8 +2152,7 @@ G.thamHiem = function (st, f) {
     veNha();
   } else if (lan < 0.66) {                            /* sinh vật ngoài hành tinh */
     loai = 'quai';
-    var lucTa = 0, kk;
-    for (kk in f.ships) lucTa += G.giaTriDiem(G.S(kk).cost, f.ships[kk]);
+    var lucTa = G.diemBang(G.SHIPS, f.ships), kk;
     var rq = G.rng(G.hash('quai' + f.id + st.now));
     var quai = G.npcHam(Math.max(60, lucTa * (0.35 + rq() * 0.75)), Math.min(1, diem / 40000), rq);
     var kq = G.danhTran(

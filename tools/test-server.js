@@ -324,6 +324,24 @@ async function kiemCho() {
       'chợ: Siêu Thị ép giá gốc, không cho người bán tự ra giá');
     ktra(st.body.cho.thue === 0.1, 'chợ: thuế Siêu Thị 10%');
 
+    /* Một loại tài nguyên bị bơm đầy lô rẻ KHÔNG được che mất các loại khác.
+       Trần phẳng trên cả sạp từng làm đúng chuyện đó. */
+    var themLo = app.kho.db.prepare(
+      "INSERT INTO cho(khi,loai,tkBan,tenBan,res,sl,gia) VALUES(0,'tudo',?,'Người Bán',?,100,?)");
+    for (var lo = 0; lo < 120; lo++) themLo.run(idB, 'crystal', 1 + lo * 0.001);
+    ['metal', 'deut', 'food'].forEach(function (r) { themLo.run(idB, r, 500); });
+    var sap = await get(app, '/api/cho?loai=tudo', tM);
+    var demRes = {};
+    sap.body.ds.forEach(function (x) { demRes[x.res] = (demRes[x.res] || 0) + 1; });
+    ktra(Object.keys(demRes).length === 4,
+      'chợ: một loại bị bơm đầy vẫn không che mất loại khác (' + JSON.stringify(demRes) + ')');
+    ktra(demRes.crystal === sap.body.moiRes,
+      'chợ: mỗi loại chỉ hiện đúng trần của riêng nó');
+    ktra(sap.body.ds.every(function (x, i, a) {
+      return i === 0 || a[i - 1].res !== x.res || a[i - 1].gia <= x.gia;
+    }), 'chợ: trong mỗi loại, lô rẻ hơn đứng trước');
+    app.kho.db.prepare('DELETE FROM cho').run();
+
     /* rời vũ trụ thì mọi lô hàng phải biến mất theo */
     var xoa = await post(app, '/api/xoatk', {mk: 'matkhau-ban', xacnhan: 'XOA'}, tB);
     ktra(xoa.status === 200, 'chợ: xoá được tài khoản người bán');
@@ -434,6 +452,38 @@ async function kiemPhongToa() {
     }}, tD);
     ktra(!/phong toả/i.test((duocDanh.body && duocDanh.body.loi) || ''),
       'phong toả: bị vây vẫn đánh trả được — vây không phải án tử');
+
+    /* Vây phải chặn cả hàng CHỞ TỚI, không chỉ hàng đi ra — đó mới đúng là
+       việc của một vòng vây. Hàng không bị huỷ, chỉ nằm chờ tới khi vây tan. */
+    var stVay = stateCua(app, idD);
+    stVay.giaoHang = [{pi: 0, res: 'metal', n: 777, den_t: stVay.now - 1}];
+    var kimTruoc = stVay.planets[0].res.metal;
+    app.kho.db.prepare('UPDATE dq SET state=?,keTiep=0 WHERE tk=?')
+      .run(JSON.stringify(stVay), idD);
+    await get(app, '/api/state', tD);
+    var stSauVay = stateCua(app, idD);
+    ktra((stSauVay.giaoHang || []).length === 1,
+      'phong toả: chuyến hàng tới nơi đang bị vây thì nằm chờ, không huỷ');
+    ktra(stSauVay.planets[0].res.metal < kimTruoc + 777,
+      'phong toả: hàng chưa được cộng vào kho khi còn bị vây');
+    ktra(stSauVay.giaoHang[0].giu === 1 && stSauVay.giaoHang[0].den_t > stSauVay.now,
+      'phong toả: chuyến hàng được hẹn lại đúng lúc vây tan');
+    ktra(stSauVay.msgs.some(function (m) { return /kẹt ngoài vòng vây/i.test(m.td || ''); }),
+      'phong toả: người mua được báo vì sao hàng chưa tới');
+
+    /* gỡ vây -> hàng tự hạ cánh, không cần ai làm gì thêm */
+    app.kho.db.prepare('UPDATE phongtoa SET denT=? WHERE tkA=?').run(gio - 1, idA);
+    var stGo = stateCua(app, idD);
+    stGo.giaoHang[0].den_t = stGo.now - 1;
+    app.kho.db.prepare('UPDATE dq SET state=?,keTiep=0 WHERE tk=?').run(JSON.stringify(stGo), idD);
+    await get(app, '/api/state', tD);
+    var stXong = stateCua(app, idD);
+    ktra((stXong.giaoHang || []).length === 0 &&
+      stXong.planets[0].res.metal >= kimTruoc + 777,
+      'phong toả: vây tan thì hàng kẹt tự hạ cánh đủ số');
+    ktra(stXong.msgs.some(function (m) { return /kẹt đã về tới nơi/i.test(m.td || ''); }),
+      'phong toả: có tin báo hàng kẹt đã tới');
+    app.kho.db.prepare('UPDATE phongtoa SET denT=? WHERE tkA=?').run(gio + 20000, idA);
 
     /* hai bên vào chung liên minh thì vây tan ngay, không đợi mốc nào */
     app.kho.db.prepare('UPDATE dq SET lm=? WHERE tk IN (?,?)').run('[HB] Hoà Bình', idA, idD);

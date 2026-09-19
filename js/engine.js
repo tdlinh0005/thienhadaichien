@@ -822,15 +822,15 @@ G.diem = function (st) {
       var bd = G.B(k);
       if (bd && p.b[k] > 0) d.ct += G.giaTriDiem(bd.cost, p.b[k]);
     }
-    for (k in p.ships) d.ham += G.giaTriDiem(G.S(k).cost, p.ships[k]);
-    for (k in p.def) d.thu += G.giaTriDiem(G.D(k).cost, p.def[k]);
+    d.ham += G.diemBang(G.SHIPS, p.ships);
+    d.thu += G.diemBang(G.DEFENSES, p.def);
   }
-  for (i = 0; i < st.fleets.length; i++) {
-    for (k in st.fleets[i].ships) {
-      d.ham += G.giaTriDiem(G.S(k).cost, st.fleets[i].ships[k]);
-    }
+  for (i = 0; i < st.fleets.length; i++) d.ham += G.diemBang(G.SHIPS, st.fleets[i].ships);
+  for (k in st.tech) {
+    var rd = G.R(k);
+    if (!rd) continue;
+    for (j = 1; j <= st.tech[k]; j++) d.nc += G.giaTriDiem(G.giaXay(rd, j));
   }
-  for (k in st.tech) for (j = 1; j <= st.tech[k]; j++) d.nc += G.giaTriDiem(G.giaXay(G.R(k), j));
   d.tong = d.ct + d.nc + d.ham + d.thu;
   return d;
 };
@@ -959,11 +959,36 @@ G.giaoHang = function (st) {
 G.giaoHangToi = function (st, i) {
   var ds = G.giaoHang(st), o = ds[i];
   if (!o) return;
-  ds.splice(i, 1);
   var p = st.planets[o.pi] || st.planets[0];
-  if (!p) return;
+  if (!p) { ds.splice(i, 1); return; }
+  /* Chuyến hàng mang một loại tài nguyên không còn trong luật thì bỏ, không
+     ném: hàng này nằm trên đường tick, ném ở đây là kẹt tài khoản. */
+  var rd = G.byId(G.RES, o.res);
+  if (!rd) { ds.splice(i, 1); return; }
+  /* Quỹ đạo đang bị phong toả thì hàng KHÔNG hạ cánh được — chặn hậu cần đúng
+     là việc của một vòng vây. Không trả hàng, không huỷ đơn: chuyến hàng nằm
+     chờ và tự tới ngay khi vây tan. Hẹn đúng lúc vây hết hạn thay vì dò lại
+     từng giờ; vây mới lập thì lần sau lại hẹn tiếp theo vây mới. */
+  var vay = G.HOOK && G.HOOK.phongToaTai ? G.HOOK.phongToaTai(st, p.c) : null;
+  if (vay) {
+    o.den_t = Math.max(st.now + 600, Math.floor(Number(vay.denT) || 0));
+    if (!o.giu) {
+      o.giu = 1;
+      G.tin(st, 'he', 'Hàng bị kẹt ngoài vòng vây',
+        G.so(o.n) + ' ' + rd.ten + ' mua ở chợ không hạ cánh xuống ' + p.ten + ' ' +
+        G.tdStr(p.c) + ' được: quỹ đạo đang bị ' + (vay.ten || 'một hạm đội') +
+        ' phong toả.\nHàng vẫn là của ta và sẽ tự tới ngay khi vây tan.');
+    }
+    return;
+  }
+  if (o.giu) {
+    delete o.giu;
+    G.tin(st, 'he', 'Hàng kẹt đã về tới nơi',
+      'Vòng vây ở ' + G.tdStr(p.c) + ' đã tan, chuyến hàng bị giữ lại nay hạ cánh.');
+  }
+  ds.splice(i, 1);
   p.res[o.res] = (p.res[o.res] || 0) + o.n;
   G.tin(st, 'he', 'Siêu Thị giao hàng',
-    'Đã giao ' + G.so(o.n) + ' ' + G.byId(G.RES, o.res).ten + ' tới ' + p.ten + ' ' +
+    'Đã giao ' + G.so(o.n) + ' ' + rd.ten + ' tới ' + p.ten + ' ' +
     G.tdStr(p.c) + '.');
 };

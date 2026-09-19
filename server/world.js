@@ -296,6 +296,17 @@ TheGioi.prototype.veHook = function () {
     xepHang: function (st) { return W.xepHangCho(st); },
     kiemTraGui: function (st, p, den, mission) { return W.kiemTraGui(st, p, den, mission); },
     kiemTraGiu: function (st, f, o) { return W.kiemTraGiu(st, f, o); },
+    /* Vòng vây thù địch đang siết một toạ độ của chính người đang tua, hoặc
+       null. Chỉ trả tên và mốc hết vây — không trả đội hình. */
+    phongToaTai: function (st, c) {
+      var ds = W.phongToaTai(G.tdKey(c), W.chuHienTai(), st.now);
+      if (!ds.length) return null;
+      /* Lấy vòng vây TAN MUỘN NHẤT: hàng chỉ hạ cánh được khi không còn vòng
+         nào, nên hẹn theo cái cuối cùng mới đúng. */
+      var muon = ds[0], i;
+      for (i = 1; i < ds.length; i++) if (Number(ds[i].denT) > Number(muon.denT)) muon = ds[i];
+      return { ten: muon.tenA, denT: Number(muon.denT) };
+    },
     danhNguoi: function (st, f, o, veNha) { W.danhNguoi(st, f, o, veNha); },
     doThamNguoi: function (st, f, o) { W.doThamNguoi(st, f, o); },
     tangNguoi: function (st, f, o, veNha) { W.tangNguoi(st, f, o, veNha); },
@@ -1282,6 +1293,17 @@ TheGioi.prototype.xemHe = function (tk, g, h) {
     for (i = 0; i < rows.length; i++) chuHT[rows[i].td] = rows[i];
     var plRows = this.kho.q.plTrongHe.all(g + ':' + h + ':%'), plMap = {};
     for (i = 0; i < plRows.length; i++) plMap[plRows[i].td] = { metal: plRows[i].kl, crystal: plRows[i].tt };
+    /* Vòng vây phải nhìn thấy được ở CHÍNH chỗ người chơi ra quyết định. Một
+       toạ độ đang bị siết là thông tin chiến lược cho tất cả: chủ nhà biết
+       mình đang bị siết, người ngoài biết ở đó đang có đánh nhau và chủ nhà
+       đang không tiếp tế được. Chỉ lộ tên kẻ vây và mốc hết vây — đội hình
+       vẫn phải trả tiền bằng do thám. */
+    var ptRows = this.kho.q.ptTrongHe.all(g + ':' + h + ':%', now), ptMap = {};
+    for (i = 0; i < ptRows.length; i++) {
+      var pv = ptRows[i];
+      if (!ptMap[pv.td] || Number(pv.denT) > Number(ptMap[pv.td].denT))
+        ptMap[pv.td] = { ten: pv.tenA, lm: pv.lmA || '', denT: Number(pv.denT), tk: Number(pv.tkA) };
+    }
 
     var out = [];
     for (var p = 1; p <= G.C.SO_HANH_TINH; p++) {
@@ -1306,6 +1328,7 @@ TheGioi.prototype.xemHe = function (tk, g, h) {
         o = { loai: 'trong', key: td, c: c };
       }
       o.debris = plMap[td] && (plMap[td].metal > 0 || plMap[td].crystal > 0) ? plMap[td] : null;
+      o.vay = ptMap[td] || null;
       out.push(o);
     }
     /* ô 16: vùng không gian sâu, chỉ nhận nhiệm vụ Thám Hiểm */
@@ -1695,6 +1718,7 @@ TheGioi.prototype.chuyenGalana = function (tkA, tkD, so) {
  * =================================================================== */
 
 var CHO_TOI_DA = 20;            /* mỗi người giữ tối đa bấy nhiêu lô đang bán */
+var CHO_MOI_RES = 60;           /* số lô rẻ nhất hiện ra cho MỖI loại tài nguyên */
 var CHO_SL_TOI_DA = 1e12;
 var CHO_GIA_TOI_DA = 1e9;
 
@@ -1712,12 +1736,12 @@ function choResHopLe(res) {
 
 TheGioi.prototype.choDS = function (loai, tk) {
   loai = loai === 'tudo' ? 'tudo' : 'sieuthi';
-  var ds = this.kho.q.choDS.all(loai, 200);
+  var ds = this.kho.q.choDS.all(loai, CHO_MOI_RES);
   var cua = tk ? this.kho.q.choCuaToi.all(Math.floor(tk)) : [];
   return {
     loai: loai, thue: choThue(loai),
     giaoSau: G.C.GIAO_HANG,
-    ds: ds, cuaToi: cua, toiDa: CHO_TOI_DA
+    ds: ds, cuaToi: cua, toiDa: CHO_TOI_DA, moiRes: CHO_MOI_RES
   };
 };
 

@@ -371,6 +371,14 @@ Chỉ mục `cho_loai(loai,res,gia,id)` và `cho_ban(tkBan,id)`.
 Bảng cố ý **không có khoá ngoại** tới `tk` (lô hàng phải sống sót qua mọi đường xoá
 khác), nên cả hai nhánh của `xoaTaiKhoan` phải tự gọi `choXoaCua(tk)`.
 
+**Chống kẹt tài khoản.** Một khoá không còn trong luật lọt vào state — save của bản mới
+mở bằng bản cũ, một lần đổi tên id, hay một save bị sửa tay — trước đây làm `G.diem` ném ở
+`G.S(k).cost` và các hàng đợi ném ở `.ten`. Cả hai đều nằm **trên đường tick**, nên mỗi lần
+tua lại ném đúng chỗ ấy: tài khoản kẹt vĩnh viễn. Nay `G.diemBang` bỏ qua id lạ khi tính
+điểm (**không** xoá tài sản của người chơi — xoá vì luật đổi tên là thiệt hại thật), còn
+các hàng đợi thì **bỏ mục hỏng** kèm một dòng nhật ký, để mục hợp lệ đứng sau nó vẫn chạy
+tiếp thay vì bị chặn mãi mãi.
+
 **`phongtoa`** — projection các hạm đội đang **phong toả** quỹ đạo của một người
 chơi khác: `tkA`/`fid` (chủ và số hiệu hạm đội đi vây), `tkD` (chủ toạ độ bị vây),
 `td`, `tenA`/`lmA` (ảnh chụp lúc ghi), `tuLuc`, `denT`. Cố ý **tách khỏi `hamgiu`**:
@@ -428,13 +436,13 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/dangxuat` | GET/POST | **có** | — | `{ok:true}` (xoá dòng `phien`) |
 | `/api/state` | GET | **có** | — | `{st, sv, toi:{ten, tk}}` — `st` đã tua tới hiện tại và có projection `pvpToi`/`pvpGiu`/`pvpToa` dành riêng cho người gọi; `sv` là gói `/api/thongtin` |
 | `/api/lam` | POST | **có** | `{ten, dl}` | `{loi, st, sv}` — hành động luật game, trả cùng projection PvP mới nhất; multiplayer chặn gọi thẳng `lmvao` để không lách duyệt đơn |
-| `/api/he` | GET | **có** | query `?g=&h=` | `{g, h, o:[…16 dòng…]}`; 15 hành tinh có `loai` = `toi` / `nguoi` / `npc` / `trong`, dòng ô 16 có `loai:'sau'`, kèm `key`, `c`, `debris` khi phù hợp |
+| `/api/he` | GET | **có** | query `?g=&h=` | `{g, h, o:[…16 dòng…]}`; 15 hành tinh có `loai` = `toi` / `nguoi` / `npc` / `trong`, dòng ô 16 có `loai:'sau'`, kèm `key`, `c`, `debris` và `vay` (`{ten,lm,denT,tk}` khi ô đó đang bị phong toả, ngược lại `null`) khi phù hợp |
 | `/api/guithu` | POST | **có** | `{den, noi}` — `den` là tên chỉ huy hoặc id tài khoản | `{ok:true}` — thư rơi thẳng vào hộp tin người nhận (`loai:'thu'`); tối đa 1.200 ký tự, 1 thư / 10 giây |
 | `/api/xephang` | GET | **có** | query `?loai=tong\|ct\|nc\|ham\|thu` | `{loai,ds:[{hang,ten,lm,diem,tong,ct,nc,ham,thu,ht,ta}]}` — tối đa 200 người |
 | `/api/lm` | GET | **có** | — | `{ds,tv,xin,don,laChu,chien:{di,den,cho}}`; `chien.di` là lệnh bên mình, `chien.den` là lệnh nhắm vào mình, `cho=86400` |
 | `/api/tuyenchien` | POST | **có** | `{tk}` — id tài khoản mục tiêu | `{ok:true,chien}`; nếu đang ở liên minh chỉ chủ được đặt lệnh cho liên minh; 400 khi mục tiêu sai/cùng phe/lệnh trùng |
 | `/api/chuyengalana` | POST | **có** | `{tk,so}` — id người nhận và số nguyên 1…1.000.000.000.000 | `{ok:true,st,sv}`; chỉ cùng liên minh, kiểm tra lại membership sau khi tua cả hai đế quốc và ghi hai số dư trong một transaction |
-| `/api/cho` | GET | **có** | query `?loai=sieuthi\|tudo` | `{loai,thue,giaoSau,ds,cuaToi,toiDa}` — `ds` là sạp hàng của quầy đang xem (tối đa 200 lô), `cuaToi` là mọi lô của chính người gọi ở **cả hai quầy** |
+| `/api/cho` | GET | **có** | query `?loai=sieuthi\|tudo` | `{loai,thue,giaoSau,ds,cuaToi,toiDa,moiRes}` — `ds` là sạp hàng của quầy đang xem, cắt **theo từng loại tài nguyên** (`moiRes` lô rẻ nhất mỗi loại) chứ không cắt phẳng trên cả sạp: một trần phẳng chỉ cần một loại bị bơm đầy lô rẻ là ba loại còn lại biến mất sạch. `cuaToi` là mọi lô của chính người gọi ở **cả hai quầy** |
 | `/api/chodang` | POST | **có** | `{loai,pi,res,sl,gia}` | `{loi,st,cho,sv}` — ký gửi hàng: trừ khỏi kho hành tinh `pi` ngay. Siêu Thị bỏ qua `gia` và dùng giá gốc `1/TY_GIA[res]`; Chợ Tự Do nhận `gia` trong (0, 1.000.000.000]. Tối đa 20 lô mỗi người |
 | `/api/chogo` | POST | **có** | `{loai,id}` | `{loi,st,cho,sv}` — gỡ lô của chính mình, hàng ký quỹ về hành tinh thủ phủ |
 | `/api/chomua` | POST | **có** | `{loai,id,sl}` | `{loi,st,cho,sv}` — chạm **hai tài khoản**: tiền chuyển ngay (trừ thuế), hàng vào `st.giaoHang` của người mua và tới sau `G.C.GIAO_HANG`. 400 khi lô đã hết, khi mua lô của chính mình hoặc không đủ Galana |
@@ -683,12 +691,22 @@ Vòng đời một vòng vây:
    chung một liên minh — vây tan và hạm đội rút. Đó cũng là **đường ngoại giao** để
    bên bị vây gỡ vây mà không cần đánh.
 
-**Tác dụng của vây.** Projection `phongtoa` ghi mọi vòng vây còn hiệu lực. `kiemTraGui`
-đọc nó ở cửa phát lệnh: hành tinh đang bị vây **không xuất được** `transport`, `deploy`,
-`hold`, `colonize`, `recycle`, `thamhiem`. `attack` và tên lửa **không bao giờ bị chặn** —
-bị vây mà mất luôn quyền phản công thì phong toả thành án tử chứ không còn là một nước cờ.
-`/api/state` trả thêm `st.pvpToa` (các vòng vây đang siết hành tinh của người gọi);
-projection này **không** kèm đội hình kẻ vây — muốn biết thì phải do thám.
+**Tác dụng của vây.** Projection `phongtoa` ghi mọi vòng vây còn hiệu lực, và nó chặn
+hậu cần theo cả **hai chiều**:
+
+- *Hàng đi ra* — `kiemTraGui` đọc nó ở cửa phát lệnh: hành tinh đang bị vây **không xuất
+  được** `transport`, `deploy`, `hold`, `colonize`, `recycle`, `thamhiem`. `attack` và tên
+  lửa **không bao giờ bị chặn** — bị vây mà mất luôn quyền phản công thì phong toả thành
+  án tử chứ không còn là một nước cờ.
+- *Hàng chở tới* — `G.giaoHangToi` hỏi hook `phongToaTai` trước khi hạ cánh. Hàng mua ở
+  chợ **không bị huỷ và không bị tịch thu**: chuyến hàng nằm chờ, được hẹn lại đúng lúc
+  vòng vây tan muộn nhất kết thúc, và tự tới nơi ngay sau đó. Người mua nhận một tin báo
+  lúc hàng bị giữ và một tin nữa lúc hàng tới.
+
+`/api/state` trả thêm `st.pvpToa` (các vòng vây đang siết hành tinh của người gọi), và
+`/api/he` gắn `o.vay` cho mỗi ô đang bị siết — vòng vây phải nhìn thấy được ở chính chỗ
+người chơi ra quyết định. Cả hai projection này **không** kèm đội hình kẻ vây: nhìn thấy
+đội hình đối phương miễn phí thì do thám còn nghĩa gì nữa.
 
 **Giới hạn đã biết.** Bên bị vây chưa có cách đánh thẳng vào chính hạm đội đang vây:
 `hamGiuTai` cố ý loại đội phong toả khỏi lực lượng phòng thủ, và một trận nhắm vào toạ

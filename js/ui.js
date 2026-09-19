@@ -56,6 +56,17 @@ U.MAU_SANG = {
   metal: '#7d5a1c', crystal: '#0e5f8e', deut: '#1a6b3d', food: '#7d5f0e',
   galana: '#7d379c', tech: '#37509c'
 };
+/* Tên hiển thị chịu được một id đã biến mất khỏi luật: một save của bản mới mở
+ * bằng bản cũ không được làm trắng cả màn hình. */
+U.tenNV = function (id) {
+  var m = G.byId(G.MISSIONS, id);
+  return m ? m.ten : String(id || '?');
+};
+U.tenNC = function (id) {
+  var r = G.R(id);
+  return r ? r.ten : String(id || '?');
+};
+
 U.mau = function (id, macDinh) {
   if (U.themeDangDung() === 'xanh3d' && U.MAU_SANG[id]) return U.MAU_SANG[id];
   return macDinh;
@@ -213,7 +224,7 @@ U.veCanh = function () {
     ' GALANA — đã lỡ ' + G.so(bt.missStreak) + ' kỳ liên tiếp. Cần đủ toàn bộ khoản đến hạn ở nhịp 6 giờ kế tiếp; ' +
     'nghiên cứu có thể trễ, dân có thể rời đi và công trình có thể xuống cấp.</div>';
   if (st.ncQueue && st.ncQueue.status === 'retry') h += '<div class="canh bt">Nghiên cứu "' +
-    U.esc(G.R(st.ncQueue.id).ten) +
+    U.esc(U.tenNC(st.ncQueue.id)) +
     '" đã lỡ một kỳ cấp vốn; chỉ thử lại ở nhịp bảo trì kế tiếp. Mốc hoàn thành đã cộng thêm 6 giờ.</div>';
   for (i = 0; i < st.planets.length; i++) {
     var ds = U.ds(st.planets[i]);
@@ -341,7 +352,7 @@ U.m_tongquan = function () {
   else {
     var q3 = st.ncQueue;
     var tienDo = Math.max(0, Math.min(1, 1 - (q3.installmentsLeft || 0) / Math.max(1, q3.installmentsTotal || 1)));
-    h += '<b>' + U.esc(G.R(q3.id).ten) + '</b> → cấp ' + q3.lv + '<div class="thanh"><i style="width:' +
+    h += '<b>' + U.esc(U.tenNC(q3.id)) + '</b> → cấp ' + q3.lv + '<div class="thanh"><i style="width:' +
       (tienDo * 100).toFixed(1) + '%"></i></div>';
     h += q3.status === 'retry' ? '<span class="do">CHỜ THỬ LẠI ở nhịp 6 giờ kế tiếp.</span>'
       : 'Dự kiến xong sau ' + U.dem(q3.finishAt);
@@ -358,7 +369,7 @@ U.m_tongquan = function () {
     h += '<div class="bang-cuon"><table><tr><th>#</th><th>Nhiệm vụ</th><th>Tới</th><th>Còn</th></tr>';
     for (var k = 0; k < st.fleets.length; k++) {
       var f = st.fleets[k];
-      h += '<tr><td>' + f.id + '</td><td>' + U.esc(G.byId(G.MISSIONS, f.mission).ten) +
+      h += '<tr><td>' + f.id + '</td><td>' + U.esc(U.tenNV(f.mission)) +
         (f.pha === 've' ? ' <span class="mo">(về)</span>' : '') + '</td><td class="sz">' +
         G.tdStr(f.pha === 've' ? f.tu : f.den) + '</td><td class="sz">' +
         U.dem(f.pha === 've' ? f.ve_t : f.den_t) + '</td></tr>';
@@ -884,12 +895,22 @@ U.m_hamdoi = function () {
     for (i = 0; i < st.fleets.length; i++) {
       var fl = st.fleets[i];
       var dangGiu = fl.pha === 'giu';
+      /* Đậu quỹ đạo mà thiếu một kỳ nhiên liệu là MẤT SẠCH hạm đội. Nói thẳng
+         khoang còn trả nổi mấy đoạn, đừng bắt chỉ huy tự nhẩm rồi mất cả đội. */
+      var tamG = dangGiu && G.tamGiu ? G.tamGiu(st, fl) : null;
       var conLai = fl.pha === 've' ? U.dem(fl.ve_t) : (dangGiu
         ? 'Rời quỹ đạo ' + U.dem(fl.giuDen_t) +
           (fl.tiepNL_t && fl.tiepNL_t < fl.giuDen_t ? '<br><span class="mo">Tiếp NL ' + U.dem(fl.tiepNL_t) +
+            '</span>' : '') +
+          (tamG ? '<br><span class="' + (tamG.duToiHetCa ? 'luc' : 'do') + ' sz">' +
+            (tamG.doanCon <= 0
+              ? '⚠ KHÔNG đủ nhiên liệu cho kỳ tới — hạm đội sẽ bị phá huỷ'
+              : (tamG.duToiHetCa
+                ? 'nhiên liệu đủ tới hết ca'
+                : '⚠ nhiên liệu chỉ đủ ' + tamG.doanCon + ' kỳ nữa, tới ' + U.dem(tamG.denKhi))) +
             '</span>' : '')
         : U.dem(fl.den_t));
-      h += '<tr><td class="sz">' + fl.id + '</td><td>' + U.esc(G.byId(G.MISSIONS, fl.mission).ten) +
+      h += '<tr><td class="sz">' + fl.id + '</td><td>' + U.esc(U.tenNV(fl.mission)) +
         (fl.pha === 've' ? ' <span class="mo">(đang về)</span>' :
           (dangGiu ? (fl.phongToa
             ? ' <span class="do">(đang PHONG TOẢ quỹ đạo)</span>'
@@ -1009,7 +1030,7 @@ U.m_hamdoi = function () {
     h += '<option value="' + G.MISSIONS[i].id + '"' + (f.mission === G.MISSIONS[i].id ? ' selected' : '') + '>' +
       G.MISSIONS[i].ten + '</option>';
   h += '</select><div class="mo" style="font-size:11.5px;margin-top:3px">' +
-    U.esc(G.byId(G.MISSIONS, f.mission).mota) + '</div></div>';
+    U.esc((G.byId(G.MISSIONS, f.mission) || {}).mota || '') + '</div></div>';
   h += '<div style="margin-bottom:8px"><b>Tốc độ: <span id="f-pct-v">' + f.pct + '%</span></b><br>' +
     '<input id="f-pct" type="range" min="10" max="100" step="10" value="' + f.pct + '" style="width:100%"></div>';
   if (f.mission === 'hold')
@@ -1099,7 +1120,7 @@ U.m_thienha = function () {
     '<button class="nut nho" data-act="gal-nha">Về hành tinh mẹ</button>' +
     '</div>';
   h += '<div class="bang-cuon"><table><tr><th>Ô</th><th>Hành tinh</th><th>Chỉ huy</th><th>Liên minh</th>' +
-    '<th class="r">Điểm</th><th>Phế liệu</th><th>Hành động</th></tr>';
+    '<th class="r">Điểm</th><th>Phế liệu</th><th>Phong toả</th><th>Hành động</th></tr>';
   for (var i = 0; i < ds.length; i++) {
     var o = ds[i], c = o.c;
     var cls = '';
@@ -1135,6 +1156,12 @@ U.m_thienha = function () {
     }
     h += '<td class="pl">' + (o.debris ? G.soNgan(o.debris.metal) + ' KL / ' + G.soNgan(o.debris.crystal) +
       ' TA' : '') + '</td>';
+    /* Một toạ độ đang bị siết là tin chiến lược cho tất cả: chủ nhà biết mình
+       đang bị vây, người ngoài biết ở đó đang đánh nhau và chủ nhà không tiếp
+       tế được. Đội hình kẻ vây thì vẫn phải trả tiền bằng do thám. */
+    if (o.vay) h += '<td class="do sz" title="Quỹ đạo bị phong toả">⛒ ' + U.esc(o.vay.ten) +
+      '<br><span class="mo">tan sau ' + U.dem(o.vay.denT) + '</span></td>';
+    else h += '<td></td>';
     h += '<td style="white-space:nowrap">';
     var td = c.g + ',' + c.h + ',' + c.p;
     if (o.loai === 'npc' || o.loai === 'nguoi') {

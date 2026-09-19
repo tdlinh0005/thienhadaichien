@@ -285,6 +285,9 @@ function Kho(duong, options) {
     ptTai: d.prepare(
       'SELECT p.tkA,p.fid,p.tenA,p.tuLuc,p.denT,q.lm AS lmA FROM phongtoa p ' +
       'JOIN dq q ON q.tk=p.tkA WHERE p.td=? AND p.denT>?'),
+    ptTrongHe: d.prepare(
+      'SELECT p.td,p.tkA,p.tenA,p.denT,q.lm AS lmA FROM phongtoa p ' +
+      'JOIN dq q ON q.tk=p.tkA WHERE p.td LIKE ? AND p.denT>?'),
     ptCuaToi: d.prepare(
       'SELECT p.td,p.tkA,p.fid,p.tenA,p.tuLuc,p.denT,q.lm AS lmA FROM phongtoa p ' +
       'JOIN dq q ON q.tk=p.tkA WHERE p.tkD=? AND p.denT>? ORDER BY p.denT'),
@@ -380,9 +383,16 @@ function Kho(duong, options) {
     choThem: d.prepare(
       'INSERT INTO cho(khi,loai,tkBan,tenBan,res,sl,gia) VALUES(?,?,?,?,?,?,?)'),
     choGet: d.prepare('SELECT * FROM cho WHERE id=?'),
+    /* Cắt theo TỪNG loại tài nguyên, không cắt trên cả sạp. Một trần phẳng
+       (ORDER BY res,gia,id LIMIT 200) nghe thì vô hại, nhưng chỉ cần một loại
+       bị bơm đầy lô rẻ là ba loại còn lại biến mất sạch khỏi sạp — người chơi
+       tưởng chợ không ai bán Nhiên Liệu, trong khi thực ra có. */
     choDS: d.prepare(
-      'SELECT id,khi,loai,tkBan,tenBan,res,sl,gia FROM cho WHERE loai=? ' +
-      'ORDER BY res,gia,id LIMIT ?'),
+      'SELECT id,khi,loai,tkBan,tenBan,res,sl,gia FROM (' +
+      '  SELECT id,khi,loai,tkBan,tenBan,res,sl,gia,' +
+      '    ROW_NUMBER() OVER (PARTITION BY res ORDER BY gia,id) AS hang' +
+      '  FROM cho WHERE loai=?' +
+      ') WHERE hang<=? ORDER BY res,gia,id'),
     choCuaToi: d.prepare(
       'SELECT id,khi,loai,tkBan,tenBan,res,sl,gia FROM cho WHERE tkBan=? ORDER BY id'),
     /* Mua một phần: điều kiện sl>? (không phải >=) để UPDATE không bao giờ
