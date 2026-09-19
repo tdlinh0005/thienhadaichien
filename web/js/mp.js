@@ -615,6 +615,30 @@
       if (m === 'chat') taiChat(true).catch(function () { });
       if (m === 'cho') taiCho(true).catch(function () { });
     },
+    'pha-vay': function (el) {
+      var tk = +el.getAttribute('data-tk'), fid = +el.getAttribute('data-fid');
+      var ten = el.getAttribute('data-ten') || 'hạm đội vây';
+      U.hop('Phá vây', '<p>Xuất kích toàn bộ <b>hạm đậu tại hành tinh và công sự lớp quỹ đạo</b> ' +
+        'lao lên đánh hạm đội của <b>' + U.esc(ten) + '</b>.</p>' +
+        '<p class="mo">Vây tan khi đợt xuất kích thổi bay <b>' +
+        Math.round(G.C.PHA_VAY_TON_THAT * 100) + '%</b> sức mạnh hạm đội vây. Chưa đủ thì vây ' +
+        'vẫn còn — nhưng <b>tổn thất dồn lại</b> qua từng đợt vì hạm đội vây không được bù quân, ' +
+        'nên đánh nhiều đợt là một cách gỡ vây thật. Mỗi đợt cách nhau ' +
+        G.tg(G.C.PHA_VAY_CHO) + '.</p>' +
+        '<p class="mo">Đội hình đối phương không ai cho biết trước; nếu còn giữ báo cáo trận ' +
+        'lúc bị đánh thì đọc lại trước khi bấm.</p>' +
+        '<button class="nut xoa" data-act="pha-vay-ok" data-tk="' + tk + '" data-fid="' + fid +
+        '">XÁC NHẬN XUẤT KÍCH</button>');
+    },
+    'pha-vay-ok': function (el) {
+      api('/api/phavay', { tk: +el.getAttribute('data-tk'), fid: +el.getAttribute('data-fid') })
+        .then(function (r) {
+          U.dongHop();
+          if (r.loi) return U.toast(r.loi, 'loi');
+          apDung(r); U.ve();
+          U.toast('Đã xuất kích. Xem báo cáo trận trong Tin Nhắn.', 'ok');
+        }, function (e) { U.dongHop(); U.toast(e.message, 'loi'); });
+    },
     'cho-het': function (el) {
       var id = el.getAttribute('data-id');
       var o = document.getElementById('sap-mua-' + id);

@@ -34,6 +34,21 @@ function suaStateUI(hienThi, f) {
   return st;
 }
 
+/* Một số phép thử CỐ Ý bắn một yêu cầu bị từ chối để xem giao diện xử lý ra
+ * sao. Trình duyệt ghi mọi 4xx thành lỗi console, nên phải khai báo hẳn cửa sổ
+ * đó rồi gỡ đúng những dòng khớp — tuyệt đối không nới lỏng bộ kiểm chung, vì
+ * nó là thứ duy nhất bắt được lỗi JS thật. */
+async function coTinhLoi(mau, fn) {
+  var truoc = soLoi.length;
+  var ra = await fn();
+  var giu = soLoi.slice(0, truoc);
+  var trongCuaSo = soLoi.slice(truoc);
+  var daGo = trongCuaSo.filter(function (x) { return !mau.test(x.noi); });
+  soLoi.length = 0;
+  Array.prototype.push.apply(soLoi, giu.concat(daGo));
+  return { ra: ra, soLoiCoTinh: trongCuaSo.length - daGo.length };
+}
+
 function vaoDB(f) {
   var db = new DatabaseSync(DB);
   try { return f(db); } finally { db.close(); }
@@ -868,6 +883,50 @@ async function chay() {
   await nghi(250);
   ktra(await p2.isVisible('#f-giu') && await p2.isHidden('#f-toa'),
     'phong toả: đổi sang Giữ Chỗ thì đổi lại đúng ô giờ neo');
+
+  /* nút Phá vây: có mặt, hỏi xác nhận, và gọi đúng đường */
+  await vaoMan(p2, 'hamdoi');
+  ktra(await p2.isVisible('[data-act="pha-vay"]'), 'phá vây: màn Hạm Đội có nút Phá vây');
+  await p2.click('[data-act="pha-vay"]');
+  await nghi(250);
+  var hopPV = await p2.locator('#ht-noi').evaluate(function (e) { return e.innerText || ''; });
+  ktra(/XÁC NHẬN XUẤT KÍCH/.test(hopPV) && /công sự lớp quỹ đạo/.test(hopPV),
+    'phá vây: hộp xác nhận nói rõ lực lượng nào sẽ xuất kích');
+  ktra(/tổn thất dồn lại/.test(hopPV),
+    'phá vây: hộp xác nhận nói rõ đánh nhiều đợt thì tổn thất dồn lại');
+  await chup(p2, 'phavay-hop');
+  /* đóng hộp lại: lớp phủ của nó sẽ chặn mọi cú bấm sau */
+  await p2.evaluate('U.dongHop()');
+  await nghi(200);
+  suaStateUI('Lê Vũ', function (st) {
+    st.planets[0].ships.fighterL = 40;
+    st.planets[0].def = Object.assign({}, st.planets[0].def, { satellite: 10 });
+  });
+  var taiPV = p2.waitForResponse(function (r) { return r.url().indexOf('/api/state') >= 0; },
+    { timeout: 20000 });
+  await p2.evaluate('APP.hienLai()'); await taiPV;
+  /* Bấm nút xác nhận thật: dòng projection bịa ra ở trên (fid 4242) không có
+     hạm đội nào đứng sau, nên server phải từ chối và giao diện phải nuốt gọn
+     lời từ chối đó — đóng hộp, hiện toast, không vỡ màn. */
+  var pvGoc = await coTinhLoi(/400 \(Bad Request\)/, async function () {
+    await p2.click('[data-act="pha-vay"]');
+    await nghi(200);
+    await nhan(p2, '#ht-noi [data-act="pha-vay-ok"]', '/api/phavay');
+    await nghi(300);
+    return {
+      hopDong: await p2.evaluate(function () {
+        var e = document.getElementById('hop-thoai');
+        return !e || e.style.display === 'none' || !e.offsetParent;
+      }),
+      toast: await p2.evaluate(function () {
+        var t = document.querySelector('.toast, #toast');
+        return t ? (t.textContent || '') : '';
+      })
+    };
+  });
+  ktra(pvGoc.soLoiCoTinh >= 1, 'phá vây: server thật sự từ chối lệnh vô nghĩa (400)');
+  ktra(pvGoc.ra.hopDong, 'phá vây: bị từ chối thì hộp xác nhận vẫn đóng lại, không kẹt');
+  ktra((await chuNoiDung(p2)).length > 40, 'phá vây: màn Hạm Đội vẫn vẽ bình thường sau khi bị từ chối');
 
   /* gỡ vòng vây -> giao diện sạch lại */
   vaoDB(function (db) { db.prepare('DELETE FROM phongtoa').run(); });

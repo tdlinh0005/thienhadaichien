@@ -817,6 +817,7 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
   var realTuyenChien = world.tuyenChien;
   var realChuyenGalana = world.chuyenGalana;
   var realChoMua = world.choMua;
+  var realPhaVay = world.phaVay;
   function preflight(accountId, targetS) {
     accountId = Number(accountId);
     /* Số hiệu tài khoản ở đây đến THẲNG từ body của client (tuyenChien,
@@ -868,6 +869,14 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
     preflight(Number(tkD), targetS);
     return realChuyenGalana.call(world, tkA, tkD, so);
   };
+  /* Phá vây chạm hai tài khoản: bên đi vây phải được tua tới cùng mốc trước
+     khi hạm đội của họ bị đánh, nếu không trận diễn ra trên một đội hình cũ. */
+  world.phaVay = function (tk, tkVay, fid) {
+    var targetS = Math.floor(mutation.effectiveNowMs / 1000);
+    preflight(Number(tk), targetS);
+    preflight(Number(tkVay), targetS);
+    return realPhaVay.call(world, tk, tkVay, fid);
+  };
   /* Mua ở chợ chạm hai tài khoản y như chuyển Galana: người bán cũng phải
      được tua tới cùng mốc trước khi state của họ bị ghi thêm Galana. */
   world.choMua = function (tk, id, sl) {
@@ -887,6 +896,7 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
     world.tuyenChien = realTuyenChien;
     world.chuyenGalana = realChuyenGalana;
     world.choMua = realChoMua;
+    world.phaVay = realPhaVay;
   }
 };
 

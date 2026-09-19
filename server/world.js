@@ -1580,6 +1580,116 @@ TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi, options) {
   return null;
 };
 
+/* ===================================================================
+ * PHÁ VÂY — bên bị vây xuất kích đánh hạm đội đang phong toả
+ * -------------------------------------------------------------------
+ * Đây là trận PvP duy nhất KHÔNG đi bằng đường hạm đội tới nơi, và có lý do
+ * kiến trúc: scheduler durable chỉ có đúng một reducer giải trận, bộ năm hook
+ * bị đóng băng bởi hợp đồng [5,3,3,3,3], và một hạm đội đang đậu (`pha:'giu'`)
+ * không sinh ref ngoài nên không bao giờ thành job được. Thêm một loại job
+ * mới nghĩa là mở lại hợp đồng đó.
+ *
+ * Nhưng có sẵn một đường hai-tài-khoản đã được chứng minh: LỆNH của người
+ * chơi. `chuyenGalana` và `choMua` đều nạp hai đế quốc, sửa cả hai, rồi luu()
+ * cả hai trong một giao dịch SQLite. Phá vây dùng đúng khuôn ấy — nó là một
+ * lệnh phòng thủ tại chỗ, không phải một chuyến bay.
+ * =================================================================== */
+TheGioi.prototype.phaVay = function (tk, tkVay, fid) {
+  tk = Math.floor(tk);
+  tkVay = Math.floor(Number(tkVay));
+  fid = Math.floor(Number(fid));
+  if (!Number.isSafeInteger(tkVay) || tkVay < 1) return 'Hạm đội vây không hợp lệ.';
+  if (!Number.isSafeInteger(fid) || fid < 1) return 'Hạm đội vây không hợp lệ.';
+  if (tkVay === tk) return 'Không tự phá vây chính mình.';
+  /* Đối phương đang được một request khác xử lý: hoãn, đừng đánh lên một state
+     sắp bị ghi đè. */
+  if (this.dangTick.has(tkVay)) return 'Đối phương đang được xử lý, thử lại sau một nhịp.';
+
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  var now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
+  var row = this.kho.q.ptGet.get(tkVay, fid);
+  if (!row || Number(row.tkD) !== tk || Number(row.denT) <= now)
+    return 'Không còn vòng vây nào như vậy ở hành tinh của ta.';
+  /* Quan hệ đọc lại từ dq hiện tại: vào chung liên minh là hết vây, và cũng
+     hết chuyện đánh nhau. */
+  if (this.laDongMinh(tk, tkVay)) return 'Hai bên đang cùng liên minh, không còn vòng vây.';
+
+  var d = this.nap(tk);
+  if (!d) return 'Không nạp được đế quốc.';
+  var pi = -1, i;
+  for (i = 0; i < d.st.planets.length; i++)
+    if (G.tdKey(d.st.planets[i].c) === row.td) pi = i;
+  if (pi < 0) return 'Hành tinh bị vây không còn là của ta.';
+  var p = d.st.planets[pi];
+
+  var choDen = Math.floor(Number(p.phaVay_t) || 0);
+  if (now < choDen) return 'Đội xuất kích còn đang tập hợp lại; chờ thêm ' +
+    G.tg(choDen - now) + '.';
+
+  var a = this.nap(tkVay);
+  if (!a) return 'Không nạp được đế quốc của bên vây.';
+  var f = null;
+  for (i = 0; i < a.st.fleets.length; i++) if (Number(a.st.fleets[i].id) === fid) f = a.st.fleets[i];
+  if (!f || f.pha !== 'giu' || !f.phongToa || G.tdKey(f.den) !== row.td)
+    return 'Hạm đội vây đã rời quỹ đạo.';
+
+  var tenTa = this.kho.q.tkTheoId.get(tk), tenVay = this.kho.q.tkTheoId.get(tkVay);
+  var kq = G.phaVay(d.st, p, a.st, f,
+    G.hash('phavay:' + tk + ':' + tkVay + ':' + fid + ':' + now + ':' + row.td));
+  if (typeof kq === 'string') return kq;
+
+  p.phaVay_t = now + G.C.PHA_VAY_CHO;
+  var tenB = tenVay ? tenVay.hienthi : (a.st.ten || 'đối phương');
+  var tenA = tenTa ? tenTa.hienthi : (d.st.ten || 'chỉ huy');
+
+  if (kq.xoaSach) {
+    G.ghi(a.st, 'Hạm đội #' + f.id + ' bị quét sạch khi đang phong toả ' + G.tdStr(f.den) + '.');
+    G.xoaHam(a.st, f);
+  } else if (kq.thang) {
+    G.batDauVe(a.st, f, true, 'Hạm đội #' + f.id + ' mất quyền kiểm soát quỹ đạo ' +
+      G.tdStr(f.den) + ' và phải rút về.');
+  }
+
+  /* Cho cả hai bên thấy CON SỐ, không chỉ thắng/thua: phá vây là chuyện đánh
+     nhiều đợt, nên "còn thiếu bao nhiêu" là thông tin quyết định có đánh tiếp
+     hay thôi. Thiếu nó thì người chơi chỉ biết mò. */
+  var pt = Math.round(kq.tyLeMat * 100), nguong = Math.round(kq.nguong * 100);
+  var doTa = kq.xoaSach
+    ? 'Hạm đội vây bị quét sạch.'
+    : 'Đợt xuất kích thổi bay ' + pt + '% sức mạnh hạm đội vây (cần ' + nguong +
+      '% để gỡ được vây).' + (kq.thang ? '' : ' Đánh tiếp thì tổn thất dồn lại, ' +
+        'vì hạm đội vây không được bù quân.');
+  G.tin(d.st, 'tran', (kq.thang ? 'PHÁ VÂY THÀNH CÔNG tại ' : 'Phá vây chưa dứt điểm tại ') +
+    G.tdStr(p.c) + ' — ' + tenB, doTa,
+    { kq: kq.kq, cuop: { metal: 0, crystal: 0, deut: 0, food: 0 }, pl: kq.kq.pheLieu,
+      td: p.c, ben: 'ta', pvp: true, phaVay: true, doiThu: tenB,
+      tyLeMat: kq.tyLeMat, nguong: kq.nguong });
+  G.tin(a.st, 'tran', (kq.thang ? 'VÒNG VÂY BỊ PHÁ tại ' : 'Giữ được vòng vây tại ') +
+    G.tdStr(p.c) + ' — ' + tenA,
+    'Bên bị vây xuất kích và thổi bay ' + pt + '% sức mạnh hạm đội đang vây.' +
+    (kq.thang ? '' : ' Vây vẫn còn, nhưng quân đã mỏng đi và không được bù.'),
+    { kq: kq.kq, cuop: { metal: 0, crystal: 0, deut: 0, food: 0 }, pl: kq.kq.pheLieu,
+      td: p.c, ben: 'dich', pvp: true, phaVay: true, doiThu: tenA,
+      tyLeMat: kq.tyLeMat, nguong: kq.nguong });
+
+  var self = this, opened = !this.ctx, complete = false;
+  if (opened) this.batDau();
+  try {
+    self.luu(tk, d.st, mutation ? {mutation: mutation} : undefined);
+    self.luu(tkVay, a.st, mutation ? {mutation: mutation} : undefined);
+    self.ghiTran(now, tk, tkVay, row.td, kq.thang ? 'thang' : 'thua', 0, kq.matD, kq.matA);
+    self.ghiBangTin(now, 'tran', tenA + ' xuất kích phá vòng vây của ' + tenB +
+      ' tại ' + G.tdStr(p.c) + ' — ' +
+      (kq.xoaSach ? 'hạm đội vây bị quét sạch'
+        : (kq.thang ? 'vòng vây bị phá, hạm đội vây phải rút'
+          : 'vòng vây đứng vững')) + '.');
+    complete = true;
+  } finally {
+    if (opened) this.ketThuc(complete);
+  }
+  return null;
+};
+
 /* --------------------------------------------------------- thư người chơi */
 TheGioi.prototype.guiThu = function (tkGui, tenGui, denAi, noi) {
   noi = String(noi || '').replace(/\r/g, '').slice(0, 1200).trim();
@@ -2668,7 +2778,7 @@ var RULES_HOOK_METHODS = Object.freeze([
   'dongBoChiMuc', 'hamDangToi', 'phongToaCua', 'hamGiuTai', 'hanhDong',
   'danhNguoi', 'doThamNguoi', 'tangNguoi', 'xepHangCho', 'xemHe',
   'oTrong', 'timNha', 'taoDeQuoc', 'tenLuaNguoi', 'xoaTaiKhoan',
-  'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana',
+  'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana', 'phaVay',
   'choDS', 'choDang', 'choGo', 'choMua', 'lmDS', 'lmTao',
   'lmThanhVien', 'lmXin', 'lmDuyet', 'lmDuoi', 'lmChuyenChu', 'lmRa',
   'nhip', 'resolvePvpAt', 'resolveTransportAt', 'resolveSpyAt',

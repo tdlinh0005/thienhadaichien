@@ -498,6 +498,95 @@ async function kiemPhongToa() {
     ktra(app.tg.phongToaTai(G.tdKey(cD), idD, gio).length === 0,
       'phong toả: dòng đã hết hạn không còn chặn gì');
 
+    /* ---- PHÁ VÂY: lệnh hai-tài-khoản, không đi qua đường hạm đội tới nơi ---- */
+    app.kho.db.prepare('DELETE FROM phongtoa').run();
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idA);
+      st.tech.weapon = 10; st.tech.shield = 10; st.tech.armor = 10;
+      st.fleets = [{id: 501, pi: 0, tu: st.planets[0].c, den: cD, mission: 'attack',
+        ships: {fighterL: 300, cruiser: 40}, cargo: {deut: 50000}, linh: {}, pct: 100,
+        diLuc: gio - 100, den_t: gio - 50, veLuc: null, ve_t: null, pha: 'giu',
+        dangGiu: true, phongToa: true, giuLuc: gio - 50, giuDen_t: gio + 30000,
+        tiepNL_t: gio + 20000, giuTaiTk: idD, giuRules: G.QUY_DAO_V1.holdRules,
+        giu: 21600, nl: 0, kc: 5, doiHuong: 0}];
+      st.fleetIdSeq = 502;
+      return st;
+    })()), idA);
+    app.kho.q.ptThem.run(idA, 501, idD, G.tdKey(cD), 'Kẻ Vây', null, gio - 50, gio + 30000);
+
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idD);
+      st.planets[0].ships = {};
+      st.planets[0].def = {laserL: 300};      /* chỉ công sự MẶT ĐẤT: không xuất kích được */
+      delete st.planets[0].phaVay_t;
+      return st;
+    })()), idD);
+    var vayRong = await post(app, '/api/phavay', {tk: idA, fid: 501}, tD);
+    ktra(vayRong.status === 400 && /không có hạm đậu/.test(vayRong.body.loi || ''),
+      'phá vây: hành tinh không còn gì thì từ chối, không chạy trận rỗng');
+
+    var xauVay = [], mauVay = [{}, {tk: -1, fid: 1}, {tk: 'x', fid: 'y'}, {tk: idA, fid: 99},
+      {tk: idD, fid: 501}, {tk: 99999, fid: 501}, null, [], 0, {tk: idA, fid: 1.5}];
+    for (var mv = 0; mv < mauVay.length; mv++) {
+      var rv = await post(app, '/api/phavay', mauVay[mv], tD);
+      if (rv.status >= 500) xauVay.push(JSON.stringify(mauVay[mv]) + ' -> ' + rv.status);
+    }
+    ktra(xauVay.length === 0, 'phá vây: đầu vào rác không sinh 500 (' + xauVay.join(', ') + ')');
+
+    /* lực lượng yếu: trận vẫn diễn ra, tổn thất rơi vào bên xuất kích */
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idD);
+      st.planets[0].ships = {fighterL: 5};
+      st.planets[0].def = {satellite: 2};
+      delete st.planets[0].phaVay_t;
+      return st;
+    })()), idD);
+    var vayYeu = await post(app, '/api/phavay', {tk: idA, fid: 501}, tD);
+    ktra(vayYeu.status === 200 && !vayYeu.body.loi,
+      'phá vây: xuất kích yếu vẫn chạy (' + (vayYeu.body.loi || '') + ')');
+    var stYeuD = stateCua(app, idD), stYeuA = stateCua(app, idA);
+    ktra(Object.keys(stYeuD.planets[0].ships || {}).length === 0,
+      'phá vây: xuất kích yếu mất sạch quân của chính mình');
+    ktra(stYeuA.fleets.length === 1 && stYeuA.fleets[0].pha === 'giu',
+      'phá vây: vòng vây đứng vững trước một đợt xuất kích yếu');
+    ktra(stYeuD.msgs.some(function (m) { return /phá vây/i.test(m.td || ''); }) &&
+      stYeuA.msgs.some(function (m) { return /vòng vây/i.test(m.td || ''); }),
+      'phá vây: cả hai bên đều nhận báo cáo trận');
+
+    var vayLai = await post(app, '/api/phavay', {tk: idA, fid: 501}, tD);
+    ktra(vayLai.status === 400 && /tập hợp lại/.test(vayLai.body.loi || ''),
+      'phá vây: bấm lại ngay bị chặn — không cho đổ lại xúc xắc');
+
+    /* lực lượng áp đảo: vây tan, projection tự dọn, hậu cần thông trở lại */
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idD);
+      st.planets[0].ships = {fighterH: 900, cruiser: 400, battleship: 150};
+      st.planets[0].def = {orbitalStation: 40, shieldL: 6};
+      st.tech.weapon = 14; st.tech.shield = 14; st.tech.armor = 14;
+      st.planets[0].phaVay_t = 0;
+      return st;
+    })()), idD);
+    var vayManh = await post(app, '/api/phavay', {tk: idA, fid: 501}, tD);
+    ktra(vayManh.status === 200 && !vayManh.body.loi,
+      'phá vây: xuất kích áp đảo chạy được (' + (vayManh.body.loi || '') + ')');
+    var stManhA = stateCua(app, idA);
+    var fVay = stManhA.fleets.filter(function (x) { return Number(x.id) === 501; })[0];
+    ktra(!fVay || fVay.pha === 've', 'phá vây: hạm đội vây bị quét sạch hoặc phải rút');
+    if (fVay) ktra(!fVay.phongToa, 'phá vây: hạm đội rút thì hết cờ phong toả');
+    await get(app, '/api/state', tA);
+    ktra(app.kho.db.prepare('SELECT COUNT(*) AS n FROM phongtoa').get().n === 0,
+      'phá vây: projection tự dọn sau khi vây tan');
+    ktra((await get(app, '/api/state', tD)).body.st.pvpToa.length === 0,
+      'phá vây: bên bị vây hết pvpToa');
+    var thongLai = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {fighterH: 1}, den: cA, mission: 'transport', cargo: {}, pct: 100
+    }}, tD);
+    ktra(!/phong toả/i.test((thongLai.body && thongLai.body.loi) || ''),
+      'phá vây: hậu cần thông trở lại ngay sau khi gỡ vây');
+    var hetVay = await post(app, '/api/phavay', {tk: idA, fid: 501}, tD);
+    ktra(hetVay.status === 400 && /không còn vòng vây/i.test(hetVay.body.loi || ''),
+      'phá vây: không còn vây thì từ chối sạch');
+
     /* rời vũ trụ thì projection đi theo (khoá ngoại ON DELETE CASCADE) */
     app.kho.q.ptThem.run(idA, 78, idD, G.tdKey(cD), 'Kẻ Vây', null, gio - 10, gio + 20000);
     var xoa = await post(app, '/api/xoatk', {mk: 'matkhau-vay', xacnhan: 'XOA'}, tA);

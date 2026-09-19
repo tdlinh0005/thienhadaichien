@@ -971,20 +971,30 @@ U.m_hamdoi = function () {
   var pvToa = Array.isArray(st.pvpToa) ? st.pvpToa : [];
   if (pvToa.length) {
     h += '<div class="panel"><h3>Quỹ đạo của ta đang bị phong toả</h3><div class="noi bang-cuon"><table>' +
-      '<tr><th>Kẻ vây</th><th>Hành tinh</th><th>Vây từ</th><th>Hết vây</th></tr>';
+      '<tr><th>Kẻ vây</th><th>Hành tinh</th><th>Vây từ</th><th>Hết vây</th><th class="r"></th></tr>';
     for (i = 0; i < pvToa.length; i++) {
       var qt = pvToa[i], pToa = U.htTheoKey(qt.td);
+      var ptPV = pToa ? Math.floor(Number(pToa.phaVay_t) || 0) : 0;
+      var sanSang = st.now >= ptPV;
       h += '<tr><td><b class="do">' + U.esc(qt.ten) + '</b> ' +
         '<span class="tag-lm">' + U.esc(qt.lm || '') + '</span></td>' +
         '<td>' + U.esc(pToa ? pToa.ten : '') + ' <span class="sz">[' + U.esc(qt.td) + ']</span></td>' +
         '<td class="sz">' + G.gio(qt.tuLuc * 1000) + '</td>' +
-        '<td class="sz do">' + U.dem(qt.denT) + '</td></tr>';
+        '<td class="sz do">' + U.dem(qt.denT) + '</td>' +
+        '<td class="r">' + (sanSang
+          ? '<button class="nut nho xoa" data-act="pha-vay" data-tk="' + qt.tk +
+            '" data-fid="' + qt.fid + '" data-ten="' + U.esc(qt.ten) + '">Phá vây</button>'
+          : '<span class="mo sz">tập hợp lại ' + U.dem(ptPV) + '</span>') + '</td></tr>';
     }
     h += '</table><p class="mo">Bị vây thì <b>Vận Chuyển, Triển Khai, Giữ Chỗ, Thực Dân, Thu Hồi và ' +
-      'Thám Hiểm</b> không xuất bến từ hành tinh này được — <b class="luc">Tấn Công và tên lửa thì vẫn ' +
+      'Thám Hiểm</b> không xuất bến từ hành tinh này được, và <b>hàng mua ở chợ cũng không hạ cánh ' +
+      'xuống được</b> (hàng nằm chờ, tự tới khi vây tan) — <b class="luc">Tấn Công và tên lửa thì vẫn ' +
       'được</b>. Vây tự tan khi kẻ vây hết nhiên liệu, hết giờ đã trả, hết lệnh chiến tranh, hoặc ' +
-      'hai bên vào chung một liên minh. Đội hình của kẻ vây không hiện ở đây: muốn biết thì phải ' +
-      'do thám.</p></div></div>';
+      'hai bên vào chung một liên minh.</p>' +
+      '<p class="mo"><b class="do">Phá vây</b> là xuất kích ngay tại chỗ: <b>hạm đậu ở hành tinh cộng ' +
+      'công sự lớp quỹ đạo</b> lao lên đánh hạm đội đang vây. Công sự mặt đất đứng ngoài và không bên ' +
+      'nào cướp được gì — đây là trận giành lại bầu trời. Thắng là vây tan ngay. Đội hình của kẻ vây ' +
+      'không hiện ở đây: đọc lại báo cáo trận lúc bị đánh, hoặc chấp nhận đánh mò.</p></div></div>';
   }
 
   var pvToi = st.pvpToi || [];

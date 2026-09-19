@@ -2070,5 +2070,161 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   }
 })();
 
+/* ======================================================================
+ * 26. PHÁ VÂY — BÊN BỊ VÂY XUẤT KÍCH ĐÁNH HẠM ĐỘI ĐANG PHONG TOẢ
+ * ----------------------------------------------------------------------
+ * Cái phải đúng ở đây là ĐƯỜNG CONG, không phải một con số: xuất kích yếu
+ * hẳn thì chết sạch mà không phá được gì, ngang tay thì hai bên cùng chảy
+ * máu và vây vẫn đứng, áp đảo mới gỡ được vây. Lệch đường cong này thì phong
+ * toả hoặc thành bất khả phá, hoặc thành vô dụng.
+ *
+ * LƯU Ý về công sự: chỉ `satellite`/`orbitalStation`/`shieldS`/`shieldL` là
+ * lớp quỹ đạo; laser/plasma/gauss/ion đều là MẶT ĐẤT và cố ý đứng ngoài trận
+ * này. Một bài test dùng nhầm laser làm "phòng thủ quỹ đạo" sẽ xanh mà không
+ * kiểm gì cả — nên ở đây ghim thẳng cả hai chiều.
+ * ==================================================================== */
+(function () {
+  ktra(Object.keys(G.thuQuyDao({ laserL: 50, plasma: 20 })).length === 0,
+    'phá vây: laser/plasma là công sự MẶT ĐẤT, không thuộc lớp quỹ đạo');
+  ktra(Object.keys(G.thuQuyDao({ satellite: 10, shieldL: 2 })).length === 2,
+    'phá vây: satellite/shieldL đúng là công sự lớp quỹ đạo');
+
+  function dung(shipsP, defP, shipsF, techP, techF) {
+    var sd = G.moiGame('Bị Vây', 'THDC-PV-D'), pp = sd.planets[0];
+    pp.ships = shipsP; pp.def = defP;
+    sd.tech.weapon = techP; sd.tech.shield = techP; sd.tech.armor = techP;
+    var sa = G.moiGame('Kẻ Vây', 'THDC-PV-A');
+    sa.tech.weapon = techF; sa.tech.shield = techF; sa.tech.armor = techF;
+    var ff = { id: 1, ships: shipsF, cargo: {}, pha: 'giu', phongToa: true, den: pp.c };
+    return { sd: sd, p: pp, sa: sa, f: ff };
+  }
+  var doiVay = { fighterL: 300, cruiser: 40 };
+
+  var yeu = dung({ fighterL: 5 }, { satellite: 2 }, G.clone(doiVay), 10, 10);
+  var rYeu = G.phaVay(yeu.sd, yeu.p, yeu.sa, yeu.f, 12345);
+  ktra(typeof rYeu !== 'string', 'phá vây: xuất kích yếu vẫn chạy được trận');
+  ktra(rYeu.thang === false, 'phá vây: xuất kích yếu KHÔNG gỡ được vây');
+  ktra(G.trong(yeu.p.ships), 'phá vây: xuất kích yếu mất sạch quân của chính mình');
+  ktra(rYeu.matD > 0, 'phá vây: tổn thất rơi vào bên xuất kích');
+
+  var deu = dung({ fighterH: 200, cruiser: 80 }, { satellite: 40 }, G.clone(doiVay), 10, 10);
+  var rDeu = G.phaVay(deu.sd, deu.p, deu.sa, deu.f, 12345);
+  ktra(rDeu.matD > 0 && rDeu.matA > 0, 'phá vây: đánh ngang tay thì HAI bên cùng mất quân');
+
+  var manh = dung({ fighterH: 900, cruiser: 400, battleship: 150 },
+    { orbitalStation: 30, shieldL: 5 }, G.clone(doiVay), 14, 10);
+  var rManh = G.phaVay(manh.sd, manh.p, manh.sa, manh.f, 12345);
+  ktra(rManh.thang === true, 'phá vây: lực lượng áp đảo gỡ được vây');
+  ktra(rManh.xoaSach === true && G.trong(manh.f.ships),
+    'phá vây: áp đảo thì hạm đội vây bị quét sạch');
+
+  /* Công sự quỹ đạo PHẢI thật sự tham chiến, không phải trang trí: cùng một
+     đội tàu, thêm công sự quỹ đạo vào là kết quả phải khá hơn. */
+  var khongCS = dung({ fighterH: 120 }, {}, G.clone(doiVay), 11, 10);
+  var coCS = dung({ fighterH: 120 }, { orbitalStation: 60, shieldL: 6 }, G.clone(doiVay), 11, 10);
+  var kA = G.phaVay(khongCS.sd, khongCS.p, khongCS.sa, khongCS.f, 5150);
+  var kB = G.phaVay(coCS.sd, coCS.p, coCS.sa, coCS.f, 5150);
+  ktra(kB.matA > kA.matA,
+    'phá vây: công sự lớp quỹ đạo thật sự bắn (diệt nhiều hơn: ' + kB.matA + ' > ' + kA.matA + ')');
+
+  /* luật hai lớp: công sự MẶT ĐẤT không tham chiến và không suy suyển */
+  var dat = dung({ fighterL: 50 }, { satellite: 5, laserL: 200, plasma: 60 },
+    G.clone(doiVay), 10, 10);
+  var laserTruoc = dat.p.def.laserL, plasmaTruoc = dat.p.def.plasma;
+  G.phaVay(dat.sd, dat.p, dat.sa, dat.f, 777);
+  ktra(dat.p.def.laserL === laserTruoc && dat.p.def.plasma === plasmaTruoc,
+    'phá vây: công sự mặt đất đứng ngoài và không hề suy suyển');
+
+  /* công sự quỹ đạo thì CÓ chịu tổn thất — không thể vừa bắn vừa bất tử */
+  /* không có tàu che chắn thì công sự hứng đạn trực diện */
+  var hong = dung({}, { satellite: 20 }, G.clone(doiVay), 10, 12);
+  var veTinhTruoc = hong.p.def.satellite;
+  G.phaVay(hong.sd, hong.p, hong.sa, hong.f, 31337);
+  ktra((hong.p.def.satellite || 0) < veTinhTruoc,
+    'phá vây: công sự quỹ đạo có bắn thì cũng có chịu thiệt hại');
+
+  /* không cướp bóc: đây là trận giành bầu trời, không phải đổ bộ */
+  var cuop = dung({ fighterH: 900, cruiser: 400 }, { orbitalStation: 30 }, G.clone(doiVay), 14, 10);
+  cuop.f.cargo = { metal: 5000 };
+  var khoTruoc = G.clone(cuop.p.res);
+  G.phaVay(cuop.sd, cuop.p, cuop.sa, cuop.f, 999);
+  ktra(JSON.stringify(cuop.p.res) === JSON.stringify(khoTruoc),
+    'phá vây: không bên nào cướp được tài nguyên của bên nào');
+  ktra((cuop.f.cargo.metal || 0) === 5000,
+    'phá vây: hàng trong khoang hạm đội vây không bị đụng tới');
+
+  /* phế liệu rơi vào bãi chung ở đúng toạ độ */
+  var pl = dung({ fighterH: 900, cruiser: 400 }, { orbitalStation: 30 }, G.clone(doiVay), 14, 10);
+  G.phaVay(pl.sd, pl.p, pl.sa, pl.f, 4242);
+  var bai = G.pheLieu(pl.sd, G.tdKey(pl.p.c));
+  ktra(bai.metal > 0 || bai.crystal > 0, 'phá vây: xác tàu rơi vào bãi phế liệu tại chỗ');
+
+  /* cửa vào: không có gì để xuất kích thì từ chối thẳng, không chạy trận rỗng */
+  var rong = dung({}, { laserL: 500 }, G.clone(doiVay), 10, 10);
+  ktra(typeof G.phaVay(rong.sd, rong.p, rong.sa, rong.f, 1) === 'string',
+    'phá vây: chỉ có công sự mặt đất thì không xuất kích được');
+  var hetTau = dung({ fighterH: 10 }, {}, {}, 10, 10);
+  ktra(typeof G.phaVay(hetTau.sd, hetTau.p, hetTau.sa, hetTau.f, 1) === 'string',
+    'phá vây: hạm đội vây đã trắng tàu thì không có gì để đánh');
+
+  /* ---- ĐƯỜNG CONG CÂN BẰNG: thứ dễ vỡ nhất của tính năng này ----
+     Tiêu chí gỡ vây là TỶ LỆ TỔN THẤT, không phải `kq` của G.danhTran: `thua`
+     ở đó nghĩa là phía tấn công bị DIỆT SẠCH, mà một hạm đội vài trăm chiếc
+     gần như luôn ra `hoa`. Bản nháp đầu đo bằng `kq` và kết quả là 0/20 đợt
+     xuất kích thành công kể cả với lực lượng gấp bốn lần — tính năng thành đồ
+     trang trí. Ghim lại cả hai đầu của đường cong. */
+  function soDot(shipsP, defP, lan) {
+    var win = 0, i;
+    for (i = 0; i < lan; i++) {
+      var z = dung(shipsP, defP, G.clone(doiVay), 12, 10);
+      var r = G.phaVay(z.sd, z.p, z.sa, z.f, G.hash('cb' + i));
+      if (typeof r !== 'string' && r.thang) win++;
+    }
+    return win;
+  }
+  ktra(soDot({ fighterH: 300 }, {}, 12) === 0,
+    'cân bằng: lực lượng ngang cơ KHÔNG gỡ được vây trong một đợt');
+  ktra(soDot({ fighterH: 600 }, { orbitalStation: 40, shieldL: 8 }, 12) === 12,
+    'cân bằng: gấp ~4 lần kèm công sự quỹ đạo thì gỡ được vây chắc chắn');
+
+  /* Đánh nhiều đợt phải MÀI MÒN được vòng vây — đó là cách chơi chính của bên
+     phòng thủ không đủ sức dứt điểm một nhát. */
+  var mm = dung({ fighterH: 300 }, { orbitalStation: 40 }, G.clone(doiVay), 12, 10);
+  var dotThang = 0, dot;
+  for (dot = 1; dot <= 6 && !dotThang; dot++) {
+    var rm = G.phaVay(mm.sd, mm.p, mm.sa, mm.f, G.hash('mm' + dot));
+    if (typeof rm === 'string') break;
+    if (rm.thang) dotThang = dot;
+  }
+  ktra(dotThang > 1 && dotThang <= 5,
+    'cân bằng: lực lượng vừa phải mài vài đợt thì gỡ được vây (đợt ' + dotThang + ')');
+
+  /* Lực lượng yếu thì tự bào mòn mình chứ không mài được ai — ném quân bừa
+     vào một vòng vây phải bị phạt. */
+  var yeuDan = dung({ fighterH: 150 }, {}, G.clone(doiVay), 12, 10);
+  var vayTruoc = G.diemBang(G.SHIPS, yeuDan.f.ships);
+  var taTruoc = G.diemBang(G.SHIPS, yeuDan.p.ships);
+  for (dot = 0; dot < 4; dot++) G.phaVay(yeuDan.sd, yeuDan.p, yeuDan.sa, yeuDan.f, G.hash('yd' + dot));
+  var vaySau = G.diemBang(G.SHIPS, yeuDan.f.ships);
+  var taSau = G.diemBang(G.SHIPS, yeuDan.p.ships);
+  ktra((taTruoc - taSau) / taTruoc > (vayTruoc - vaySau) / vayTruoc,
+    'cân bằng: ném lực lượng yếu vào vòng vây thì mình hao nặng hơn đối phương');
+
+  /* báo cáo phải kèm con số để người chơi biết còn thiếu bao nhiêu */
+  var bc = dung({ fighterH: 300 }, {}, G.clone(doiVay), 12, 10);
+  var rbc = G.phaVay(bc.sd, bc.p, bc.sa, bc.f, 606);
+  ktra(typeof rbc.tyLeMat === 'number' && rbc.tyLeMat > 0 && rbc.tyLeMat < 1 &&
+    rbc.nguong === G.C.PHA_VAY_TON_THAT,
+    'phá vây: báo cáo kèm tỷ lệ tổn thất và ngưỡng, để biết còn thiếu bao nhiêu');
+
+  /* cùng một seed phải ra cùng một kết quả — nếu không, bấm lại là đổ lại xúc xắc */
+  var a1 = dung({ fighterH: 200 }, { satellite: 30 }, G.clone(doiVay), 12, 10);
+  var a2 = dung({ fighterH: 200 }, { satellite: 30 }, G.clone(doiVay), 12, 10);
+  var k1 = G.phaVay(a1.sd, a1.p, a1.sa, a1.f, 20250919);
+  var k2 = G.phaVay(a2.sd, a2.p, a2.sa, a2.f, 20250919);
+  ktra(JSON.stringify(a1.f.ships) === JSON.stringify(a2.f.ships) && k1.thang === k2.thang,
+    'phá vây: cùng seed cho cùng kết quả (trận có thể tái dựng lại được)');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

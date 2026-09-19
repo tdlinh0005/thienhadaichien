@@ -392,6 +392,21 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     return json(res, 200, { ok: true, st: gGalana && gGalana.st, sv: self.thongTin() });
   }
 
+  if (duong === '/api/phavay' && req.method === 'POST') {
+    await self.markLastSeen(p);
+    var bVay = await docBodyDaXacThuc();
+    var phaVay = await self.commandFor(p, 'break-blockade', function () {
+      var loiVay = self.tg.phaVay(p.tk, bVay.tk, bVay.fid);
+      return {loi: loiVay, game: self.goiState(p)};
+    });
+    var stVay = phaVay.game;
+    return json(res, phaVay.loi ? 400 : 200, {
+      loi: phaVay.loi || null,
+      st: stVay && stVay.st,
+      sv: self.thongTin()
+    });
+  }
+
   /* ------------------------------------------------- chợ dùng chung */
   if (duong === '/api/cho') {
     await self.markLastSeen(p);

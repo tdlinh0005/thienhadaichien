@@ -273,9 +273,16 @@ schema hay công thức đầy đủ:
   lệnh chiến tranh ở mỗi mốc, và danh sách nhiệm vụ bị vây chặn (`transport`, `deploy`,
   `hold`, `colonize`, `recycle`, `thamhiem` — `attack` và tên lửa thì không). Nguồn chỉ
   nói "đậu ở bất kỳ quỹ đạo, gặp lực lượng địch thì đánh"; nó không mô tả vây làm gì với
-  hậu cần của bên bị vây. Bên bị vây hiện chưa đánh thẳng được vào hạm đội đang vây —
-  gỡ vây đi bằng thời gian hoặc bằng ngoại giao (hết lệnh chiến tranh, hoặc hai bên vào
-  chung liên minh). Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
+  hậu cần của bên bị vây. Bên bị vây gỡ vây được bằng ba đường: thời gian (kẻ vây hết
+  nhiên liệu hoặc hết giờ đã trả), ngoại giao (hết lệnh chiến tranh, hoặc hai bên vào
+  chung liên minh), và **đánh** — lệnh Phá Vây cho hạm đậu tại hành tinh cộng công sự lớp
+  quỹ đạo xuất kích đánh thẳng hạm đội đang vây. **[TÁI DỰNG]** toàn bộ luật của lệnh này:
+  chỉ lớp quỹ đạo tham chiến, không bên nào cướp được gì, 30 phút nghỉ giữa hai lần xuất
+  kích để không ai bấm lại liên tục nhằm đổ lại xúc xắc, và ngưỡng gỡ vây **35% giá trị
+  hạm đội vây bị thổi bay** trong một đợt. Con số 35% là chọn theo đo đạc chứ không phải
+  bốc: dưới mức đó thì lực lượng gấp bốn lần vẫn không gỡ nổi vây, trên mức đó thì một
+  đợt xuất kích xoàng cũng phá được. Nguồn chỉ nói "gặp lực lượng
+  địch thì đánh"; nó không mô tả bên bị vây phản kích thế nào. Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
   một hành tinh khác của chính đế quốc — hàng dỡ thẳng vào kho nơi đó nên không mở cho
   hành tinh người khác; phí điều động và mức nhiên liệu phụ trội là **[TÁI DỰNG]**.
   Tách đội cũng đã dựng lại (`G.tachHam`): **[TÁI DỰNG]** là giá (một khe hạm đội +

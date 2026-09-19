@@ -442,6 +442,7 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/lm` | GET | **có** | — | `{ds,tv,xin,don,laChu,chien:{di,den,cho}}`; `chien.di` là lệnh bên mình, `chien.den` là lệnh nhắm vào mình, `cho=86400` |
 | `/api/tuyenchien` | POST | **có** | `{tk}` — id tài khoản mục tiêu | `{ok:true,chien}`; nếu đang ở liên minh chỉ chủ được đặt lệnh cho liên minh; 400 khi mục tiêu sai/cùng phe/lệnh trùng |
 | `/api/chuyengalana` | POST | **có** | `{tk,so}` — id người nhận và số nguyên 1…1.000.000.000.000 | `{ok:true,st,sv}`; chỉ cùng liên minh, kiểm tra lại membership sau khi tua cả hai đế quốc và ghi hai số dư trong một transaction |
+| `/api/phavay` | POST | **có** | `{tk, fid}` — tài khoản và số hiệu hạm đội đang vây | `{loi, st, sv}` — bên bị vây xuất kích đánh hạm đội đang phong toả quỹ đạo của mình. Chạm **hai tài khoản** trong một giao dịch. 400 khi không còn vòng vây đó, khi hành tinh không còn hạm đậu lẫn công sự quỹ đạo, hoặc khi chưa hết thời gian nghỉ giữa hai lần xuất kích |
 | `/api/cho` | GET | **có** | query `?loai=sieuthi\|tudo` | `{loai,thue,giaoSau,ds,cuaToi,toiDa,moiRes}` — `ds` là sạp hàng của quầy đang xem, cắt **theo từng loại tài nguyên** (`moiRes` lô rẻ nhất mỗi loại) chứ không cắt phẳng trên cả sạp: một trần phẳng chỉ cần một loại bị bơm đầy lô rẻ là ba loại còn lại biến mất sạch. `cuaToi` là mọi lô của chính người gọi ở **cả hai quầy** |
 | `/api/chodang` | POST | **có** | `{loai,pi,res,sl,gia}` | `{loi,st,cho,sv}` — ký gửi hàng: trừ khỏi kho hành tinh `pi` ngay. Siêu Thị bỏ qua `gia` và dùng giá gốc `1/TY_GIA[res]`; Chợ Tự Do nhận `gia` trong (0, 1.000.000.000]. Tối đa 20 lô mỗi người |
 | `/api/chogo` | POST | **có** | `{loai,id}` | `{loi,st,cho,sv}` — gỡ lô của chính mình, hàng ký quỹ về hành tinh thủ phủ |
@@ -708,11 +709,62 @@ hậu cần theo cả **hai chiều**:
 người chơi ra quyết định. Cả hai projection này **không** kèm đội hình kẻ vây: nhìn thấy
 đội hình đối phương miễn phí thì do thám còn nghĩa gì nữa.
 
-**Giới hạn đã biết.** Bên bị vây chưa có cách đánh thẳng vào chính hạm đội đang vây:
-`hamGiuTai` cố ý loại đội phong toả khỏi lực lượng phòng thủ, và một trận nhắm vào toạ
-độ đó chỉ chạm lớp phòng thủ của chủ hành tinh. Gỡ vây hiện đi bằng thời gian (kẻ vây
-hết nhiên liệu hoặc hết giờ đã trả) hoặc bằng ngoại giao. Đánh trực diện vào hạm đội
-vây cần một đường giải trận hạm-đối-hạm mới, chưa dựng.
+### Phá vây — bên bị vây đánh thẳng vào hạm đội đang vây
+
+Một vòng vây mà bên bị vây chỉ biết ngồi đợi hết nhiên liệu thì không phải một nước cờ,
+nó là một cái án. Lệnh **Phá Vây** (`POST /api/phavay`, `{tk, fid}`) cho bên bị vây xuất
+kích ngay tại chỗ.
+
+**Vì sao nó là một LỆNH chứ không phải một nhiệm vụ hạm đội.** Scheduler durable chỉ có
+đúng một reducer giải trận (`resolvePvpAt`), bộ năm hook bị đóng băng bởi hợp đồng
+`[5,3,3,3,3]`, và một hạm đội đang đậu (`pha:'giu'`) không sinh ref ngoài
+(`stableFleetRef` đòi `pha === 'di'`) nên không bao giờ thành job được. Thêm một loại job
+mới nghĩa là mở lại hợp đồng đó. Nhưng đã có sẵn một đường hai-tài-khoản được chứng minh:
+**lệnh của người chơi** — `chuyenGalana` và `choMua` đều nạp hai đế quốc, sửa cả hai, rồi
+`luu()` cả hai trong một giao dịch SQLite. `phaVay` dùng đúng khuôn ấy, và writer của
+scheduler bọc nó để advance bên đi vây tới cùng mốc trước khi hạm đội của họ bị đánh.
+
+**Luật trận.** Chỉ đụng **lớp quỹ đạo**: lực lượng giữ bầu trời là hạm đậu tại hành tinh
+cộng công sự lớp quỹ đạo (`satellite`, `orbitalStation`, `shieldS`, `shieldL`).
+Laser/plasma/gauss/ion là công sự **mặt đất** và đứng hẳn ngoài — một hành tinh chỉ có
+laser thì *không xuất kích được*. Không bên nào cướp được gì của bên nào.
+
+> Vai A/D trong `G.danhTran` **không** phải "ai ra tay trước" mà là "bên nào có công sự
+> cố định": engine chỉ đọc `def` từ phía D. Nên hạm đội vây đứng vai A và hành tinh bị vây
+> đứng vai D, giống hệt `G.tranQuyDao`. Đặt ngược lại thì công sự quỹ đạo vừa không bắn
+> được phát nào, vừa bị `gopThuQuyDao` xoá sạch — bản nháp đầu đúng là đã dính lỗi này.
+
+**Kết cục đo bằng TỶ LỆ TỔN THẤT, không bằng `kq`.** Vây tan khi hạm đội vây bị quét sạch,
+hoặc khi đợt xuất kích thổi bay ≥ `G.C.PHA_VAY_TON_THAT` (35%) giá trị của nó.
+
+> Bản nháp đầu lấy `kq` của `G.danhTran` làm tiêu chí và **tính năng thành đồ trang trí**:
+> `thua` ở đó nghĩa là phía tấn công bị *diệt sạch*, mà một hạm đội vài trăm chiếc gần như
+> luôn ra `hoa`. Đo thử 20 đợt với lực lượng gấp bốn lần: 0/20 thành công. Đo bằng phần
+> giá trị bị thổi bay thì đường cong mới đúng — và cả hai đầu của nó đã được ghim trong
+> `tools/smoke.js` mục 26.
+
+Đường cong hiện tại, đối chiếu với một hạm đội vây cỡ 300 Máy Bay Chiến Đấu + 40 Tuần
+Dương Hạm:
+
+| Lực lượng quỹ đạo của bên bị vây | Một đợt |
+|---|---|
+| ngang cơ (1×) | không suy suyển |
+| 2,5× bằng tàu không | chưa đủ (~24%) |
+| ~2,2× kèm trạm quỹ đạo | chưa đủ một đợt, **ba đợt thì tan** |
+| ~4× kèm trạm + khiên | tan ngay đợt đầu |
+
+Điểm quan trọng nhất là **tổn thất dồn lại**: hạm đội vây không được bù quân, nên một bên
+phòng thủ vừa phải vẫn gỡ được vây bằng cách đánh nhiều đợt. Ngược lại, ném lực lượng yếu
+vào thì mình hao nặng hơn đối phương — cũng đã ghim lại. Báo cáo trận trả về `tyLeMat` và
+`nguong` để người chơi biết còn thiếu bao nhiêu thay vì phải mò.
+
+**Chống đổ lại xúc xắc.** Mỗi hành tinh có `p.phaVay_t`: nghỉ `G.C.PHA_VAY_CHO` (30 phút)
+giữa hai lần xuất kích. Không có nó thì người chơi cứ bấm lại tới khi ra kết quả đẹp.
+
+**Giới hạn còn lại.** Hạm đội đồng minh đang đóng quân tại toạ độ đó **không** tham gia
+trận phá vây: kéo chúng vào nghĩa là phải khoá N tài khoản như `danhNguoi`, còn lệnh này
+cố ý chỉ chạm đúng hai. Bên bị vây cũng không được cho biết trước đội hình kẻ vây — họ
+phải đọc lại báo cáo trận lúc bị đánh, hoặc chấp nhận đánh mò.
 
 Khi một trận tới host, server tìm candidate `hamgiu` và hold inbound theo toạ độ,
 khoá/tua mọi chủ tới đúng T, rồi mới lọc biên `giuLuc <= T < giuDenT` và truyền

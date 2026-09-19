@@ -307,6 +307,78 @@ G.tamGiu = function (st, f) {
   };
 };
 
+/* --- PHÁ VÂY: BÊN BỊ VÂY XUẤT KÍCH ĐÁNH HẠM ĐỘI ĐANG VÂY ---------------
+ * Một vòng vây mà bên bị vây chỉ biết ngồi đợi hết nhiên liệu thì không phải
+ * một nước cờ, nó là một cái án. Bên bị vây phải đánh lại được.
+ *
+ * Trận này chỉ đụng LỚP QUỸ ĐẠO, đúng luật hai lớp: lực lượng giữ bầu trời là
+ * hạm đậu tại hành tinh cộng công sự lớp quỹ đạo (vệ tinh, trạm quỹ đạo, khiên);
+ * laser/plasma/gauss/ion là công sự MẶT ĐẤT và đứng hẳn ngoài trận. Không bên
+ * nào cướp được gì của bên nào — đây là trận giành lại bầu trời, không phải
+ * một cuộc đổ bộ.
+ *
+ * Vai A/D trong G.danhTran KHÔNG phải "ai ra tay trước" mà là "bên nào có công
+ * sự cố định" — engine chỉ đọc `def` từ phía D. Nên hạm đội vây đứng vai A và
+ * hành tinh bị vây đứng vai D, giống hệt G.tranQuyDao. Đặt ngược lại thì công
+ * sự quỹ đạo vừa không bắn được phát nào, vừa bị gopThuQuyDao xoá sạch.
+ *
+ * Hàm thuần luật: bên gọi (một người: chính nó; nhiều người: server) tự lo
+ * chuyện nạp/ghi state của hai bên. Trả về báo cáo trận, hoặc chuỗi lỗi.
+ */
+G.phaVay = function (stD, p, stA, f, seed) {
+  if (!p || !f) return 'Không xác định được trận phá vây.';
+  if (G.trong(f.ships)) return 'Hạm đội vây đã không còn tàu nào.';
+  var thuQD = G.thuQuyDao(p.def);
+  if (G.trong(p.ships) && G.trong(thuQD))
+    return 'Không còn gì để xuất kích: hành tinh này không có hạm đậu lẫn công sự quỹ đạo.';
+
+  var Lmuc = G.loaiHT(stD, p);
+  var giaTruoc = G.diemBang(G.SHIPS, f.ships);
+  var kq = G.danhTran(
+    { ten: stA.ten + ' (hạm đội vây)', tech: stA.tech, ships: f.ships },
+    { ten: stD.ten + ' — ' + p.ten, tech: stD.tech, ships: p.ships,
+      def: thuQD, loaiHT: Lmuc.ten },
+    seed);
+
+  f.ships = kq.conShipsA;
+  p.ships = kq.conShipsD;
+  G.gopThuQuyDao(p.def, kq.conDefD);
+
+  var pl = G.pheLieu(stD, G.tdKey(p.c));
+  pl.metal += kq.pheLieu.metal; pl.crystal += kq.pheLieu.crystal;
+
+  stD.stats = stD.stats && typeof stD.stats === 'object' ? stD.stats : {};
+  stA.stats = stA.stats && typeof stA.stats === 'object' ? stA.stats : {};
+  var kx, ky, matA = 0, matD = 0;
+  for (kx in kq.matA) matA += kq.matA[kx];          /* tổn thất của hạm đội vây */
+  for (ky in kq.matD) matD += kq.matD[ky];          /* tổn thất của bên bị vây */
+  stA.stats.tauMat = (stA.stats.tauMat || 0) + matA;
+  stA.stats.tauDietDich = (stA.stats.tauDietDich || 0) + matD;
+  stD.stats.tauMat = (stD.stats.tauMat || 0) + matD;
+  stD.stats.tauDietDich = (stD.stats.tauDietDich || 0) + matA;
+
+  /* Vây tan khi hạm đội vây bị quét sạch, HOẶC khi nó mất đủ nặng để không
+     còn giữ nổi quỹ đạo. Cố ý KHÔNG lấy `kq` làm tiêu chí: `thua` ở đó nghĩa
+     là phía tấn công bị diệt sạch, mà một hạm đội vài trăm chiếc gần như luôn
+     ra `hoa` — đo bằng `kq` thì mọi đợt xuất kích đều thất bại và tính năng
+     này chỉ còn là đồ trang trí. Đo bằng phần giá trị bị thổi bay thì đường
+     cong mới đúng: ngang cơ thì không suy suyển, gấp ba tới bốn lần cộng công
+     sự quỹ đạo mới gỡ được vây. */
+  var giaSau = G.diemBang(G.SHIPS, f.ships);
+  var tyLeMat = giaTruoc > 0 ? (giaTruoc - giaSau) / giaTruoc : 0;
+  var xoaSach = G.trong(f.ships);
+  var thang = xoaSach || tyLeMat >= G.C.PHA_VAY_TON_THAT;
+  if (thang) {
+    stD.stats.thang = (stD.stats.thang || 0) + 1;
+    stA.stats.thua = (stA.stats.thua || 0) + 1;
+  } else {
+    stD.stats.thua = (stD.stats.thua || 0) + 1;
+    stA.stats.thang = (stA.stats.thang || 0) + 1;
+  }
+  return { kq: kq, thang: thang, xoaSach: xoaSach, matD: matD, matA: matA,
+    tyLeMat: tyLeMat, nguong: G.C.PHA_VAY_TON_THAT };
+};
+
 /* --- Ở LẠI PHONG TOẢ SAU MỘT TRẬN THẮNG -------------------------------
  * [XÁC NHẬN] bản gốc cho hạm đậu ở bất kỳ quỹ đạo và "gặp lực lượng địch thì
  * đánh". Với hành tinh NGƯỜI CHƠI khác, đường vào quỹ đạo thù địch là thắng

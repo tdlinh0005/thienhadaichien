@@ -285,6 +285,7 @@ function Kho(duong, options) {
     ptTai: d.prepare(
       'SELECT p.tkA,p.fid,p.tenA,p.tuLuc,p.denT,q.lm AS lmA FROM phongtoa p ' +
       'JOIN dq q ON q.tk=p.tkA WHERE p.td=? AND p.denT>?'),
+    ptGet: d.prepare('SELECT * FROM phongtoa WHERE tkA=? AND fid=?'),
     ptTrongHe: d.prepare(
       'SELECT p.td,p.tkA,p.tenA,p.denT,q.lm AS lmA FROM phongtoa p ' +
       'JOIN dq q ON q.tk=p.tkA WHERE p.td LIKE ? AND p.denT>?'),

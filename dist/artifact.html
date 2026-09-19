@@ -410,7 +410,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0}
 <div id="toast"></div>
 
 <script>
-/* source: js/data.js sha256:b4dd36c65b07f0f3dfef4ec6c93d82021964a24a5a241451097415abf77e13b1 */
+/* source: js/data.js sha256:f77dd584491ebcd4d05ae22c6eadcb8c061f10b3d46b55e018fd71fccf82df2b */
 /* =========================================================================
  * THIÊN HÀ ĐẠI CHIẾN — Bảng dữ liệu game
  * -------------------------------------------------------------------------
@@ -837,6 +837,15 @@ G.C = {
   PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
   /* --- quân trấn giữ theo nhóm công trình (cơ chế bản gốc) --- */
+  /* Bên bị vây xuất kích phá vây: nghỉ giữa hai lần để không ai bấm lại
+     liên tục nhằm "đổ lại xúc xắc" cho tới khi ra kết quả đẹp. */
+  PHA_VAY_CHO: 1800,
+  /* Vây tan khi đợt xuất kích thổi bay bấy nhiêu phần giá trị hạm đội vây.
+     KHÔNG dùng `kq` của G.danhTran làm tiêu chí: `thua` ở đó nghĩa là phía
+     tấn công bị DIỆT SẠCH, mà một hạm đội vài trăm chiếc gần như không bao
+     giờ bị xoá sổ trong một trận — đo bằng `kq` thì phá vây thành bất khả thi
+     và cả tính năng chỉ còn là đồ trang trí. */
+  PHA_VAY_TON_THAT: 0.35,
   CT_BCH: 'fleetHQ',         // Bộ Chỉ Huy: nhóm đánh SAU CÙNG, nơi tàn quân dồn về
   QUAN_THU_MOI_CT: 40,       // [TÁI DỰNG] mỗi công trình có bấy nhiêu quân trấn giữ
   SUC_MOI_QUAN_THU: 3,       // [TÁI DỰNG] sức đổ bộ phải bỏ ra cho mỗi quân trấn giữ
@@ -2578,7 +2587,7 @@ G.giaoHangToi = function (st, i) {
     G.tdStr(p.c) + '.');
 };
 
-/* source: js/fleet.js sha256:ec8789e06659ecd4b5b17f297a0cc65fcf359d0b44f3c7eba83b73f2d48e30f9 */
+/* source: js/fleet.js sha256:493e74749e4b59eef9a47ae0e7d686648b915d84fd68a81d8e726f5177d70651 */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -2886,6 +2895,78 @@ G.tamGiu = function (st, f) {
     denKhi: Math.min(denKhi, het),
     duToiHetCa: !isFinite(doan) || denKhi >= het
   };
+};
+
+/* --- PHÁ VÂY: BÊN BỊ VÂY XUẤT KÍCH ĐÁNH HẠM ĐỘI ĐANG VÂY ---------------
+ * Một vòng vây mà bên bị vây chỉ biết ngồi đợi hết nhiên liệu thì không phải
+ * một nước cờ, nó là một cái án. Bên bị vây phải đánh lại được.
+ *
+ * Trận này chỉ đụng LỚP QUỸ ĐẠO, đúng luật hai lớp: lực lượng giữ bầu trời là
+ * hạm đậu tại hành tinh cộng công sự lớp quỹ đạo (vệ tinh, trạm quỹ đạo, khiên);
+ * laser/plasma/gauss/ion là công sự MẶT ĐẤT và đứng hẳn ngoài trận. Không bên
+ * nào cướp được gì của bên nào — đây là trận giành lại bầu trời, không phải
+ * một cuộc đổ bộ.
+ *
+ * Vai A/D trong G.danhTran KHÔNG phải "ai ra tay trước" mà là "bên nào có công
+ * sự cố định" — engine chỉ đọc `def` từ phía D. Nên hạm đội vây đứng vai A và
+ * hành tinh bị vây đứng vai D, giống hệt G.tranQuyDao. Đặt ngược lại thì công
+ * sự quỹ đạo vừa không bắn được phát nào, vừa bị gopThuQuyDao xoá sạch.
+ *
+ * Hàm thuần luật: bên gọi (một người: chính nó; nhiều người: server) tự lo
+ * chuyện nạp/ghi state của hai bên. Trả về báo cáo trận, hoặc chuỗi lỗi.
+ */
+G.phaVay = function (stD, p, stA, f, seed) {
+  if (!p || !f) return 'Không xác định được trận phá vây.';
+  if (G.trong(f.ships)) return 'Hạm đội vây đã không còn tàu nào.';
+  var thuQD = G.thuQuyDao(p.def);
+  if (G.trong(p.ships) && G.trong(thuQD))
+    return 'Không còn gì để xuất kích: hành tinh này không có hạm đậu lẫn công sự quỹ đạo.';
+
+  var Lmuc = G.loaiHT(stD, p);
+  var giaTruoc = G.diemBang(G.SHIPS, f.ships);
+  var kq = G.danhTran(
+    { ten: stA.ten + ' (hạm đội vây)', tech: stA.tech, ships: f.ships },
+    { ten: stD.ten + ' — ' + p.ten, tech: stD.tech, ships: p.ships,
+      def: thuQD, loaiHT: Lmuc.ten },
+    seed);
+
+  f.ships = kq.conShipsA;
+  p.ships = kq.conShipsD;
+  G.gopThuQuyDao(p.def, kq.conDefD);
+
+  var pl = G.pheLieu(stD, G.tdKey(p.c));
+  pl.metal += kq.pheLieu.metal; pl.crystal += kq.pheLieu.crystal;
+
+  stD.stats = stD.stats && typeof stD.stats === 'object' ? stD.stats : {};
+  stA.stats = stA.stats && typeof stA.stats === 'object' ? stA.stats : {};
+  var kx, ky, matA = 0, matD = 0;
+  for (kx in kq.matA) matA += kq.matA[kx];          /* tổn thất của hạm đội vây */
+  for (ky in kq.matD) matD += kq.matD[ky];          /* tổn thất của bên bị vây */
+  stA.stats.tauMat = (stA.stats.tauMat || 0) + matA;
+  stA.stats.tauDietDich = (stA.stats.tauDietDich || 0) + matD;
+  stD.stats.tauMat = (stD.stats.tauMat || 0) + matD;
+  stD.stats.tauDietDich = (stD.stats.tauDietDich || 0) + matA;
+
+  /* Vây tan khi hạm đội vây bị quét sạch, HOẶC khi nó mất đủ nặng để không
+     còn giữ nổi quỹ đạo. Cố ý KHÔNG lấy `kq` làm tiêu chí: `thua` ở đó nghĩa
+     là phía tấn công bị diệt sạch, mà một hạm đội vài trăm chiếc gần như luôn
+     ra `hoa` — đo bằng `kq` thì mọi đợt xuất kích đều thất bại và tính năng
+     này chỉ còn là đồ trang trí. Đo bằng phần giá trị bị thổi bay thì đường
+     cong mới đúng: ngang cơ thì không suy suyển, gấp ba tới bốn lần cộng công
+     sự quỹ đạo mới gỡ được vây. */
+  var giaSau = G.diemBang(G.SHIPS, f.ships);
+  var tyLeMat = giaTruoc > 0 ? (giaTruoc - giaSau) / giaTruoc : 0;
+  var xoaSach = G.trong(f.ships);
+  var thang = xoaSach || tyLeMat >= G.C.PHA_VAY_TON_THAT;
+  if (thang) {
+    stD.stats.thang = (stD.stats.thang || 0) + 1;
+    stA.stats.thua = (stA.stats.thua || 0) + 1;
+  } else {
+    stD.stats.thua = (stD.stats.thua || 0) + 1;
+    stA.stats.thang = (stA.stats.thang || 0) + 1;
+  }
+  return { kq: kq, thang: thang, xoaSach: xoaSach, matD: matD, matA: matA,
+    tyLeMat: tyLeMat, nguong: G.C.PHA_VAY_TON_THAT };
 };
 
 /* --- Ở LẠI PHONG TOẢ SAU MỘT TRẬN THẮNG -------------------------------
@@ -5278,7 +5359,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:0d7b4c707f3298f2c45c6abd6fea8840ca4cdde57522bc62681ca35f7fffc654 */
+/* source: js/ui.js sha256:4cb24c67d04036be95f8a80eda6556c8708341240bf70f5e56ca87114e361cd3 */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -6252,20 +6333,30 @@ U.m_hamdoi = function () {
   var pvToa = Array.isArray(st.pvpToa) ? st.pvpToa : [];
   if (pvToa.length) {
     h += '<div class="panel"><h3>Quỹ đạo của ta đang bị phong toả</h3><div class="noi bang-cuon"><table>' +
-      '<tr><th>Kẻ vây</th><th>Hành tinh</th><th>Vây từ</th><th>Hết vây</th></tr>';
+      '<tr><th>Kẻ vây</th><th>Hành tinh</th><th>Vây từ</th><th>Hết vây</th><th class="r"></th></tr>';
     for (i = 0; i < pvToa.length; i++) {
       var qt = pvToa[i], pToa = U.htTheoKey(qt.td);
+      var ptPV = pToa ? Math.floor(Number(pToa.phaVay_t) || 0) : 0;
+      var sanSang = st.now >= ptPV;
       h += '<tr><td><b class="do">' + U.esc(qt.ten) + '</b> ' +
         '<span class="tag-lm">' + U.esc(qt.lm || '') + '</span></td>' +
         '<td>' + U.esc(pToa ? pToa.ten : '') + ' <span class="sz">[' + U.esc(qt.td) + ']</span></td>' +
         '<td class="sz">' + G.gio(qt.tuLuc * 1000) + '</td>' +
-        '<td class="sz do">' + U.dem(qt.denT) + '</td></tr>';
+        '<td class="sz do">' + U.dem(qt.denT) + '</td>' +
+        '<td class="r">' + (sanSang
+          ? '<button class="nut nho xoa" data-act="pha-vay" data-tk="' + qt.tk +
+            '" data-fid="' + qt.fid + '" data-ten="' + U.esc(qt.ten) + '">Phá vây</button>'
+          : '<span class="mo sz">tập hợp lại ' + U.dem(ptPV) + '</span>') + '</td></tr>';
     }
     h += '</table><p class="mo">Bị vây thì <b>Vận Chuyển, Triển Khai, Giữ Chỗ, Thực Dân, Thu Hồi và ' +
-      'Thám Hiểm</b> không xuất bến từ hành tinh này được — <b class="luc">Tấn Công và tên lửa thì vẫn ' +
+      'Thám Hiểm</b> không xuất bến từ hành tinh này được, và <b>hàng mua ở chợ cũng không hạ cánh ' +
+      'xuống được</b> (hàng nằm chờ, tự tới khi vây tan) — <b class="luc">Tấn Công và tên lửa thì vẫn ' +
       'được</b>. Vây tự tan khi kẻ vây hết nhiên liệu, hết giờ đã trả, hết lệnh chiến tranh, hoặc ' +
-      'hai bên vào chung một liên minh. Đội hình của kẻ vây không hiện ở đây: muốn biết thì phải ' +
-      'do thám.</p></div></div>';
+      'hai bên vào chung một liên minh.</p>' +
+      '<p class="mo"><b class="do">Phá vây</b> là xuất kích ngay tại chỗ: <b>hạm đậu ở hành tinh cộng ' +
+      'công sự lớp quỹ đạo</b> lao lên đánh hạm đội đang vây. Công sự mặt đất đứng ngoài và không bên ' +
+      'nào cướp được gì — đây là trận giành lại bầu trời. Thắng là vây tan ngay. Đội hình của kẻ vây ' +
+      'không hiện ở đây: đọc lại báo cáo trận lúc bị đánh, hoặc chấp nhận đánh mò.</p></div></div>';
   }
 
   var pvToi = st.pvpToi || [];

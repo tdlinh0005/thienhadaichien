@@ -424,6 +424,15 @@ G.C = {
   PHA_CT_TOI_DA: 0.25,       // một trận đổ bộ phá tối đa 25% tổng số lượng công trình
   SUC_PHA_MOI_TAI_NGUYEN: 0.35, // cần bao nhiêu sức đổ bộ để phá 1 tài nguyên giá trị công trình
   /* --- quân trấn giữ theo nhóm công trình (cơ chế bản gốc) --- */
+  /* Bên bị vây xuất kích phá vây: nghỉ giữa hai lần để không ai bấm lại
+     liên tục nhằm "đổ lại xúc xắc" cho tới khi ra kết quả đẹp. */
+  PHA_VAY_CHO: 1800,
+  /* Vây tan khi đợt xuất kích thổi bay bấy nhiêu phần giá trị hạm đội vây.
+     KHÔNG dùng `kq` của G.danhTran làm tiêu chí: `thua` ở đó nghĩa là phía
+     tấn công bị DIỆT SẠCH, mà một hạm đội vài trăm chiếc gần như không bao
+     giờ bị xoá sổ trong một trận — đo bằng `kq` thì phá vây thành bất khả thi
+     và cả tính năng chỉ còn là đồ trang trí. */
+  PHA_VAY_TON_THAT: 0.35,
   CT_BCH: 'fleetHQ',         // Bộ Chỉ Huy: nhóm đánh SAU CÙNG, nơi tàn quân dồn về
   QUAN_THU_MOI_CT: 40,       // [TÁI DỰNG] mỗi công trình có bấy nhiêu quân trấn giữ
   SUC_MOI_QUAN_THU: 3,       // [TÁI DỰNG] sức đổ bộ phải bỏ ra cho mỗi quân trấn giữ
