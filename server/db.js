@@ -154,6 +154,22 @@ var SCHEMA = [
   "CREATE INDEX IF NOT EXISTS cho_loai ON cho(loai,res,gia,id)",
   "CREATE INDEX IF NOT EXISTS cho_ban ON cho(tkBan,id)",
 
+  /* Projection các hạm đội đang PHONG TOẢ quỹ đạo của một người chơi khác.
+     Cố ý tách khỏi `hamgiu`: bảng kia là lực lượng CÙNG PHÒNG THỦ cho chủ toạ
+     độ, còn bảng này là lực lượng đang vây chính chủ toạ độ đó — trộn chung
+     thì mọi câu SELECT phòng thủ sẽ tính quân vây thành quân giữ. Cũng như
+     `hamgiu`, đây là bản phái sinh: sự thật vẫn nằm trong dq.state của tkA. */
+  `CREATE TABLE IF NOT EXISTS phongtoa (
+     tkA INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     fid INTEGER NOT NULL,
+     tkD INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     td TEXT NOT NULL, tenA TEXT NOT NULL, lmA TEXT,
+     tuLuc INTEGER NOT NULL, denT INTEGER NOT NULL,
+     PRIMARY KEY (tkA, fid)
+   )`,
+  "CREATE INDEX IF NOT EXISTS phongtoa_td ON phongtoa(td,denT)",
+  "CREATE INDEX IF NOT EXISTS phongtoa_tkd ON phongtoa(tkD,denT)",
+
   /* thống kê trận PvP để tra cứu về sau */
   `CREATE TABLE IF NOT EXISTS tran (
      id INTEGER PRIMARY KEY AUTOINCREMENT, khi INTEGER NOT NULL,
@@ -261,6 +277,17 @@ function Kho(duong, options) {
     hdDonRac: d.prepare('DELETE FROM hamdang WHERE denT<?'),
 
     hgXoaCua: d.prepare('DELETE FROM hamgiu WHERE tkA=?'),
+    ptXoaCua: d.prepare('DELETE FROM phongtoa WHERE tkA=?'),
+    ptThem: d.prepare(
+      'INSERT INTO phongtoa(tkA,fid,tkD,td,tenA,lmA,tuLuc,denT) VALUES(?,?,?,?,?,?,?,?)'),
+    /* Vây còn hiệu lực tại một toạ độ, bỏ qua chính người đang hỏi và đồng minh
+       của họ (đọc lm từ dq, không tin cột lmA đã đóng băng lúc ghi). */
+    ptTai: d.prepare(
+      'SELECT p.tkA,p.fid,p.tenA,p.tuLuc,p.denT,q.lm AS lmA FROM phongtoa p ' +
+      'JOIN dq q ON q.tk=p.tkA WHERE p.td=? AND p.denT>?'),
+    ptCuaToi: d.prepare(
+      'SELECT p.td,p.tkA,p.fid,p.tenA,p.tuLuc,p.denT,q.lm AS lmA FROM phongtoa p ' +
+      'JOIN dq q ON q.tk=p.tkA WHERE p.tkD=? AND p.denT>? ORDER BY p.denT'),
     hgThem: d.prepare('INSERT INTO hamgiu(tkA,fid,tkD,tu,td,giuLuc,giuDenT,tiepNLT) VALUES(?,?,?,?,?,?,?,?)'),
     /* `giuLuc<=T<giuDenT`: hạm tới đúng giây T được phòng thủ, hết hạn đúng
        T thì không. JOIN ht + dq làm row cũ mất hiệu lực ngay khi đổi chủ/rời LM. */

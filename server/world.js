@@ -346,9 +346,22 @@ TheGioi.prototype.quyenDanh = function (tkA, tkD, now) {
 
 /* Kiểm tra ngay lúc phát lệnh để không trừ tàu/hàng/nhiên liệu cho một chuyến
    bay trái luật. Đến đích vẫn kiểm tra lại vì tư cách liên minh có thể đổi. */
+/* Nhiệm vụ nào bị một vòng vây trên quỹ đạo chặn lại. Đánh trả và bắn tên lửa
+   KHÔNG bao giờ bị chặn: bị vây mà mất luôn quyền phản công thì phong toả
+   thành án tử, không còn là một nước cờ. */
+var PHONG_TOA_CAM = ['transport', 'deploy', 'hold', 'colonize', 'recycle', 'thamhiem'];
+
 TheGioi.prototype.kiemTraGui = function (st, p, den, mission) {
   var tkA = this.chuHienTai();
   if (!tkA) return null;
+  /* Quỹ đạo của chính ta đang bị người khác vây: mọi chuyến hàng/tiếp tế/neo
+     xuất phát từ đây bị chặn cho tới khi gỡ được vây. */
+  if (p && PHONG_TOA_CAM.indexOf(mission) >= 0) {
+    var vay = this.phongToaTai(G.tdKey(p.c), tkA, st.now);
+    if (vay.length) return 'Quỹ đạo ' + G.tdStr(p.c) + ' đang bị ' + vay[0].tenA +
+      ' phong toả tới ' + G.tg(Math.max(0, vay[0].denT - st.now)) +
+      ' nữa. Chỉ còn đánh trả hoặc bắn tên lửa; hàng và tiếp tế không ra khỏi bến được.';
+  }
   var d = this.kho.q.htGet.get(G.tdKey(den));
   if (mission === 'hold') {
     /* Không có hàng ht nghĩa là toạ độ NPC hoặc ô trống: phong toả tự do, đúng
@@ -356,11 +369,11 @@ TheGioi.prototype.kiemTraGui = function (st, p, den, mission) {
        dùng chung nên không kéo theo state của người chơi nào khác. */
     if (!d) return null;
     if (d.tk === tkA || this.laDongMinh(tkA, d.tk)) return null;
-    /* Phong toả quỹ đạo của người chơi khác là hành vi chiến tranh và cần
-       state của đối phương để giải trận. Bản này chưa dựng đường đó
-       (G.HOOK.phongToaNguoi), nên chặn ở cửa phát lệnh thay vì để hạm đội bay
-       tới rồi mới quay về tay trắng. */
-    return 'Chưa phong toả được quỹ đạo của người chơi khác; hãy dùng nhiệm vụ Tấn Công.';
+    /* Giữ Chỗ là neo THÂN THIỆN: nó không giải trận nào cả. Đường vào quỹ đạo
+       của một người chơi khác là thắng một trận ở đó trước, nên lệnh phong toả
+       đi kèm nhiệm vụ Tấn Công (`giuGio`), không phải nhiệm vụ này. */
+    return 'Giữ Chỗ chỉ neo được ở quỹ đạo của mình, đồng minh, NPC hoặc ô trống. ' +
+      'Muốn chiếm quỹ đạo của người chơi khác thì dùng Tấn Công và khai số giờ ở lại phong toả.';
   }
   if (!d || d.tk === tkA) return null;
   if (mission === 'attack') {
@@ -390,9 +403,32 @@ TheGioi.prototype.kiemTraGiu = function (st, f, o) {
   if (o && o.loai === 'toi' && d.tk !== tkA) return 'Chủ hành tinh đã thay đổi.';
   if (f.giuTaiTk !== null && f.giuTaiTk !== undefined && f.giuTaiTk !== d.tk)
     return 'Hành tinh giữ chỗ đã đổi chủ.';
-  if (d.tk !== tkA && !this.laDongMinh(tkA, d.tk))
-    return 'Quan hệ liên minh không còn hợp lệ; hạm đội phải quay về.';
+  if (d.tk !== tkA && !this.laDongMinh(tkA, d.tk)) {
+    /* Đội đang PHONG TOẢ đứng ở quỹ đạo thù địch là đúng chỗ của nó — nó tới
+       được đây bằng một trận thắng, không phải bằng quan hệ liên minh. Cái
+       phải xác minh lại ở mỗi mốc nhiên liệu là LỆNH CHIẾN TRANH: hết hiệu
+       lực, hoặc hai bên vào chung liên minh, là phong toả tan và hạm đội rút.
+       Đây cũng chính là đường ngoại giao để bên bị phong toả gỡ vây. */
+    if (!f.phongToa) return 'Quan hệ liên minh không còn hợp lệ; hạm đội phải quay về.';
+    var quyen = this.quyenDanh(tkA, d.tk, st.now);
+    if (!quyen.duoc) return 'Quyền phong toả không còn hiệu lực: ' + quyen.loi;
+    return { tk: d.tk, phongToa: true };
+  }
   return { tk: d.tk };
+};
+
+/* Vòng vây còn hiệu lực tại một toạ độ, đã bỏ chính chủ và đồng minh của họ.
+   Đọc quan hệ liên minh từ dq hiện tại chứ không từ cột lmA đóng băng lúc ghi
+   projection: vào chung liên minh là vây tan ngay, không đợi mốc sau. */
+TheGioi.prototype.phongToaTai = function (td, tkHoi, now) {
+  var moc = Math.floor(Number(now) || 0);
+  var ds = this.kho.q.ptTai.all(String(td), moc), out = [], i;
+  for (i = 0; i < ds.length; i++) {
+    if (Number(ds[i].tkA) === Number(tkHoi)) continue;
+    if (this.laDongMinh(Number(tkHoi), Number(ds[i].tkA))) continue;
+    out.push(ds[i]);
+  }
+  return out;
 };
 
 TheGioi.prototype.chuHienTai = function () {
@@ -459,11 +495,21 @@ TheGioi.prototype._ghiChiMucHam = function (tk, st) {
         kho.q.hdThem.run(tk, f.id, chu.tk, G.tdKey(f.tu), td, f.mission,
           Math.round(f.den_t), st.ten, st.lm ? st.lm.ten : null);
     }
-    if (f.mission !== 'hold' || f.pha !== 'giu') continue;
+    if (f.pha !== 'giu') continue;
     /* Đội đang PHONG TOẢ đứng ở quỹ đạo thù địch. Không bao giờ ghi nó vào
        hamgiu: bảng đó là lực lượng cùng phòng thủ cho chủ toạ độ, ghi vào đây
-       nghĩa là hạm đội đi phong toả lại quay ra bảo vệ chính nơi nó phong toả. */
-    if (f.phongToa) continue;
+       nghĩa là hạm đội đi phong toả lại quay ra bảo vệ chính nơi nó phong toả.
+       Nó có bảng riêng — `phongtoa` — để bên bị vây nhìn thấy và để cửa phát
+       lệnh biết đường cấm. */
+    if (f.phongToa) {
+      chu = kho.q.htGet.get(td);
+      var denPT = Math.floor(Number(f.giuDen_t) || 0);
+      var tuPT = Math.floor(Number(f.giuLuc) || 0);
+      if (chu && chu.tk !== tk && denPT > tuPT)
+        kho.q.ptThem.run(tk, f.id, chu.tk, td, st.ten, st.lm ? st.lm.ten : null, tuPT, denPT);
+      continue;
+    }
+    if (f.mission !== 'hold') continue;
     /* hamgiu phản chiếu VỊ TRÍ canonical, kể cả quan hệ vừa hết hạn. Eligibility
        nằm ở các SELECT có JOIN ht/dq; giữ row stale cho phép battle kế tiếp nạp
        đúng owner, gọi hook và bắt hạm quay về thay vì chỉ âm thầm bỏ qua. */
@@ -499,6 +545,7 @@ TheGioi.prototype._ghiNhieu = function (ds, now, schedulerLuu) {
   });
   p.forEach(function (x) {
     kho.q.htXoaCua.run(x.tk); kho.q.hdXoaCua.run(x.tk); kho.q.hgXoaCua.run(x.tk);
+    kho.q.ptXoaCua.run(x.tk);
   });
   p.forEach(function (x) {
     for (var i = 0; i < x.st.planets.length; i++) {
@@ -705,6 +752,25 @@ TheGioi.prototype.hamDangToi = function (tk) {
 /* Chỉ host đang gọi /api/state mới nhận danh sách này. SQL đã lọc lại chủ
    toạ độ và liên minh hiện tại; đội hình không bao giờ xuất hiện ở API công
    khai bản đồ/xếp hạng nên người ngoài không thể dùng nó như báo cáo do thám. */
+/* Các vòng vây đang siết hành tinh của chính ta — projection dành riêng cho
+   bên bị vây, ghép vào /api/state để giao diện báo động và giải thích vì sao
+   một số nhiệm vụ không xuất bến được. Đội hình kẻ vây KHÔNG kèm ở đây: nhìn
+   thấy đội hình đối phương miễn phí thì do thám còn nghĩa gì nữa. */
+TheGioi.prototype.phongToaCua = function (tk) {
+  var now = this.gameNow();
+  var ds = this.kho.q.ptCuaToi.all(tk, now), out = [], i;
+  for (i = 0; i < ds.length; i++) {
+    var r = ds[i];
+    if (Number(r.tkA) === Number(tk)) continue;
+    if (this.laDongMinh(Number(tk), Number(r.tkA))) continue;
+    out.push({
+      id: r.tkA + ':' + r.fid, tk: r.tkA, fid: r.fid, ten: r.tenA, lm: r.lmA || '',
+      td: r.td, tuLuc: r.tuLuc, denT: r.denT
+    });
+  }
+  return out;
+};
+
 TheGioi.prototype.hamGiuTai = function (tk) {
   var now = this.gameNow();
   /* Không recursively tick tài khoản đồng minh từ GET của host. Row đã tới
@@ -771,7 +837,16 @@ TheGioi.prototype.hanhDong = function (tk, ten, dl) {
   var loaded = this.nap(Number(tk));
   if (!loaded) return {loi: 'Đế quốc không tồn tại.', st: null};
   var state = loaded.st;
-  var loi = hanhDong(state, dl || {}) || null;
+  /* Hook cấp luật (kiemTraGui, kiemTraGiu, oNguoi...) hỏi "ai đang phát lệnh"
+     qua chuHienTai(). Trước bản này hanhDong không đẩy chủ vào chuStack, nên
+     chuHienTai() trả 0 và MỌI kiểm tra lúc phát lệnh lặng lẽ trả null — đúng
+     cái mà chú thích trên kiemTraGui hứa là sẽ chặn. Không phải lỗ hổng (lúc
+     tới nơi vẫn kiểm lại và hạm đội bị đuổi về), nhưng người chơi mất trắng
+     nhiên liệu cho một chuyến bay lẽ ra bị từ chối ngay tại bến. */
+  this.chuStack.push(Number(tk));
+  var loi;
+  try { loi = hanhDong(state, dl || {}) || null; }
+  finally { this.chuStack.pop(); }
   this.luu(Number(tk), state, mutation ? {mutation: mutation} : undefined);
   return {loi: loi, st: state};
 };
@@ -1024,6 +1099,9 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
       G.xoaHam(st, f);
       return;
     }
+    /* Thắng và có lệnh ở lại thì neo phong toả quỹ đạo vừa chiếm. Chỉ ghi vào
+       state của bên tấn công, nên không thêm tài khoản nào vào lượt khoá này. */
+    if (kq.kq === 'thang' && Number(f.giu) > 0 && !G.batDauPhongToa(st, f)) return;
     veNha(null);
   } finally {
     for (var lk = daKhoa.length - 1; lk >= 0; lk--) this.dangTick.delete(daKhoa[lk]);
@@ -2538,11 +2616,19 @@ TheGioi.prototype.resolvePvpAt = function (
       (result.matNhomD || []).reduce(function (sum, map) { return sum + reducerUnitCount(map); }, 0));
     world.ghiBangTin(effectiveAtS, 'tran', source.loaded.st.ten + ' đánh ' +
       target.loaded.st.ten + ' tại ' + G.tdStr(target.planet.c));
+    var phongToa = false;
     if (!reducerUnitCount(source.entity.ships)) {
       source.loaded.st.fleets.splice(source.loaded.st.fleets.indexOf(source.entity), 1);
-    } else G.batDauVe(source.loaded.st, source.entity, true, null);
+    } else {
+      /* Chỉ huy khai trước số giờ muốn ở lại (`f.giu`); thắng thì hạm đội neo
+         phong toả thay vì quay về. Việc neo chỉ ghi vào state của CHÍNH bên
+         tấn công — không thêm tài khoản nào vào unit-of-work này. */
+      if (result.kq === 'thang' && Number(source.entity.giu) > 0 &&
+          !G.batDauPhongToa(source.loaded.st, source.entity)) phongToa = true;
+      else G.batDauVe(source.loaded.st, source.entity, true, null);
+    }
     return {kind: 'pvp', applied: true, authorized: true, protected: false,
-      atS: effectiveAtS, result: result,
+      atS: effectiveAtS, result: result, phongToa: phongToa,
       ground: ground,
       loot: loot, debris: {metal: Number(result.pheLieu && result.pheLieu.metal || 0),
         crystal: Number(result.pheLieu && result.pheLieu.crystal || 0)},
@@ -2553,9 +2639,9 @@ TheGioi.prototype.resolvePvpAt = function (
 var RULES_HOOK_METHODS = Object.freeze([
   'nangCapDuLieu', 'seed', 'batDau', 'ketThuc', 'ghiBangTin', 'ghiTran',
   'npcLay', 'npcGhi', 'plLay', 'laDongMinh', 'quyenDanh', 'kiemTraGui',
-  'kiemTraGiu', 'chuHienTai', 'oNguoi', 'nap', 'layStateNoiBo', '_chuanBiLuu',
+  'kiemTraGiu', 'phongToaTai', 'chuHienTai', 'oNguoi', 'nap', 'layStateNoiBo', '_chuanBiLuu',
   '_ghiChiMucHam', '_ghiNhieu', 'luu', '_dongBoChiMucTrongGD', '_chiMucTuCanonical',
-  'dongBoChiMuc', 'hamDangToi', 'hamGiuTai', 'hanhDong',
+  'dongBoChiMuc', 'hamDangToi', 'phongToaCua', 'hamGiuTai', 'hanhDong',
   'danhNguoi', 'doThamNguoi', 'tangNguoi', 'xepHangCho', 'xemHe',
   'oTrong', 'timNha', 'taoDeQuoc', 'tenLuaNguoi', 'xoaTaiKhoan',
   'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana',

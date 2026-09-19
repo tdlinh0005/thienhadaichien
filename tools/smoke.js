@@ -1841,5 +1841,94 @@ function ham2(s, id) { return s.fleets.filter(function (x) { return x.id === id;
   ktra(kqD.soCap === kqD.soLuong, 'trấn giữ: giữ nguyên trường soCap cho báo cáo cũ');
 })();
 
+/* ======================================================================
+ * 23. Ở LẠI PHONG TOẢ SAU MỘT TRẬN TẤN CÔNG THẮNG
+ * ==================================================================== */
+(function () {
+  function banPT(seed) {
+    var s = G.moiGame('Vây', seed), pp = s.planets[0];
+    pp.res.metal += 5e7; pp.res.crystal += 5e7; pp.res.deut += 5e7;
+    pp.ships = { fighterH: 4000, cruiser: 2000, battleship: 800, tauDau: 60 };
+    s.tech.weapon = 14; s.tech.shield = 14; s.tech.armor = 14;
+    s.tech.combustion = 12; s.tech.impulse = 10; s.tech.hyperdrive = 8;
+    return s;
+  }
+  function mucNPC(s) {
+    var pp = s.planets[0];
+    for (var hh = pp.c.h; hh < pp.c.h + 30; hh++) {
+      var he = G.xemHe(s, pp.c.g, hh);
+      for (var kk = 0; kk < he.length; kk++) if (he[kk].loai === 'npc') return he[kk];
+    }
+    return null;
+  }
+  var doi = { fighterH: 4000, cruiser: 2000, battleship: 800 };
+
+  /* cửa phát lệnh bắt đủ nhiên liệu cho đoạn vây đầu tiên */
+  var s1 = banPT('THDC-PT-1'), m1 = mucNPC(s1);
+  ktra(!!m1, 'phong toả: tìm được mục tiêu NPC');
+  var e1 = G.guiHam(s1, 0, doi, m1.c, 'attack', {}, 100, 0, {}, 12);
+  ktra(/Ở lại phong toả cần chở/.test(e1 || ''),
+    'phong toả: khai giờ ở lại mà không chở nhiên liệu thì bị từ chối ngay ở bến');
+
+  /* Tấn Công KHÔNG khai giờ vẫn giữ đúng luật cũ */
+  var s0 = banPT('THDC-PT-0'), m0 = mucNPC(s0);
+  ktra(G.guiHam(s0, 0, doi, m0.c, 'attack', {}, 100) === null,
+    'phong toả: Tấn Công thường vẫn phát lệnh được như cũ');
+  ktra(s0.fleets[0].giu === 0, 'phong toả: không khai giờ thì f.giu bằng 0');
+  var t0 = s0.now;
+  for (var z = 0; z < 4000 && s0.fleets.length && s0.fleets[0].pha === 'di'; z++) {
+    t0 += 60; G.tick(s0, t0);
+  }
+  ktra(!s0.fleets.length || s0.fleets[0].pha === 've',
+    'phong toả: không khai giờ thì đánh xong quay về, không tự neo lại');
+
+  /* khai giờ + chở đủ nhiên liệu -> thắng thì neo lại */
+  var s2 = banPT('THDC-PT-2'), m2 = mucNPC(s2);
+  var nlDau = G.nhienLieuGiu(s2, doi, G.QUY_DAO_V1.segmentSeconds);
+  ktra(G.guiHam(s2, 0, doi, m2.c, 'attack', { deut: nlDau * 4 }, 100, 0, {}, 12) === null,
+    'phong toả: chở đủ nhiên liệu thì phát lệnh được');
+  ktra(s2.fleets[0].giu === 12 * 3600, 'phong toả: f.giu ghi đúng 12 giờ');
+  var t2 = s2.now;
+  for (var y = 0; y < 4000 && s2.fleets.length && s2.fleets[0].pha === 'di'; y++) {
+    t2 += 60; G.tick(s2, t2);
+  }
+  var fPT = s2.fleets[0];
+  var bcPT2 = s2.msgs.filter(function (m) { return m.data && m.data.kq; })[0];
+  var daThang = !!bcPT2 && bcPT2.data.kq.kq === 'thang';
+  ktra(daThang, 'phong toả: đội hình mẫu thắng được lớp quỹ đạo NPC');
+  if (daThang) {
+    ktra(fPT && fPT.pha === 'giu' && fPT.phongToa === true,
+      'phong toả: thắng thì neo lại phong toả thay vì quay về');
+    ktra(fPT.giuDen_t - fPT.giuLuc === 12 * 3600,
+      'phong toả: neo đúng số giờ đã khai');
+    ktra(fPT.tiepNL_t === fPT.giuLuc + G.QUY_DAO_V1.segmentSeconds,
+      'phong toả: có mốc tiếp nhiên liệu đầu tiên');
+    /* Không so thẳng con số: trận vừa rồi vừa bớt tàu (định mức tính lại theo
+       đội hình còn sống) vừa có thể cướp thêm Nhiên Liệu vào khoang. Cái phải
+       đúng là đã TRẢ một khoản cho đoạn đầu, và khoang còn đủ dùng tiếp. */
+    var tinPT = s2.msgs.filter(function (m) { return /phong toả/i.test(m.td || ''); })[0];
+    ktra(!!tinPT && /Đã trả [\d.]+ Nhiên Liệu/.test(tinPT.nd || ''),
+      'phong toả: có báo cáo trả nhiên liệu cho đoạn vây đầu tiên');
+    ktra((fPT.cargo.deut || 0) >= 0 && isFinite(fPT.cargo.deut || 0),
+      'phong toả: khoang nhiên liệu không âm sau khi trả đoạn đầu');
+    ktra(G.hamGiuTai(s2, fPT.den).length === 0,
+      'phong toả: đội đang vây không bao giờ được tính là quân phòng thủ của toạ độ đó');
+  }
+
+  /* không còn tàu thì không neo được */
+  var s3 = banPT('THDC-PT-3');
+  var f3 = { id: 9, pi: 0, tu: s3.planets[0].c, den: s3.planets[0].c, mission: 'attack',
+    ships: {}, cargo: { deut: 1e6 }, pct: 100, pha: 'di', giu: 6 * 3600 };
+  ktra(/không còn tàu/.test(G.batDauPhongToa(s3, f3) || ''),
+    'phong toả: hạm đội trắng tàu thì không neo được');
+  var f4 = { id: 10, pi: 0, tu: s3.planets[0].c, den: s3.planets[0].c, mission: 'attack',
+    ships: { fighterH: 100 }, cargo: {}, pct: 100, pha: 'di', giu: 0 };
+  ktra(/không có lệnh ở lại/.test(G.batDauPhongToa(s3, f4) || ''),
+    'phong toả: không có lệnh ở lại thì không tự neo');
+  f4.giu = 6 * 3600;
+  ktra(/Nhiên Liệu/.test(G.batDauPhongToa(s3, f4) || ''),
+    'phong toả: hết nhiên liệu trong khoang thì không neo được');
+})();
+
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

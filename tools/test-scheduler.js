@@ -9415,7 +9415,13 @@ test('Task 5 durable advance preserves every accepted legacy tick bridge', funct
   var advanceSource = fs.readFileSync(path.join(__dirname, TASK5_MODULE.advance), 'utf8');
   var expected = {
     _tickNoiBo: '80227e10e8180f1a0f032fe7c250ac15abf63d053f35fb48643c1989f1493db8',
-    danhNguoi: '283ce7477a6a74d1b7403c68a41833aeff79923f1785b2e87add6dc4bb84590a',
+    /* Cập nhật có chủ ý: sau một trận THẮNG, nếu chỉ huy đã khai trước số giờ
+       ở lại (`f.giu`) thì hạm đội neo lại phong toả quỹ đạo vừa chiếm thay vì
+       quay về (G.batDauPhongToa). Việc neo chỉ ghi vào state của CHÍNH bên tấn
+       công — không tài khoản nào được thêm vào lượt khoá, không có lượt nạp
+       hay ghi nào mới. Hợp đồng mà phép ghim này bảo vệ vẫn nguyên: đúng một
+       lần gọi G.tick( trong thân hàm, và cầu nối mutation không đổi. */
+    danhNguoi: '670d45667a4b3b24862e686d9375ba8bbabea3603379bb248e6e772bd5729008',
     /* Cập nhật có chủ ý: thân hàm nay lọc tàu tàng hình khỏi báo cáo do thám
        (G.locTangHinh). Phải lọc ở ĐÂY chứ không phải ở giao diện — lọc phía
        client thì dữ liệu thật vẫn đi qua mạng và tàng hình chỉ là trang trí.

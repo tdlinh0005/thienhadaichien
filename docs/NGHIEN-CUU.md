@@ -265,9 +265,17 @@ schema hay công thức đầy đủ:
   lớp quỹ đạo và mỗi mốc nhiên liệu lại chạm trán lại — đó cũng chính là chỗ dựng
   "gặp lực lượng địch thì đánh". Trận phong toả chỉ đụng **lớp quỹ đạo**, đúng luật
   hai lớp; **[TÁI DỰNG]** là việc chọn mốc chạm trán trùng với mốc nhiên liệu 6 giờ.
-  Hiện chỉ phong toả được NPC và ô trống — phong toả hành tinh người chơi khác cần
-  state của đối phương, chừa sẵn seam `G.HOOK.phongToaNguoi` và bị chặn ngay ở cửa
-  phát lệnh. Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
+  Phong toả hành tinh **người chơi khác** nay cũng dựng được, nhưng không phải bằng
+  nhiệm vụ Giữ Chỗ: Giữ Chỗ là neo *thân thiện*, không giải trận nào cả. Đường vào quỹ
+  đạo thù địch là **thắng một trận ở đó trước**, nên lệnh phong toả là phần đuôi của
+  nhiệm vụ **Tấn Công** (`toa` = số giờ ở lại, mặc định 0). **[TÁI DỰNG]** là mọi luật
+  vận hành của nó: trần 24 giờ, nhiên liệu trả trước theo đoạn 6 giờ, việc xác minh lại
+  lệnh chiến tranh ở mỗi mốc, và danh sách nhiệm vụ bị vây chặn (`transport`, `deploy`,
+  `hold`, `colonize`, `recycle`, `thamhiem` — `attack` và tên lửa thì không). Nguồn chỉ
+  nói "đậu ở bất kỳ quỹ đạo, gặp lực lượng địch thì đánh"; nó không mô tả vây làm gì với
+  hậu cần của bên bị vây. Bên bị vây hiện chưa đánh thẳng được vào hạm đội đang vây —
+  gỡ vây đi bằng thời gian hoặc bằng ngoại giao (hết lệnh chiến tranh, hoặc hai bên vào
+  chung liên minh). Chọn căn cứ trở về đã dựng lại (`G.doiCanCu`), nhưng chỉ cho quay về
   một hành tinh khác của chính đế quốc — hàng dỡ thẳng vào kho nơi đó nên không mở cho
   hành tinh người khác; phí điều động và mức nhiên liệu phụ trội là **[TÁI DỰNG]**.
   Tách đội cũng đã dựng lại (`G.tachHam`): **[TÁI DỰNG]** là giá (một khe hạm đội +

@@ -2543,7 +2543,7 @@ G.giaoHangToi = function (st, i) {
     G.tdStr(p.c) + '.');
 };
 
-/* source: js/fleet.js sha256:b05f32f1926d733d019efc049d50589adbdf6f52e0b19c0bd5b84e10360a28bd */
+/* source: js/fleet.js sha256:f6997d38579f798b1014ca635198fd3aad0c86e8ede858b3d969e2440796bd6a */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
  * Hai cơ chế lấy nguyên từ bản gốc:
  *   1) Hạm đội được ĐỔI MỤC TIÊU NGAY KHI ĐANG BAY (trả phí Galana).
@@ -2727,7 +2727,10 @@ G.batDauVe = function (st, f, daToiDich, ghi) {
 };
 
 /* Hook server có thể trả chuỗi lỗi, `{loi}` hoặc `{tk}`. Ở bản một người,
- * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc. */
+ * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc.
+ * Đội đang PHONG TOẢ hành tinh người chơi khác (`f.phongToa`) cũng đi qua đây
+ * ở mỗi mốc nhiên liệu: hook server xác minh lại lệnh chiến tranh, nên hết
+ * quyền đánh hoặc hai bên thành đồng minh là phong toả tự tan. */
 G.kiemTraGiu = function (st, f, o) {
   o = o || G.oHanhTinh(st, f.den);
   if (!o) return 'Không xác định được toạ độ giữ quỹ đạo.';
@@ -2830,6 +2833,48 @@ G.tranQuyDao = function (st, f, o) {
   return 've';
 };
 
+/* --- Ở LẠI PHONG TOẢ SAU MỘT TRẬN THẮNG -------------------------------
+ * [XÁC NHẬN] bản gốc cho hạm đậu ở bất kỳ quỹ đạo và "gặp lực lượng địch thì
+ * đánh". Với hành tinh NGƯỜI CHƠI khác, đường vào quỹ đạo thù địch là thắng
+ * một trận ở đó trước — nên phong toả người thật không phải một nhiệm vụ
+ * riêng mà là **phần đuôi của nhiệm vụ Tấn Công**: chỉ huy khai trước số giờ
+ * muốn ở lại (`f.giu`), đánh thắng thì hạm đội neo lại thay vì quay về.
+ *
+ * Cách dựng này giữ nguyên hợp đồng của scheduler durable: trận vẫn là đúng
+ * một job PvP có snapshot và seed như cũ, còn việc neo lại chỉ ghi vào state
+ * của CHÍNH bên tấn công.
+ *
+ * Trả null khi đã neo được, hoặc chuỗi lý do khi không neo được (bên gọi cho
+ * hạm đội quay về như thường).
+ */
+G.batDauPhongToa = function (st, f) {
+  var giu = Math.max(0, Math.floor(Number(f.giu) || 0));
+  if (!giu) return 'không có lệnh ở lại';
+  if (G.trong(f.ships)) return 'không còn tàu nào để neo';
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var het = st.now + giu;
+  var mocNL = Math.min(het, st.now + G.QUY_DAO_V1.segmentSeconds);
+  var can = G.nhienLieuGiu(st, f.ships, mocNL - st.now);
+  if ((f.cargo.deut || 0) < can)
+    return 'khoang chỉ còn ' + G.so(Math.floor(f.cargo.deut || 0)) +
+      ' Nhiên Liệu, đoạn phong toả đầu cần ' + G.so(can);
+  f.cargo.deut -= can;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  f.pha = 'giu';
+  f.dangGiu = true;
+  f.phongToa = true;
+  f.giuLuc = st.now;
+  f.giuDen_t = het;
+  f.tiepNL_t = mocNL;
+  f.giuRules = G.QUY_DAO_V1.holdRules;
+  G.tin(st, 'ham', 'Hạm đội #' + f.id + ' phong toả ' + G.tdStr(f.den),
+    'Thắng trận ở quỹ đạo nên hạm đội ở lại phong toả ' + G.tg(giu) + '.\n' +
+    'Đã trả ' + G.so(can) + ' Nhiên Liệu cho đoạn đầu; mỗi ' +
+    G.tg(G.QUY_DAO_V1.segmentSeconds) + ' lại phải trả tiếp và xác minh lại ' +
+    'quyền đánh — hết lệnh chiến tranh là phải rút.');
+  return null;
+};
+
 /* Trả trước đoạn đầu rồi mới hiện diện trên quỹ đạo. */
 G.batDauGiu = function (st, f, o) {
   var loi = G.kiemTraGiu(st, f, o);
@@ -2929,7 +2974,11 @@ G.hamGiuTai = function (st, c) {
 };
 
 /* --- Gửi hạm đội ------------------------------------------------------- */
-G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
+/* `giuGio` là số giờ neo của Giữ Chỗ; `toaGio` là số giờ ở lại phong toả sau
+ * một trận Tấn Công thắng (0 = đánh xong quay về như cũ). Hai khái niệm đi hai
+ * tham số riêng có chủ ý: dồn chung một chỗ thì mọi lời gọi cũ đang truyền
+ * `giuGio` cho một chuyến Tấn Công bỗng dưng đổi nghĩa thành "ở lại vây". */
+G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh, toaGio) {
   var p = st.planets[pi];
   if (!p) return 'Hành tinh không tồn tại.';
   if (G.trong(ships)) return 'Chưa chọn tàu nào.';
@@ -2997,11 +3046,18 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var tongHang = 0;
   for (id in cargo) { cargo[id] = Math.max(0, Math.floor(cargo[id] || 0)); tongHang += cargo[id]; }
   if (tongHang > suc - (mission === 'attack' ? 0 : 0)) return 'Khoang hàng chỉ chứa được ' + G.so(suc) + '.';
-  if (mission === 'hold') {
-    var giuGiay = Math.max(1, Math.floor(Number(giuGio) || 1) * 3600);
+  /* Tấn Công khai `giuGio` nghĩa là "thắng rồi ở lại phong toả bấy nhiêu giờ".
+     Bắt trả trước điều kiện nhiên liệu ngay ở cửa phát lệnh, y như Giữ Chỗ —
+     không để hạm đội đánh thắng xong mới phát hiện không neo nổi. */
+  var giuGiay = mission === 'hold'
+    ? Math.max(1, Math.floor(Number(giuGio) || 1) * 3600)
+    : (mission === 'attack' && Number(toaGio) > 0
+      ? Math.max(1, Math.floor(Number(toaGio))) * 3600 : 0);
+  if (giuGiay) {
     var nlDoanDau = G.nhienLieuGiu(st, ships, Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds));
     if ((cargo.deut || 0) < nlDoanDau)
-      return 'Giữ quỹ đạo cần chở ít nhất ' + G.so(nlDoanDau) +
+      return (mission === 'hold' ? 'Giữ quỹ đạo' : 'Ở lại phong toả') +
+        ' cần chở ít nhất ' + G.so(nlDoanDau) +
         ' Nhiên Liệu cho đoạn đầu (' + G.tg(Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds)) + ').';
   }
   for (id in cargo) if ((p.res[id] || 0) < cargo[id] + (id === 'deut' ? nl : 0)) return 'Không đủ ' +
@@ -3028,7 +3084,7 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
     id: st.fleetIdSeq++, pi: pi, tu: { g: p.c.g, h: p.c.h, p: p.c.p }, den: { g: den.g, h: den.h, p: den.p },
     mission: mission, ships: ships, linh: linh, cargo: cargo, pct: pct || 100,
     diLuc: st.now, den_t: st.now + tg, veLuc: null, ve_t: null, pha: 'di',
-    giu: (mission === 'hold') ? Math.max(1, Math.floor(Number(giuGio) || 1) * 3600) : 0,
+    giu: giuGiay,
     nl: nl, kc: kc, doiHuong: 0
   };
   st.fleets.push(f);
@@ -3546,6 +3602,12 @@ G.hamToiDich = function (st, f) {
 
     if (G.trong(f.ships)) { G.ghi(st, 'Hạm đội #' + f.id + ' bị xoá sổ hoàn toàn tại ' + G.tdStr(f.den) + '.');
       G.xoaHam(st, f); return; }
+    /* Thắng rồi mà có lệnh ở lại thì neo phong toả thay vì quay về. */
+    if (kq.kq === 'thang' && Number(f.giu) > 0) {
+      var loiPT = G.batDauPhongToa(st, f);
+      if (!loiPT) return;
+      G.ghi(st, 'Hạm đội #' + f.id + ' không ở lại phong toả được (' + loiPT + '), quay về.');
+    }
     veNha(null); return;
   }
 
@@ -4831,7 +4893,7 @@ G.doBoXuong = function (st, f, ben) {
   return { kq: kq, thang: thang, phaCT: phaCT };
 };
 
-/* source: js/actions.js sha256:958d1fbc9d7a62b8cdb19d33753bce8dd2453bee303333b8464a90e4882d3ffe */
+/* source: js/actions.js sha256:264d37aa51fc3e55a848d1e47be1248c22a2dd0ff94ae0c03029785180754fa0 */
 /* THIÊN HÀ ĐẠI CHIẾN — bảng hành động luật game cốt lõi dùng chung
  * Đây là nơi thực thi xây dựng, nghiên cứu, hạm đội và các mutation state mô phỏng.
  * Chat, quản trị liên minh, tuyên chiến và chuyển Galana multiplayer đi qua
@@ -5046,8 +5108,13 @@ G.HANHDONG = {
       }
     }
     var pct = Math.max(10, Math.min(100, Math.round((+d.pct || 100) / 10) * 10));
+    /* `giu` là số giờ neo của Giữ Chỗ (tối thiểu 1). Với Tấn Công thì số giờ
+       ở lại phong toả đi bằng trường RIÊNG `toa` và mặc định BẰNG 0 — nếu
+       dùng chung `giu` (mặc định 1) thì mọi cuộc tấn công thắng đều tự neo
+       lại, đổi luật của bàn chơi cũ sau lưng người chơi. */
     var giu = Math.max(1, Math.min(24, Math.floor(+d.giu || 1)));
-    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh);
+    var toa = Math.max(0, Math.min(24, Math.floor(+d.toa || 0)));
+    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh, toa);
   },
   goive: function (st, d) { return G.goiVe(st, Math.floor(+d.fid)); },
   banTenLua: function (st, d) {
@@ -5131,7 +5198,7 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* source: js/ui.js sha256:e100364a5a72a2c500e9cc92fc421b04b5893943577cddc98d7102b0086fe97c */
+/* source: js/ui.js sha256:330a37853c6477f4a36f6eea15d9fdabb1b759576d1d3a6ccfe8097d4d36788c */
 /* THIÊN HÀ ĐẠI CHIẾN — giao diện */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
@@ -5377,6 +5444,15 @@ U.veCanh = function () {
     else
       h += '<div class="canh ok">' + U.esc(q.ten) + ' ' + U.esc(q.lm || '') + ' đang chở hàng tới ' +
         U.esc(tenHT) + ', tới trong ' + U.dem(q.den_t) + '.</div>';
+  }
+  /* vòng vây đang siết quỹ đạo của chính ta */
+  var vay = st.pvpToa || [];
+  for (i = 0; i < vay.length; i++) {
+    var v = vay[i], pv2 = U.htTheoKey(v.td);
+    h += '<div class="canh">BỊ PHONG TOẢ — <b>' + U.esc(v.ten) + '</b> ' + U.esc(v.lm || '') +
+      ' đang vây quỹ đạo ' + U.esc(pv2 ? pv2.ten : '') + ' [' + U.esc(v.td) + '] tới ' +
+      U.dem(v.denT) + '. Hàng, tiếp tế, thực dân và thám hiểm không rời bến này được; ' +
+      'đánh trả và bắn tên lửa thì vẫn được.</div>';
   }
   document.getElementById('thanh-canh').innerHTML = h;
 };
@@ -5897,7 +5973,8 @@ U.m_phongthu = function () {
  * ==================================================================== */
 U.formMoi = function () {
   var p = U.ht();
-  return { den: { g: p.c.g, h: p.c.h, p: p.c.p }, mission: 'attack', pct: 100, ships: {}, linh: {}, cargo: {}, giu: 1 };
+  return { den: { g: p.c.g, h: p.c.h, p: p.c.p }, mission: 'attack', pct: 100,
+    ships: {}, linh: {}, cargo: {}, giu: 1, toa: 0 };
 };
 U.capNhatForm = function () {
   var f = U.form; if (!f) return;
@@ -5906,6 +5983,8 @@ U.capNhatForm = function () {
   var ms = document.getElementById('f-mission'); if (ms) f.mission = ms.value;
   var pc = document.getElementById('f-pct'); if (pc) f.pct = +pc.value || 100;
   var gi = document.getElementById('f-giu'); if (gi) f.giu = Math.max(1, +gi.value || 1);
+  var to = document.getElementById('f-toa');
+  if (to) f.toa = Math.max(0, Math.min(24, Math.floor(+to.value || 0)));
   var i, el;
   for (i = 0; i < G.SHIPS.length; i++) {
     el = document.getElementById('ft-' + G.SHIPS[i].id);
@@ -6069,6 +6148,25 @@ U.m_hamdoi = function () {
       'Mỗi đội dùng công nghệ của chính chủ sở hữu; thiệt hại được ghi lại đúng vào đội đó.</p></div></div>';
   }
 
+  var pvToa = Array.isArray(st.pvpToa) ? st.pvpToa : [];
+  if (pvToa.length) {
+    h += '<div class="panel"><h3>Quỹ đạo của ta đang bị phong toả</h3><div class="noi bang-cuon"><table>' +
+      '<tr><th>Kẻ vây</th><th>Hành tinh</th><th>Vây từ</th><th>Hết vây</th></tr>';
+    for (i = 0; i < pvToa.length; i++) {
+      var qt = pvToa[i], pToa = U.htTheoKey(qt.td);
+      h += '<tr><td><b class="do">' + U.esc(qt.ten) + '</b> ' +
+        '<span class="tag-lm">' + U.esc(qt.lm || '') + '</span></td>' +
+        '<td>' + U.esc(pToa ? pToa.ten : '') + ' <span class="sz">[' + U.esc(qt.td) + ']</span></td>' +
+        '<td class="sz">' + G.gio(qt.tuLuc * 1000) + '</td>' +
+        '<td class="sz do">' + U.dem(qt.denT) + '</td></tr>';
+    }
+    h += '</table><p class="mo">Bị vây thì <b>Vận Chuyển, Triển Khai, Giữ Chỗ, Thực Dân, Thu Hồi và ' +
+      'Thám Hiểm</b> không xuất bến từ hành tinh này được — <b class="luc">Tấn Công và tên lửa thì vẫn ' +
+      'được</b>. Vây tự tan khi kẻ vây hết nhiên liệu, hết giờ đã trả, hết lệnh chiến tranh, hoặc ' +
+      'hai bên vào chung một liên minh. Đội hình của kẻ vây không hiện ở đây: muốn biết thì phải ' +
+      'do thám.</p></div></div>';
+  }
+
   var pvToi = st.pvpToi || [];
   if (st.toi.length || pvToi.length) {
     h += '<div class="panel"><h3>Hạm đội đang bay tới hành tinh của ta</h3><div class="noi bang-cuon"><table>' +
@@ -6123,6 +6221,15 @@ U.m_hamdoi = function () {
       'đánh thắng lớp quỹ đạo mới neo được, và mỗi mốc 6 giờ lại phải giữ lấy nó. ' +
       'Nhiên liệu trả trước theo từng đoạn 6 giờ từ khoang hàng; thiếu ' +
         'một kỳ sau khi đã đậu thì hạm đội bị phá huỷ.</div></div>';
+  if (f.mission === 'attack')
+    h += '<div style="margin-bottom:8px"><b>Thắng rồi ở lại phong toả ' +
+      '(giờ, 0 = quay về)</b><br><input id="f-toa" type="number" min="0" max="24" value="' +
+      (f.toa || 0) + '">' +
+      '<div class="mo" style="font-size:11.5px;margin-top:3px">Đánh thắng lớp quỹ đạo rồi <b>neo lại ' +
+      'phong toả</b> thay vì quay về. Quỹ đạo bị vây thì chủ hành tinh <b class="do">không xuất được ' +
+      'hàng, tiếp tế, thực dân hay thám hiểm</b> từ đó — nhưng vẫn đánh trả và bắn tên lửa được. ' +
+      'Phải chở sẵn nhiên liệu cho đoạn 6 giờ đầu; mỗi mốc 6 giờ lại trả tiếp và <b>xác minh lại lệnh ' +
+      'chiến tranh</b>, nên hết quyền đánh hoặc hai bên vào chung liên minh là vây tan.</div></div>';
   h += '<div id="hd-tt">' + U.ttBay() + '</div>';
   h += '<button class="nut lon" data-act="gui" style="margin-top:10px">PHÁT LỆNH XUẤT KÍCH</button>';
   h += '</div><div>';
@@ -6735,7 +6842,8 @@ U.sig = function () {
   var st = U.st(), bt = U.bt(st), s = [st.planets.length, st.msgs.length, st.fleets.length, st.toi.length, bt.cycle,
     bt.missStreak, U.man, U.pi, st.nk.length, st.lm ? st.lm.ten : '-',
     (st.pvpToi || []).map(function (x) { return x.id + ':' + x.nv + ':' + x.den_t; }).join(','),
-    (st.pvpGiu || []).map(function (x) { return x.id + ':' + x.giuDen_t + ':' + x.tiepNL_t; }).join(',')];
+    (st.pvpGiu || []).map(function (x) { return x.id + ':' + x.giuDen_t + ':' + x.tiepNL_t; }).join(','),
+    (st.pvpToa || []).map(function (x) { return x.id + ':' + x.denT; }).join(',')];
   for (var i = 0; i < st.planets.length; i++) {
     var p = st.planets[i], ds = U.ds(p);
     s.push(p.qB.length, p.qS.length, p.qS.length ? p.qS[0].n : 0,
@@ -6987,7 +7095,7 @@ U.m_mophong = function () {
   return h;
 };
 
-/* source: js/app.js sha256:4e54b91697ab9a25eea1ae5e7ae436c8ec26e548f852e65d2a73c98542de59b8 */
+/* source: js/app.js sha256:706c3ab2de7fcfe58beaddb8eeb984bb01f3531e3fed4efc333d6a28fd417073 */
 /* THIÊN HÀ ĐẠI CHIẾN — tầng thao tác giao diện (dùng chung cho 1 người & nhiều người)
  * Mọi thao tác của người chơi đi qua APP.lam(ten, dl, xong):
  *   - bản một người  (js/main.js): chạy G.chay() ngay trên state trong máy
@@ -7157,7 +7265,7 @@ var ACT = {
     var f = U.form;
     APP.lam('gui', {
       pi: U.pi, ships: G.clone(f.ships), linh: G.clone(f.linh || {}), den: f.den, mission: f.mission,
-      cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu
+      cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu, toa: f.toa
     }, function (err) {
       if (err) return U.toast(err, 'loi');
       U.form = U.formMoi();

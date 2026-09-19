@@ -167,7 +167,7 @@ var ACT = {
     var f = U.form;
     APP.lam('gui', {
       pi: U.pi, ships: G.clone(f.ships), linh: G.clone(f.linh || {}), den: f.den, mission: f.mission,
-      cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu
+      cargo: G.clone(f.cargo), pct: f.pct, giu: f.giu, toa: f.toa
     }, function (err) {
       if (err) return U.toast(err, 'loi');
       U.form = U.formMoi();

@@ -34,6 +34,11 @@ function suaStateUI(hienThi, f) {
   return st;
 }
 
+function vaoDB(f) {
+  var db = new DatabaseSync(DB);
+  try { return f(db); } finally { db.close(); }
+}
+
 /* ------------------------------------------------------- gom lỗi trình duyệt */
 var soLoi = [];                    // {ai, kieu, noi}
 function theoDoi(ai, page) {
@@ -745,6 +750,91 @@ async function chay() {
       (document.querySelector('#noidung') || {}).textContent.indexOf(biMat) < 0;
   }, CHAT_LM);
   ktra(roChat, 'response chat A về muộn không rò sang tài khoản B trong cùng tab');
+
+  /* ---------- 6d. phong toả quỹ đạo giữa người chơi ---------- */
+  /* Bơm thẳng một vòng vây vào projection thay vì dựng cả một trận trong
+     trình duyệt: bài này đo GIAO DIỆN của bên bị vây và cửa phát lệnh, còn
+     luật giải trận đã có bài riêng ở tools/smoke.js và tools/test-server.js. */
+  var idTK = vaoDB(function (db) {
+    var r = {};
+    db.prepare('SELECT id,hienthi FROM tk').all().forEach(function (x) { r[x.hienthi] = x.id; });
+    return r;
+  });
+  ktra(!!(idTK['Quốc Bình'] && idTK['Lê Vũ']), 'phong toả: đọc được số hiệu hai tài khoản');
+  var tdVu = vaoDB(function (db) {
+    return db.prepare('SELECT td FROM ht WHERE tk=? ORDER BY thuDo DESC').get(idTK['Lê Vũ']).td;
+  });
+  var gioVay = Math.floor(Date.now() / 1000);
+  vaoDB(function (db) {
+    db.prepare('INSERT INTO phongtoa(tkA,fid,tkD,td,tenA,lmA,tuLuc,denT) VALUES(?,?,?,?,?,?,?,?)')
+      .run(idTK['Quốc Bình'], 4242, idTK['Lê Vũ'], tdVu, 'Quốc Bình', null,
+        gioVay - 60, gioVay + 36000);
+  });
+  var taiVay = p2.waitForResponse(function (r) { return r.url().indexOf('/api/state') >= 0; },
+    { timeout: 20000 });
+  await p2.evaluate('APP.hienLai()'); await taiVay;
+  await p2.waitForFunction('window.ST && (ST.pvpToa || []).length === 1', null, { timeout: 20000 });
+  ktra(true, 'phong toả: /api/state đẩy được pvpToa xuống client');
+  var bangCanh = await p2.locator('#thanh-canh').evaluate(function (e) { return e.innerText || ''; });
+  ktra(/BỊ PHONG TOẢ/.test(bangCanh) && /Quốc Bình/.test(bangCanh),
+    'phong toả: thanh cảnh báo báo động đúng kẻ vây');
+  await vaoMan(p2, 'hamdoi');
+  var ndVay = await chuNoiDung(p2);
+  ktra(/quỹ đạo của ta đang bị phong toả/i.test(ndVay),
+    'phong toả: màn Hạm Đội có bảng vòng vây đang siết');
+  ktra(/\[/.test(ndVay) && ndVay.indexOf(tdVu) >= 0, 'phong toả: bảng ghi đúng toạ độ bị vây');
+  await chup(p2, 'phongtoa');
+
+  /* cửa phát lệnh: hàng không ra được, nhưng đánh trả thì được */
+  suaStateUI('Lê Vũ', function (st) {
+    st.planets[0].ships.cargoS = 20;
+    st.planets[0].res.deut = 1000000;
+    /* Đội Giữ Chỗ ở mục 6 vẫn đang chiếm khe duy nhất; mở thêm khe để bài này
+       đo đúng cái cần đo là cửa phát lệnh, không phải giới hạn khe hạm đội. */
+    st.tech.computer = 5;
+  });
+  var taiKho = p2.waitForResponse(function (r) { return r.url().indexOf('/api/state') >= 0; },
+    { timeout: 20000 });
+  await p2.evaluate('APP.hienLai()'); await taiKho;
+  await p2.waitForFunction('window.ST && ST.planets[0].ships.cargoS === 20', null, { timeout: 20000 });
+  var loiVC = await p2.evaluate(function (den) {
+    return new Promise(function (xong) {
+      APP.lam('gui', { pi: 0, ships: { cargoS: 5 }, den: den, mission: 'transport',
+        cargo: { metal: 10 }, pct: 100 }, function (e) { xong(e || null); });
+    });
+  }, nha1);
+  ktra(/phong toả/i.test(loiVC || ''),
+    'phong toả: bị vây thì Vận Chuyển bị chặn ngay ở bến (' + (loiVC || 'không lỗi') + ')');
+  var loiDanh = await p2.evaluate(function (den) {
+    return new Promise(function (xong) {
+      APP.lam('gui', { pi: 0, ships: { cargoS: 5 }, den: den, mission: 'attack',
+        cargo: {}, pct: 100 }, function (e) { xong(e || null); });
+    });
+  }, nha1);
+  ktra(!/phong toả/i.test(loiDanh || ''),
+    'phong toả: bị vây vẫn đánh trả được (' + (loiDanh || 'không lỗi') + ')');
+
+  /* form Tấn Công có ô khai số giờ ở lại phong toả */
+  await p2.selectOption('#f-mission', 'attack');
+  await nghi(250);
+  ktra(await p2.isVisible('#f-toa'), 'phong toả: form Tấn Công có ô "ở lại phong toả"');
+  ktra(await p2.isHidden('#f-giu'), 'phong toả: form Tấn Công không hiện ô Giữ Chỗ');
+  await p2.fill('#f-toa', '9');
+  await p2.evaluate('U.capNhatForm()');
+  ktra(await p2.evaluate('U.form.toa') === 9, 'phong toả: ô giờ ở lại vào đúng U.form.toa');
+  await p2.selectOption('#f-mission', 'hold');
+  await nghi(250);
+  ktra(await p2.isVisible('#f-giu') && await p2.isHidden('#f-toa'),
+    'phong toả: đổi sang Giữ Chỗ thì đổi lại đúng ô giờ neo');
+
+  /* gỡ vòng vây -> giao diện sạch lại */
+  vaoDB(function (db) { db.prepare('DELETE FROM phongtoa').run(); });
+  var taiSach = p2.waitForResponse(function (r) { return r.url().indexOf('/api/state') >= 0; },
+    { timeout: 20000 });
+  await p2.evaluate('APP.hienLai()'); await taiSach;
+  await p2.waitForFunction('window.ST && (ST.pvpToa || []).length === 0', null, { timeout: 20000 });
+  var canhSach = await p2.locator('#thanh-canh').evaluate(function (e) { return e.innerText || ''; });
+  ktra(!/BỊ PHONG TOẢ/.test(canhSach), 'phong toả: gỡ vây xong thanh cảnh báo sạch lại');
 
   /* ---------- 7. xếp hạng & bảng tin ---------- */
   await vaoMan(p1, 'xephang', '/api/xephang');

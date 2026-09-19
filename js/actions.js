@@ -212,8 +212,13 @@ G.HANHDONG = {
       }
     }
     var pct = Math.max(10, Math.min(100, Math.round((+d.pct || 100) / 10) * 10));
+    /* `giu` là số giờ neo của Giữ Chỗ (tối thiểu 1). Với Tấn Công thì số giờ
+       ở lại phong toả đi bằng trường RIÊNG `toa` và mặc định BẰNG 0 — nếu
+       dùng chung `giu` (mặc định 1) thì mọi cuộc tấn công thắng đều tự neo
+       lại, đổi luật của bàn chơi cũ sau lưng người chơi. */
     var giu = Math.max(1, Math.min(24, Math.floor(+d.giu || 1)));
-    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh);
+    var toa = Math.max(0, Math.min(24, Math.floor(+d.toa || 0)));
+    return G.guiHam(st, st.planets.indexOf(p), ships, den, d.mission, cargo, pct, giu, linh, toa);
   },
   goive: function (st, d) { return G.goiVe(st, Math.floor(+d.fid)); },
   banTenLua: function (st, d) {

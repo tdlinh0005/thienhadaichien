@@ -181,7 +181,10 @@ G.batDauVe = function (st, f, daToiDich, ghi) {
 };
 
 /* Hook server có thể trả chuỗi lỗi, `{loi}` hoặc `{tk}`. Ở bản một người,
- * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc. */
+ * Giữ Chỗ chỉ hợp lệ trên một hành tinh khác của chính đế quốc.
+ * Đội đang PHONG TOẢ hành tinh người chơi khác (`f.phongToa`) cũng đi qua đây
+ * ở mỗi mốc nhiên liệu: hook server xác minh lại lệnh chiến tranh, nên hết
+ * quyền đánh hoặc hai bên thành đồng minh là phong toả tự tan. */
 G.kiemTraGiu = function (st, f, o) {
   o = o || G.oHanhTinh(st, f.den);
   if (!o) return 'Không xác định được toạ độ giữ quỹ đạo.';
@@ -284,6 +287,48 @@ G.tranQuyDao = function (st, f, o) {
   return 've';
 };
 
+/* --- Ở LẠI PHONG TOẢ SAU MỘT TRẬN THẮNG -------------------------------
+ * [XÁC NHẬN] bản gốc cho hạm đậu ở bất kỳ quỹ đạo và "gặp lực lượng địch thì
+ * đánh". Với hành tinh NGƯỜI CHƠI khác, đường vào quỹ đạo thù địch là thắng
+ * một trận ở đó trước — nên phong toả người thật không phải một nhiệm vụ
+ * riêng mà là **phần đuôi của nhiệm vụ Tấn Công**: chỉ huy khai trước số giờ
+ * muốn ở lại (`f.giu`), đánh thắng thì hạm đội neo lại thay vì quay về.
+ *
+ * Cách dựng này giữ nguyên hợp đồng của scheduler durable: trận vẫn là đúng
+ * một job PvP có snapshot và seed như cũ, còn việc neo lại chỉ ghi vào state
+ * của CHÍNH bên tấn công.
+ *
+ * Trả null khi đã neo được, hoặc chuỗi lý do khi không neo được (bên gọi cho
+ * hạm đội quay về như thường).
+ */
+G.batDauPhongToa = function (st, f) {
+  var giu = Math.max(0, Math.floor(Number(f.giu) || 0));
+  if (!giu) return 'không có lệnh ở lại';
+  if (G.trong(f.ships)) return 'không còn tàu nào để neo';
+  f.cargo = f.cargo && typeof f.cargo === 'object' ? f.cargo : {};
+  var het = st.now + giu;
+  var mocNL = Math.min(het, st.now + G.QUY_DAO_V1.segmentSeconds);
+  var can = G.nhienLieuGiu(st, f.ships, mocNL - st.now);
+  if ((f.cargo.deut || 0) < can)
+    return 'khoang chỉ còn ' + G.so(Math.floor(f.cargo.deut || 0)) +
+      ' Nhiên Liệu, đoạn phong toả đầu cần ' + G.so(can);
+  f.cargo.deut -= can;
+  if (!f.cargo.deut) delete f.cargo.deut;
+  f.pha = 'giu';
+  f.dangGiu = true;
+  f.phongToa = true;
+  f.giuLuc = st.now;
+  f.giuDen_t = het;
+  f.tiepNL_t = mocNL;
+  f.giuRules = G.QUY_DAO_V1.holdRules;
+  G.tin(st, 'ham', 'Hạm đội #' + f.id + ' phong toả ' + G.tdStr(f.den),
+    'Thắng trận ở quỹ đạo nên hạm đội ở lại phong toả ' + G.tg(giu) + '.\n' +
+    'Đã trả ' + G.so(can) + ' Nhiên Liệu cho đoạn đầu; mỗi ' +
+    G.tg(G.QUY_DAO_V1.segmentSeconds) + ' lại phải trả tiếp và xác minh lại ' +
+    'quyền đánh — hết lệnh chiến tranh là phải rút.');
+  return null;
+};
+
 /* Trả trước đoạn đầu rồi mới hiện diện trên quỹ đạo. */
 G.batDauGiu = function (st, f, o) {
   var loi = G.kiemTraGiu(st, f, o);
@@ -383,7 +428,11 @@ G.hamGiuTai = function (st, c) {
 };
 
 /* --- Gửi hạm đội ------------------------------------------------------- */
-G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
+/* `giuGio` là số giờ neo của Giữ Chỗ; `toaGio` là số giờ ở lại phong toả sau
+ * một trận Tấn Công thắng (0 = đánh xong quay về như cũ). Hai khái niệm đi hai
+ * tham số riêng có chủ ý: dồn chung một chỗ thì mọi lời gọi cũ đang truyền
+ * `giuGio` cho một chuyến Tấn Công bỗng dưng đổi nghĩa thành "ở lại vây". */
+G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh, toaGio) {
   var p = st.planets[pi];
   if (!p) return 'Hành tinh không tồn tại.';
   if (G.trong(ships)) return 'Chưa chọn tàu nào.';
@@ -451,11 +500,18 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
   var tongHang = 0;
   for (id in cargo) { cargo[id] = Math.max(0, Math.floor(cargo[id] || 0)); tongHang += cargo[id]; }
   if (tongHang > suc - (mission === 'attack' ? 0 : 0)) return 'Khoang hàng chỉ chứa được ' + G.so(suc) + '.';
-  if (mission === 'hold') {
-    var giuGiay = Math.max(1, Math.floor(Number(giuGio) || 1) * 3600);
+  /* Tấn Công khai `giuGio` nghĩa là "thắng rồi ở lại phong toả bấy nhiêu giờ".
+     Bắt trả trước điều kiện nhiên liệu ngay ở cửa phát lệnh, y như Giữ Chỗ —
+     không để hạm đội đánh thắng xong mới phát hiện không neo nổi. */
+  var giuGiay = mission === 'hold'
+    ? Math.max(1, Math.floor(Number(giuGio) || 1) * 3600)
+    : (mission === 'attack' && Number(toaGio) > 0
+      ? Math.max(1, Math.floor(Number(toaGio))) * 3600 : 0);
+  if (giuGiay) {
     var nlDoanDau = G.nhienLieuGiu(st, ships, Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds));
     if ((cargo.deut || 0) < nlDoanDau)
-      return 'Giữ quỹ đạo cần chở ít nhất ' + G.so(nlDoanDau) +
+      return (mission === 'hold' ? 'Giữ quỹ đạo' : 'Ở lại phong toả') +
+        ' cần chở ít nhất ' + G.so(nlDoanDau) +
         ' Nhiên Liệu cho đoạn đầu (' + G.tg(Math.min(giuGiay, G.QUY_DAO_V1.segmentSeconds)) + ').';
   }
   for (id in cargo) if ((p.res[id] || 0) < cargo[id] + (id === 'deut' ? nl : 0)) return 'Không đủ ' +
@@ -482,7 +538,7 @@ G.guiHam = function (st, pi, ships, den, mission, cargo, pct, giuGio, linh) {
     id: st.fleetIdSeq++, pi: pi, tu: { g: p.c.g, h: p.c.h, p: p.c.p }, den: { g: den.g, h: den.h, p: den.p },
     mission: mission, ships: ships, linh: linh, cargo: cargo, pct: pct || 100,
     diLuc: st.now, den_t: st.now + tg, veLuc: null, ve_t: null, pha: 'di',
-    giu: (mission === 'hold') ? Math.max(1, Math.floor(Number(giuGio) || 1) * 3600) : 0,
+    giu: giuGiay,
     nl: nl, kc: kc, doiHuong: 0
   };
   st.fleets.push(f);
@@ -1000,6 +1056,12 @@ G.hamToiDich = function (st, f) {
 
     if (G.trong(f.ships)) { G.ghi(st, 'Hạm đội #' + f.id + ' bị xoá sổ hoàn toàn tại ' + G.tdStr(f.den) + '.');
       G.xoaHam(st, f); return; }
+    /* Thắng rồi mà có lệnh ở lại thì neo phong toả thay vì quay về. */
+    if (kq.kq === 'thang' && Number(f.giu) > 0) {
+      var loiPT = G.batDauPhongToa(st, f);
+      if (!loiPT) return;
+      G.ghi(st, 'Hạm đội #' + f.id + ' không ở lại phong toả được (' + loiPT + '), quay về.');
+    }
     veNha(null); return;
   }
 

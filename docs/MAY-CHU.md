@@ -371,6 +371,17 @@ Chỉ mục `cho_loai(loai,res,gia,id)` và `cho_ban(tkBan,id)`.
 Bảng cố ý **không có khoá ngoại** tới `tk` (lô hàng phải sống sót qua mọi đường xoá
 khác), nên cả hai nhánh của `xoaTaiKhoan` phải tự gọi `choXoaCua(tk)`.
 
+**`phongtoa`** — projection các hạm đội đang **phong toả** quỹ đạo của một người
+chơi khác: `tkA`/`fid` (chủ và số hiệu hạm đội đi vây), `tkD` (chủ toạ độ bị vây),
+`td`, `tenA`/`lmA` (ảnh chụp lúc ghi), `tuLuc`, `denT`. Cố ý **tách khỏi `hamgiu`**:
+bảng kia là lực lượng *cùng phòng thủ* cho chủ toạ độ, bảng này là lực lượng đang
+*vây* chính chủ toạ độ đó — trộn chung thì mọi câu SELECT phòng thủ sẽ tính quân vây
+thành quân giữ. Cũng là bản phái sinh: sự thật nằm trong `dq.state` của `tkA`, và
+`_ghiChiMucHam` dựng lại toàn bộ dòng của một tài khoản ở mỗi lần `luu()`.
+Đọc quan hệ liên minh từ `dq` hiện tại chứ không từ cột `lmA` đã đóng băng, nên hai
+bên vào chung liên minh là vây tan ngay.
+Chỉ mục `phongtoa_td(td,denT)` và `phongtoa_tkd(tkD,denT)`.
+
 **`bangtin`** — bảng tin toàn server: `id`, `khi`, `loai`, `noi`. `loai` hiện có
 `'tk'` (người mới nhận hành tinh), `'lm'` (lập / gia nhập liên minh), `'chien'`
 (đặt lệnh chiến tranh), `'tran'` (một trận PvP vừa xong), `'tiepte'` (chở tài
@@ -415,7 +426,7 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/dangky` | POST | không | `{ten, mk, hienthi}` | `{token, ten, nha:{g,h,p}}` · 400 sai định dạng · 409 tên đã có · 429 quá nhanh (8 lần / 10 giây) |
 | `/api/dangnhap` | POST | không | `{ten, mk}` | `{token, ten}` · 401 sai mật khẩu · 429 quá nhanh (8 lần / 10 giây) |
 | `/api/dangxuat` | GET/POST | **có** | — | `{ok:true}` (xoá dòng `phien`) |
-| `/api/state` | GET | **có** | — | `{st, sv, toi:{ten, tk}}` — `st` đã tua tới hiện tại và có projection `pvpToi`/`pvpGiu` dành riêng cho người gọi; `sv` là gói `/api/thongtin` |
+| `/api/state` | GET | **có** | — | `{st, sv, toi:{ten, tk}}` — `st` đã tua tới hiện tại và có projection `pvpToi`/`pvpGiu`/`pvpToa` dành riêng cho người gọi; `sv` là gói `/api/thongtin` |
 | `/api/lam` | POST | **có** | `{ten, dl}` | `{loi, st, sv}` — hành động luật game, trả cùng projection PvP mới nhất; multiplayer chặn gọi thẳng `lmvao` để không lách duyệt đơn |
 | `/api/he` | GET | **có** | query `?g=&h=` | `{g, h, o:[…16 dòng…]}`; 15 hành tinh có `loai` = `toi` / `nguoi` / `npc` / `trong`, dòng ô 16 có `loai:'sau'`, kèm `key`, `c`, `debris` khi phù hợp |
 | `/api/guithu` | POST | **có** | `{den, noi}` — `den` là tên chỉ huy hoặc id tài khoản | `{ok:true}` — thư rơi thẳng vào hộp tin người nhận (`loai:'thu'`); tối đa 1.200 ký tự, 1 thư / 10 giây |
@@ -455,6 +466,11 @@ Ngoại lệ chưa bắt trong tầng API được `server/index.js` bọc lại
 - Danh sách hành động (`G.HANHDONG` trong `js/actions.js`, 20 hành động):
   `xay`, `huyxay`, `nc`, `huync`, `doithue`, `dong`, `huydong`, `ban`, `mua`, `gui`, `goive`,
   `banTenLua`, `doihuong`, `lmvao`, `lmra`, `doctin`, `docHet`, `xoatin`, `boHoang`, `doiTenHT`.
+- Hành động `gui` nhận `{pi,ships,linh,den,mission,cargo,pct,giu,toa}`. `giu` là số giờ
+  neo của **Giữ Chỗ** (1–24, mặc định 1); `toa` là số giờ **ở lại phong toả** sau một trận
+  **Tấn Công** thắng (0–24, mặc định **0**). Hai trường tách riêng có chủ ý: dồn chung thì
+  mọi lệnh Tấn Công cũ (đang gửi `giu:1`) bỗng dưng tự neo lại vây, đổi luật sau lưng
+  người chơi.
 - Payload xây ở state hiện hành là `{pi,id,n}`; `n` phải là số nguyên 1…10.000.000. Nếu
   client cũ bỏ `n`, engine chọn lô tương thích vừa đủ tới mốc vốn level cũ kế tiếp.
 - Đổi thuế qua `/api/lam` với `{ten:'doithue',dl:{pi,thue}}`; `thue` là phần
@@ -618,10 +634,9 @@ thù địch/trung lập hay va chạm giữa các hạm đang đậu. Chọn c�
 dùng chung `docancu` (`/api/lam`), chỉ nhận một hành tinh khác của chính tài khoản; tách đội
 đi qua `tachham`. Giữ Chỗ nay gửi được tới **toạ độ NPC hoặc ô trống** (phong toả):
 `kiemTraGui` cho qua khi không có hàng `ht` nào ở toạ độ đó, còn `kiemTraGiu` trả
-`{tk: null, phongToa: true}` nên không pin `giuTaiTk`. Phong toả quỹ đạo của người chơi
-khác bị **chặn ngay ở cửa phát lệnh** vì cần state đối phương để giải trận. Đội đang
+`{tk: null, phongToa: true}` nên không pin `giuTaiTk`. Đội đang
 phong toả **không bao giờ** được ghi vào `hamgiu` — nếu ghi thì hạm đội đi phong toả
-sẽ quay ra phòng thủ chính nơi nó phong toả.
+sẽ quay ra phòng thủ chính nơi nó phong toả; nó có bảng riêng `phongtoa`.
 Đội tách ra là một fleet bình thường trong `st.fleets`, nên
 `_ghiChiMucHam` vẫn dựng lại projection `hamdang` cho nó — bên phòng thủ được báo động
 đầy đủ về cả hai đội, và quyền tấn công vẫn bị kiểm lại lúc tới nơi.
@@ -634,6 +649,52 @@ minh làm fleet tự quay về; thiếu Nhiên Liệu ở một đoạn sau xoá
 lại và cộng vào bãi phế liệu chung đúng 30% giá trị đóng bằng Kim Loại/Thạch Anh.
 Chủ hạm có thể **Gọi Về** đang đậu; thời gian về là toàn tuyến đích→nguồn, phần
 nhiên liệu đã trả không hoàn lại.
+
+### Phong toả quỹ đạo của người chơi khác
+
+**Giữ Chỗ không phải đường vào quỹ đạo thù địch.** Giữ Chỗ là neo *thân thiện* —
+nó không giải trận nào cả — nên `kiemTraGui` vẫn từ chối `hold` tới hành tinh của
+một người chơi không cùng phe. Đường vào là **thắng một trận ở đó trước**: nhiệm vụ
+**Tấn Công** nhận thêm trường `toa` (số giờ ở lại, 0–24, mặc định **0**), và nếu trận
+ở lớp quỹ đạo thắng thì hạm đội neo lại phong toả thay vì quay về.
+
+Chọn cách này là có lý do kiến trúc, không phải cho tiện: scheduler durable chỉ có
+**đúng một** reducer giải trận (`resolvePvpAt`, kèm snapshot và seed trong payload),
+và bộ năm reducer hook bị đóng băng bởi hợp đồng `[5,3,3,3,3]`. Dựng phong toả PvP
+thành một nhiệm vụ riêng sẽ đòi một loại job mới với một đường giải trận mới. Gắn nó
+vào phần đuôi của Tấn Công thì **toàn bộ hợp đồng cũ giữ nguyên** — vẫn đúng một job
+`PVP_RESOLVE`, cùng snapshot, cùng seed, cùng match id — và việc neo lại chỉ ghi vào
+state của **chính bên tấn công**, không thêm tài khoản nào vào unit-of-work.
+
+Vòng đời một vòng vây:
+
+1. **Phát lệnh.** `guiHam` bắt chở sẵn `f.cargo.deut` đủ đoạn 6 giờ đầu, y như Giữ Chỗ —
+   không để hạm đội đánh thắng xong mới phát hiện không neo nổi. `kiemTraGui` vẫn đòi
+   lệnh chiến tranh đủ 24 giờ như mọi cuộc tấn công.
+2. **Tới nơi.** `resolvePvpAt` (durable) hoặc `danhNguoi` (legacy) giải trận như thường.
+   Thắng và `f.giu > 0` thì gọi `G.batDauPhongToa`: trừ nhiên liệu đoạn đầu, đặt
+   `pha:'giu'`, `phongToa:true`, `giuLuc`, `giuDen_t`, `tiepNL_t`. Thua, hoà, hoặc không
+   đủ nhiên liệu thì quay về như cũ.
+3. **Duy trì.** Fleet ở `pha:'giu'` không sinh ref ngoài (`stableFleetRef` đòi
+   `pha === 'di'`), nên mốc nhiên liệu là **sự kiện cục bộ** của chính chủ hạm — một
+   tài khoản, một lượt ghi. Mỗi mốc, `kiemTraGiu` xác minh lại **lệnh chiến tranh**
+   chứ không phải quan hệ liên minh.
+4. **Tan.** Hết giờ đã trả, hết nhiên liệu, hết lệnh chiến tranh, hoặc hai bên vào
+   chung một liên minh — vây tan và hạm đội rút. Đó cũng là **đường ngoại giao** để
+   bên bị vây gỡ vây mà không cần đánh.
+
+**Tác dụng của vây.** Projection `phongtoa` ghi mọi vòng vây còn hiệu lực. `kiemTraGui`
+đọc nó ở cửa phát lệnh: hành tinh đang bị vây **không xuất được** `transport`, `deploy`,
+`hold`, `colonize`, `recycle`, `thamhiem`. `attack` và tên lửa **không bao giờ bị chặn** —
+bị vây mà mất luôn quyền phản công thì phong toả thành án tử chứ không còn là một nước cờ.
+`/api/state` trả thêm `st.pvpToa` (các vòng vây đang siết hành tinh của người gọi);
+projection này **không** kèm đội hình kẻ vây — muốn biết thì phải do thám.
+
+**Giới hạn đã biết.** Bên bị vây chưa có cách đánh thẳng vào chính hạm đội đang vây:
+`hamGiuTai` cố ý loại đội phong toả khỏi lực lượng phòng thủ, và một trận nhắm vào toạ
+độ đó chỉ chạm lớp phòng thủ của chủ hành tinh. Gỡ vây hiện đi bằng thời gian (kẻ vây
+hết nhiên liệu hoặc hết giờ đã trả) hoặc bằng ngoại giao. Đánh trực diện vào hạm đội
+vây cần một đường giải trận hạm-đối-hạm mới, chưa dựng.
 
 Khi một trận tới host, server tìm candidate `hamgiu` và hold inbound theo toạ độ,
 khoá/tua mọi chủ tới đúng T, rồi mới lọc biên `giuLuc <= T < giuDenT` và truyền

@@ -12,6 +12,7 @@ var cutoverModule = require('../server/scheduler/cutover.js');
 var runMaintenanceCutover = cutoverModule.runMaintenanceCutover;
 var isPristineDatabase = cutoverModule.isPristineDatabase;
 var apDungMigrationScheduler = require('../server/scheduler/migrations.js').apDungMigrationScheduler;
+var G = require('../server/rules.js').G;
 
 var kiemTra = 0;
 function ktra(dieuKien, ten) {
@@ -339,10 +340,134 @@ async function kiemCho() {
   }
 }
 
+/* Phong toả quỹ đạo giữa người chơi: lệnh ở lại đi kèm nhiệm vụ Tấn Công, và
+ * projection `phongtoa` khoá được cửa phát lệnh của bên bị vây. */
+async function kiemPhongToa() {
+  var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-phongtoa-'));
+  var dbPath = path.join(directory, 'g.sqlite');
+  var clock = clockCoDinh();
+  var khoCut = new Kho(dbPath);
+  try {
+    runMaintenanceCutover({
+      kho: khoCut, clock: clock, ownerId: '00000000-0000-4000-8000-000000000071'
+    });
+  } finally { khoCut.dong(); }
+
+  var records = [];
+  var app = taoAppDurable(dbPath, clock, records);
+  try {
+    await app.start();
+    var A = await post(app, '/api/dangky', {ten: 'kevay', mk: 'matkhau-vay', hienthi: 'Kẻ Vây'});
+    var D = await post(app, '/api/dangky', {ten: 'bivay', mk: 'matkhau-bi', hienthi: 'Bị Vây'});
+    ktra(A.status === 200 && D.status === 200, 'phong toả: dựng được hai tài khoản');
+    var tA = A.body.token, tD = D.body.token;
+    var idA = app.kho.q.tkTheoTen.get('kevay').id;
+    var idD = app.kho.q.tkTheoTen.get('bivay').id;
+    var cD = stateCua(app, idD).planets[0].c;
+    var cA = stateCua(app, idA).planets[0].c;
+
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idA);
+      st.planets[0].ships = {fighterH: 4000, cruiser: 2000, fighterL: 100};
+      st.planets[0].res.deut = 5e7;
+      return st;
+    })()), idA);
+
+    /* Giữ Chỗ vẫn bị từ chối ở quỹ đạo người chơi khác — và lời từ chối phải
+       chỉ đúng sang đường mới, nếu không người chơi không biết làm thế nào. */
+    var giuNguoi = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {fighterL: 1}, den: cD, mission: 'hold', cargo: {deut: 500}, pct: 100, giu: 1
+    }}, tA);
+    ktra(giuNguoi.status === 200 && /Tấn Công/.test(giuNguoi.body.loi || ''),
+      'phong toả: Giữ Chỗ ở quỹ đạo người khác bị từ chối và chỉ sang nhiệm vụ Tấn Công (' +
+      (giuNguoi.body.loi || 'không lỗi') + ')');
+
+    /* Không có lệnh chiến tranh thì không xuất kích được — đây cũng là bài
+       chứng minh kiểm tra LÚC PHÁT LỆNH thật sự chạy. */
+    var chuaChien = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {fighterH: 10}, den: cD, mission: 'attack', cargo: {}, pct: 100, toa: 6
+    }}, tA);
+    ktra(chuaChien.status === 200 && /24 giờ|tuyên chiến/i.test(chuaChien.body.loi || ''),
+      'phong toả: chưa tuyên chiến thì bị chặn NGAY Ở BẾN (' + (chuaChien.body.loi || 'không lỗi') + ')');
+
+    /* tuyên chiến và cho lệnh đủ 24 giờ */
+    var tuyen = await post(app, '/api/tuyenchien', {tk: idD}, tA);
+    ktra(tuyen.status === 200, 'phong toả: tuyên chiến được');
+    app.kho.db.prepare('UPDATE chien SET khi=khi-90000').run();
+
+    /* dựng thẳng một vòng vây trong projection để đo tác dụng của nó */
+    var gio = Math.floor(clock.nowMs() / 1000);
+    app.kho.q.ptThem.run(idA, 77, idD, G.tdKey(cD), 'Kẻ Vây', null, gio - 10, gio + 20000);
+
+    ktra(app.tg.phongToaTai(G.tdKey(cD), idD, gio).length === 1,
+      'phong toả: phongToaTai thấy vòng vây còn hiệu lực');
+    ktra(app.tg.phongToaTai(G.tdKey(cD), idA, gio).length === 0,
+      'phong toả: chính kẻ vây không tự thấy mình đang vây mình');
+    ktra(app.tg.phongToaCua(idD).length === 1 && app.tg.phongToaCua(idA).length === 0,
+      'phong toả: bên bị vây thấy vòng vây, bên đi vây thì không');
+
+    var goiD = await get(app, '/api/state', tD);
+    ktra(goiD.status === 200 && (goiD.body.st.pvpToa || []).length === 1 &&
+      goiD.body.st.pvpToa[0].ten === 'Kẻ Vây', 'phong toả: /api/state trả pvpToa cho bên bị vây');
+    ktra(goiD.body.st.pvpToa[0].ships === undefined,
+      'phong toả: projection không lộ đội hình kẻ vây — muốn biết thì phải do thám');
+
+    /* cửa phát lệnh của bên bị vây */
+    app.kho.db.prepare('UPDATE dq SET state=? WHERE tk=?').run(JSON.stringify((function () {
+      var st = stateCua(app, idD);
+      st.planets[0].ships = {cargoS: 50, fighterL: 50};
+      st.planets[0].res.deut = 5e6;
+      return st;
+    })()), idD);
+    var camVC = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {cargoS: 5}, den: cA, mission: 'transport', cargo: {metal: 10}, pct: 100
+    }}, tD);
+    ktra(camVC.status === 200 && /phong toả/i.test(camVC.body.loi || ''),
+      'phong toả: bị vây thì Vận Chuyển không xuất bến được');
+    var camGiu = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {fighterL: 5}, den: cA, mission: 'hold', cargo: {deut: 1000}, pct: 100, giu: 1
+    }}, tD);
+    ktra(camGiu.status === 200 && /phong toả/i.test(camGiu.body.loi || ''),
+      'phong toả: bị vây thì Giữ Chỗ cũng không xuất bến được');
+    var duocDanh = await post(app, '/api/lam', {ten: 'gui', dl: {
+      pi: 0, ships: {fighterL: 5}, den: cA, mission: 'attack', cargo: {}, pct: 100
+    }}, tD);
+    ktra(!/phong toả/i.test((duocDanh.body && duocDanh.body.loi) || ''),
+      'phong toả: bị vây vẫn đánh trả được — vây không phải án tử');
+
+    /* hai bên vào chung liên minh thì vây tan ngay, không đợi mốc nào */
+    app.kho.db.prepare('UPDATE dq SET lm=? WHERE tk IN (?,?)').run('[HB] Hoà Bình', idA, idD);
+    ktra(app.tg.phongToaTai(G.tdKey(cD), idD, gio).length === 0,
+      'phong toả: vào chung liên minh thì vòng vây tan ngay lập tức');
+    ktra(app.tg.phongToaCua(idD).length === 0,
+      'phong toả: pvpToa cũng sạch ngay khi thành đồng minh');
+    app.kho.db.prepare('UPDATE dq SET lm=NULL WHERE tk IN (?,?)').run(idA, idD);
+
+    /* hết hạn thì tự hết tác dụng, không cần ai dọn */
+    app.kho.db.prepare('UPDATE phongtoa SET denT=? WHERE tkA=?').run(gio - 1, idA);
+    ktra(app.tg.phongToaTai(G.tdKey(cD), idD, gio).length === 0,
+      'phong toả: dòng đã hết hạn không còn chặn gì');
+
+    /* rời vũ trụ thì projection đi theo (khoá ngoại ON DELETE CASCADE) */
+    app.kho.q.ptThem.run(idA, 78, idD, G.tdKey(cD), 'Kẻ Vây', null, gio - 10, gio + 20000);
+    var xoa = await post(app, '/api/xoatk', {mk: 'matkhau-vay', xacnhan: 'XOA'}, tA);
+    ktra(xoa.status === 200, 'phong toả: xoá được tài khoản kẻ vây');
+    ktra(app.kho.db.prepare('SELECT COUNT(*) AS n FROM phongtoa').get().n === 0,
+      'phong toả: kẻ vây rời vũ trụ thì mọi vòng vây của họ biến mất');
+
+    ktra(!records.some(function (r) { return r.level === 'error'; }),
+      'phong toả: không có lỗi nào lọt vào logger');
+  } finally {
+    await app.stop().catch(function () {});
+    xoaFixture(directory);
+  }
+}
+
 async function main() {
   await kiemTuCutover();
   await kiemDauVaoXau();
   await kiemCho();
+  await kiemPhongToa();
   var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-server-durable-'));
   var dbPath = path.join(directory, 'game.sqlite');
   var clock = clockCoDinh();
