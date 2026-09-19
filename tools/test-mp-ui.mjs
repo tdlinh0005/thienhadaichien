@@ -269,12 +269,12 @@ async function chay() {
   var dsMan = await p1.locator('#menu [data-man]').evaluateAll(function (els) {
     return els.map(function (e) { return e.getAttribute('data-man'); });
   });
-  ktra(dsMan.length === 16, 'menu có đủ 16 mục (' + dsMan.length + ')');
+  ktra(dsMan.length === 17, 'menu có đủ 17 mục (' + dsMan.length + ')');
   ktra(dsMan.indexOf('huongdan') >= 0, 'menu có mục Hướng Dẫn');
   ktra(dsMan.indexOf('mophong') >= 0, 'menu có mục Máy Tính Trận');
   var CHO_API = {
     thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm',
-    bangtin: '/api/bangtin', chat: '/api/chat'
+    bangtin: '/api/bangtin', chat: '/api/chat', cho: '/api/cho'
   };
   for (var j = 0; j < dsMan.length; j++) {
     var m = dsMan[j];
@@ -602,6 +602,62 @@ async function chay() {
   ktra(!!dongNgoai && !dongNgoai.tuyen && /Chủ liên minh mới được tuyên chiến/.test(dongNgoai.chu),
     'thành viên thường chỉ thấy giải thích, không thấy nút tuyên chiến');
   await ctxNgoai.close();
+
+  /* ---------- 6c. Chợ Thiên Hà: ký gửi, mua bán giữa hai người chơi ------ */
+  await vaoMan(p1, 'cho', '/api/cho');
+  ktra(await p1.isVisible('[data-act="cho-tab"][data-loai="tudo"]'),
+    'màn Chợ có hai quầy Siêu Thị / Tự Do');
+  ktra(/Siêu Thị bán/.test(await chuNoiDung(p1)), 'quầy mặc định là Siêu Thị Thiên Hà');
+  await nhan(p1, '[data-act="cho-tab"][data-loai="tudo"]', '/api/cho');
+  ktra(await p1.evaluate('MP.choLoai') === 'tudo', 'bấm quầy Tự Do thì đổi được quầy');
+  ktra(await p1.isVisible('#cho-gia'), 'Chợ Tự Do cho người bán tự ra giá');
+
+  var kimTruocKG = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
+  await p1.selectOption('#cho-res', 'metal');
+  await p1.fill('#cho-sl', '150');
+  await p1.fill('#cho-gia', '4');
+  await nhan(p1, '[data-act="cho-dang"]', '/api/chodang');
+  var kimSauKG = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
+  ktra(kimSauKG <= kimTruocKG - 150, 'ký gửi trừ hàng khỏi kho ngay (' +
+    kimTruocKG + ' → ' + kimSauKG + ')');
+  var loToi = await p1.evaluate('(MP.cho.cuaToi || []).length');
+  ktra(loToi === 1, 'lô ký gửi hiện trong bảng "Lô của ta" (' + loToi + ')');
+  await chup(p1, 'cho-tudo');
+
+  /* người 2 nhìn thấy và mua được */
+  await vaoMan(p2, 'cho', '/api/cho');
+  await nhan(p2, '[data-act="cho-tab"][data-loai="tudo"]', '/api/cho');
+  await p2.waitForFunction(function () {
+    return MP.cho && (MP.cho.ds || []).length > 0;
+  }, null, { timeout: 20000 });
+  var loBan = await p2.evaluate('MP.cho.ds[0].id');
+  ktra(/Quốc Bình/.test(await chuNoiDung(p2)), 'người 2 thấy sạp hàng của người 1');
+  var galTruocMua = await p2.evaluate('window.ST.galana');
+  await p2.fill('#cho-mua-' + loBan, '50');
+  await nhan(p2, '[data-act="cho-mua"][data-id="' + loBan + '"]', '/api/chomua');
+  var sauMua = await p2.evaluate(
+    '({gal: window.ST.galana, giao: (window.ST.giaoHang || []).length})');
+  ktra(galTruocMua - sauMua.gal === 200, 'mua 50 × 4 trừ đúng 200 Galana (' +
+    Math.round(galTruocMua - sauMua.gal) + ')');
+  ktra(sauMua.giao === 1, 'hàng mua nằm trên đường giao chứ không tới ngay');
+  /* tiêu đề panel bị CSS viết hoa nên innerText trả về chữ hoa — so không phân biệt hoa thường */
+  var ndMua = await chuNoiDung(p2);
+  ktra(/hàng đang trên đường về/i.test(ndMua) && /50 Kim Loại/.test(ndMua),
+    'màn Chợ hiện chuyến hàng đang về');
+  await chup(p2, 'cho-mua');
+
+  /* người 1 nhận tiền sau thuế và gỡ được phần còn lại */
+  await p1.evaluate('APP.hienLai()');
+  await p1.waitForFunction(function () {
+    return MP.cho && (MP.cho.cuaToi || [])[0] && Math.floor(MP.cho.cuaToi[0].sl) === 100;
+  }, null, { timeout: 20000 });
+  ktra(true, 'lô của người 1 tự trừ đi phần đã bán, còn 100');
+  var kimTruocGo = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
+  await nhan(p1, '[data-act="cho-go"]', '/api/chogo');
+  var kimSauGo = await p1.evaluate('Math.floor(window.ST.planets[0].res.metal)');
+  ktra(kimSauGo - kimTruocGo >= 99, 'gỡ lô thì 100 kim loại ký quỹ về lại kho (' +
+    kimTruocGo + ' → ' + kimSauGo + ')');
+  ktra(await p1.evaluate('(MP.cho.cuaToi || []).length') === 0, 'gỡ xong không còn lô nào của ta');
 
   /* ---------- 6b. phòng chat chung & liên minh ---------- */
   await vaoMan(p1, 'chat', '/api/chat');

@@ -390,6 +390,34 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     return json(res, 200, { ok: true, st: gGalana && gGalana.st, sv: self.thongTin() });
   }
 
+  /* ------------------------------------------------- chợ dùng chung */
+  if (duong === '/api/cho') {
+    await self.markLastSeen(p);
+    var loaiCho = chuoi(truyVan.get('loai') || 'sieuthi', 8);
+    return json(res, 200, self.tg.choDS(loaiCho, p.tk));
+  }
+
+  if ((duong === '/api/chodang' || duong === '/api/chogo' ||
+       duong === '/api/chomua') && req.method === 'POST') {
+    await self.markLastSeen(p);
+    var bCho = await docBodyDaXacThuc();
+    var phienCho = await self.commandFor(p, 'market', function () {
+      var loiCho;
+      if (duong === '/api/chodang')
+        loiCho = self.tg.choDang(p.tk, bCho.loai, bCho.pi, bCho.res, bCho.sl, bCho.gia);
+      else if (duong === '/api/chogo') loiCho = self.tg.choGo(p.tk, bCho.id);
+      else loiCho = self.tg.choMua(p.tk, bCho.id, bCho.sl);
+      return {loi: loiCho, game: self.goiState(p)};
+    });
+    var stCho = phienCho.game;
+    return json(res, phienCho.loi ? 400 : 200, {
+      loi: phienCho.loi || null,
+      st: stCho && stCho.st,
+      cho: self.tg.choDS(bCho.loai, p.tk),
+      sv: self.thongTin()
+    });
+  }
+
   if (duong === '/api/lmtao' && req.method === 'POST') {
     await self.markLastSeen(p);
     var b6 = await docBodyDaXacThuc();

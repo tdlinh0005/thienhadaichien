@@ -9,7 +9,8 @@
   var token = null;
   try { token = localStorage.getItem(KHOA_TOKEN); } catch (e) { token = null; }
 
-  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, chat: null, sv: null, ten: null, lienLac: true };
+  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, chat: null, sv: null, ten: null,
+    cho: null, choLoai: 'sieuthi', lienLac: true };
   G.MO_PHONG_NHE = true;
   APP.mp = true;
 
@@ -101,6 +102,7 @@
       if (U.sig() !== U.sigCu) U.ve(); else U.live();
       if (U.man === 'chat') taiChat(false).catch(function () { });
       if (U.man === 'lienminh') taiLienMinh(false).catch(function () { });
+      if (U.man === 'cho') taiCho(false).catch(function () { });
     }, function () { });
   }
 
@@ -143,6 +145,7 @@
     { id: 'phongthu', ten: 'Phòng Thủ' },
     { id: 'hamdoi', ten: 'Hạm Đội' },
     { id: 'thienha', ten: 'Thiên Hà' },
+    { id: 'cho', ten: 'Chợ Thiên Hà' },
     { id: 'lienminh', ten: 'Liên Minh' },
     { id: 'xephang', ten: 'Bảng Xếp Hạng' },
     { id: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
@@ -152,6 +155,129 @@
     { id: 'huongdan', ten: 'Hướng Dẫn' },
     { id: 'taikhoan', ten: 'Tài Khoản' }
   ];
+
+  /* ---------------------------------------------- chợ dùng chung ------- */
+  function taiCho(veToan) {
+    return api('/api/cho?loai=' + encodeURIComponent(MP.choLoai)).then(function (r) {
+      var thayDoi = JSON.stringify(MP.cho) !== JSON.stringify(r);
+      MP.cho = r;
+      if (U.man === 'cho' && (veToan || thayDoi)) U.ve();
+      return r;
+    }, function (e) {
+      if (veToan) U.toast(e.message, 'loi');
+      throw e;
+    });
+  }
+
+  function soO(id) {
+    var e = document.getElementById(id);
+    return Math.floor(+((e && e.value) || 0));
+  }
+
+  /* Cả hai chợ dùng chung một bảng lô hàng; khác nhau ở thuế và ở chỗ Siêu Thị
+     ép giá gốc còn Chợ Tự Do để người bán tự ra giá. */
+  U.m_cho = function () {
+    var st = U.st(), c = MP.cho;
+    var laST = MP.choLoai === 'sieuthi';
+    var h = '<div class="panel"><h3>Chợ Thiên Hà</h3><div class="noi">';
+    h += '<div class="hd-td" style="margin-bottom:8px">' +
+      '<button class="nut nho' + (laST ? ' oke' : '') + '" data-act="cho-tab" data-loai="sieuthi">' +
+        'Siêu Thị Thiên Hà</button>' +
+      '<button class="nut nho' + (laST ? '' : ' oke') + '" data-act="cho-tab" data-loai="tudo">' +
+        'Chợ Tự Do</button></div>';
+    if (!c) return h + '<span class="mo">Đang nối vào chợ...</span></div></div>';
+
+    h += '<p class="mo">' + (laST
+      ? 'Siêu Thị bán <b>hàng do chính người chơi ký gửi</b>, theo <b>giá gốc cố định</b> — ' +
+        'không ai ép giá ai được. Thuế <b>' + Math.round(c.thue * 100) + '%</b> trừ vào tiền người bán.'
+      : 'Chợ Tự Do để <b>người bán tự ra giá</b> và người mua tự cân nhắc. Thuế nhẹ hơn, chỉ <b>' +
+        Math.round(c.thue * 100) + '%</b>.') +
+      ' Hàng đăng bán bị <b>giữ khỏi kho ngay</b>, và hàng mua <b>tới hành tinh sau ' +
+      G.tg(c.giaoSau) + '</b>.</p>';
+
+    /* ---- đăng bán ---- */
+    h += '<h4 style="margin:10px 0 4px">Ký gửi hàng</h4>';
+    h += '<div class="hd-td"><select id="cho-res">';
+    for (var i = 0; i < G.RES.length; i++) {
+      var rr = G.RES[i];
+      if (!G.C.TY_GIA[rr.id]) continue;
+      h += '<option value="' + rr.id + '">' + U.esc(rr.ten) + ' (còn ' +
+        G.so(Math.floor(U.ht().res[rr.id] || 0)) + ')</option>';
+    }
+    h += '</select>' +
+      '<input id="cho-sl" type="number" min="1" step="1000" value="0" placeholder="số lượng">';
+    if (!laST) h += '<input id="cho-gia" type="number" min="0" step="1" value="1" ' +
+      'placeholder="Galana/đơn vị" title="giá mỗi đơn vị">';
+    h += '<button class="nut nho oke" data-act="cho-dang">Đăng bán từ ' +
+      U.esc(U.ht().ten) + '</button></div>';
+    if (laST) h += '<p class="mo" style="margin-top:4px">Giá gốc: 1 Galana = ' +
+      G.C.TY_GIA.metal + ' Kim Loại / ' + G.C.TY_GIA.crystal + ' Thạch Anh / ' +
+      G.C.TY_GIA.deut + ' Nhiên Liệu / ' + G.C.TY_GIA.food + ' Thực Phẩm.</p>';
+
+    /* ---- lô của mình ---- */
+    var cua = c.cuaToi || [];
+    h += '<h4 style="margin:12px 0 4px">Lô của ta (' + cua.length + '/' + c.toiDa + ')</h4>';
+    if (!cua.length) h += '<span class="mo">Chưa ký gửi gì.</span>';
+    else {
+      h += '<table><tr><th>Chợ</th><th>Mặt hàng</th><th class="r">Còn lại</th>' +
+        '<th class="r">Giá</th><th class="r"></th></tr>';
+      for (var j = 0; j < cua.length; j++) {
+        var o = cua[j], ro = G.byId(G.RES, o.res);
+        h += '<tr><td class="sz">' + (o.loai === 'sieuthi' ? 'Siêu Thị' : 'Tự Do') + '</td>' +
+          '<td><span style="color:' + U.mau(o.res, ro ? ro.mau : '#fff') + '">' +
+            U.esc(ro ? ro.ten : o.res) + '</span></td>' +
+          '<td class="r sz">' + G.so(Math.floor(o.sl)) + '</td>' +
+          '<td class="r sz vang">' + G.soNgan(o.gia) + '</td>' +
+          '<td class="r"><button class="nut nho xoa" data-act="cho-go" data-id="' + o.id +
+            '">Gỡ</button></td></tr>';
+      }
+      h += '</table>';
+    }
+    h += '</div></div>';
+
+    /* ---- sạp hàng ---- */
+    h += '<div class="panel"><h3>' + (laST ? 'Quầy Siêu Thị' : 'Sạp Chợ Tự Do') +
+      '</h3><div class="noi bang-cuon">';
+    var ds = c.ds || [];
+    if (!ds.length) h += '<span class="mo">Chưa ai bày hàng ở đây.</span>';
+    else {
+      h += '<table><tr><th>Người bán</th><th>Mặt hàng</th><th class="r">Còn</th>' +
+        '<th class="r">Giá / đơn vị</th><th class="r">Mua</th></tr>';
+      for (var k = 0; k < ds.length; k++) {
+        var x = ds[k], rx = G.byId(G.RES, x.res);
+        var laToi = MP.cho.cuaToi.some(function (y) { return y.id === x.id; });
+        h += '<tr><td class="sz">' + U.esc(x.tenBan) + (laToi ? ' <span class="mo">(ta)</span>' : '') +
+          '</td>' +
+          '<td><span style="color:' + U.mau(x.res, rx ? rx.mau : '#fff') + '">' +
+            U.esc(rx ? rx.ten : x.res) + '</span></td>' +
+          '<td class="r sz">' + G.so(Math.floor(x.sl)) + '</td>' +
+          '<td class="r sz vang">' + G.soNgan(x.gia) + '</td>' +
+          '<td class="r">' + (laToi ? '<span class="mo sz">—</span>' :
+            '<input type="number" min="1" step="1000" value="0" id="cho-mua-' + x.id +
+              '" style="width:110px"> <button class="nut nho oke" data-act="cho-mua" data-id="' +
+              x.id + '">Mua</button>') + '</td></tr>';
+      }
+      h += '</table>';
+    }
+    h += '</div></div>';
+
+    /* ---- hàng đang trên đường ---- */
+    var dsGiao = G.giaoHang(st);
+    h += '<div class="panel"><h3>Hàng đang trên đường về</h3><div class="noi">';
+    if (!dsGiao.length) h += '<span class="mo">Không có chuyến nào.</span>';
+    else {
+      h += '<table><tr><th>Lô hàng</th><th class="r">Tới sau</th><th>Về</th></tr>';
+      for (var g = 0; g < dsGiao.length; g++) {
+        var gg = dsGiao[g], pg = st.planets[gg.pi], rg = G.byId(G.RES, gg.res);
+        h += '<tr><td>' + G.so(gg.n) + ' ' + U.esc(rg ? rg.ten : gg.res) + '</td>' +
+          '<td class="r sz">' + U.dem(gg.den_t) + '</td>' +
+          '<td class="sz">' + U.esc(pg ? pg.ten : '—') + '</td></tr>';
+      }
+      h += '</table>';
+    }
+    h += '</div></div>';
+    return h;
+  };
 
   U.m_bangtin = function () {
     var bt = (MP.bt && MP.bt.bt) || [], tr = (MP.bt && MP.bt.tran) || [];
@@ -408,6 +534,43 @@
       if (m === 'lienminh') taiLienMinh(true).catch(function () { });
       if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
       if (m === 'chat') taiChat(true).catch(function () { });
+      if (m === 'cho') taiCho(true).catch(function () { });
+    },
+    'cho-tab': function (el) {
+      MP.choLoai = el.getAttribute('data-loai') === 'tudo' ? 'tudo' : 'sieuthi';
+      MP.cho = null; U.ve();
+      taiCho(true).catch(function () { });
+    },
+    'cho-dang': function () {
+      var res = (document.getElementById('cho-res') || {}).value || '';
+      var sl = soO('cho-sl');
+      if (!Number.isSafeInteger(sl) || sl < 1) return U.toast('Nhập số lượng cần ký gửi.', 'loi');
+      var dl = { loai: MP.choLoai, pi: U.pi, res: res, sl: sl };
+      if (MP.choLoai !== 'sieuthi') {
+        var gia = +((document.getElementById('cho-gia') || {}).value || 0);
+        if (!(gia > 0)) return U.toast('Nhập giá mỗi đơn vị.', 'loi');
+        dl.gia = gia;
+      }
+      api('/api/chodang', dl).then(function (r) {
+        if (r.loi) { MP.cho = r.cho; U.ve(); return U.toast(r.loi, 'loi'); }
+        apDung(r); MP.cho = r.cho; U.ve();
+        U.toast('Đã ký gửi ' + G.so(sl) + ' đơn vị.', 'ok');
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'cho-go': function (el) {
+      api('/api/chogo', { loai: MP.choLoai, id: +el.getAttribute('data-id') }).then(function (r) {
+        if (r.loi) { MP.cho = r.cho; U.ve(); return U.toast(r.loi, 'loi'); }
+        apDung(r); MP.cho = r.cho; U.ve(); U.toast('Đã gỡ lô, hàng về kho.', 'ok');
+      }, function (e) { U.toast(e.message, 'loi'); });
+    },
+    'cho-mua': function (el) {
+      var id = +el.getAttribute('data-id'), sl = soO('cho-mua-' + id);
+      if (!Number.isSafeInteger(sl) || sl < 1) return U.toast('Nhập số lượng cần mua.', 'loi');
+      api('/api/chomua', { loai: MP.choLoai, id: id, sl: sl }).then(function (r) {
+        if (r.loi) { MP.cho = r.cho; U.ve(); return U.toast(r.loi, 'loi'); }
+        apDung(r); MP.cho = r.cho; U.ve();
+        U.toast('Đã mua. Hàng tới sau ' + G.tg(MP.cho.giaoSau) + '.', 'ok');
+      }, function (e) { U.toast(e.message, 'loi'); });
     },
     /* vào/ra liên minh xong phải nạp lại danh sách thành viên từ server */
     'lm-vao': function (el) {

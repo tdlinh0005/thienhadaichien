@@ -198,7 +198,8 @@ async function kiemDauVaoXau() {
     /* 1. body JSON là null/mảng/số — handler đọc b.ten trên null thì ném */
     var mauBody = [null, [], 0, 'x', true];
     var duong = ['/api/tuyenchien', '/api/chuyengalana', '/api/lmtao', '/api/lmxin',
-      '/api/lmduoi', '/api/lmchuyen', '/api/chat', '/api/guithu', '/api/doimk', '/api/lam'];
+      '/api/lmduoi', '/api/lmchuyen', '/api/chat', '/api/guithu', '/api/doimk', '/api/lam',
+      '/api/chodang', '/api/chogo', '/api/chomua'];
     var xau = [], i, j;
     for (i = 0; i < duong.length; i++) {
       for (j = 0; j < mauBody.length; j++) {
@@ -238,9 +239,110 @@ async function kiemDauVaoXau() {
   }
 }
 
+/* Chợ dùng chung: ký quỹ, thuế, giao hàng chậm và khoá chống bán quá hàng.
+ * Giao dịch chạm HAI tài khoản nên phải chạy qua đúng scheduler durable. */
+async function kiemCho() {
+  var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-cho-'));
+  var dbPath = path.join(directory, 'g.sqlite');
+  var clock = clockCoDinh();
+  var khoCut = new Kho(dbPath);
+  try {
+    runMaintenanceCutover({
+      kho: khoCut, clock: clock, ownerId: '00000000-0000-4000-8000-000000000061'
+    });
+  } finally { khoCut.dong(); }
+
+  var records = [];
+  var app = taoAppDurable(dbPath, clock, records);
+  try {
+    await app.start();
+    var ban = await post(app, '/api/dangky', {ten: 'nguoiban', mk: 'matkhau-ban', hienthi: 'Người Bán'});
+    var mua = await post(app, '/api/dangky', {ten: 'nguoimua', mk: 'matkhau-mua', hienthi: 'Người Mua'});
+    ktra(ban.status === 200 && mua.status === 200, 'chợ: dựng được hai tài khoản');
+    var tB = ban.body.token, tM = mua.body.token;
+    var idB = app.kho.q.tkTheoTen.get('nguoiban').id;
+    var idM = app.kho.q.tkTheoTen.get('nguoimua').id;
+
+    var rong = await get(app, '/api/cho?loai=tudo', tB);
+    ktra(rong.status === 200 && rong.body.ds.length === 0 && rong.body.thue === 0.05,
+      'chợ: /api/cho trả sạp rỗng và thuế tự do 5%');
+
+    var kimTruoc = stateCua(app, idB).planets[0].res.metal;
+    var dang = await post(app, '/api/chodang',
+      {loai: 'tudo', pi: 0, res: 'metal', sl: 1000, gia: 3}, tB);
+    ktra(dang.status === 200 && !dang.body.loi && dang.body.cho.ds.length === 1,
+      'chợ: ký gửi được lô hàng');
+    ktra(stateCua(app, idB).planets[0].res.metal <= kimTruoc - 1000,
+      'chợ: hàng ký gửi bị giữ khỏi kho ngay');
+
+    var qua = await post(app, '/api/chodang',
+      {loai: 'tudo', pi: 0, res: 'metal', sl: 1e11, gia: 3}, tB);
+    ktra(qua.status === 400 && /Không đủ/.test(qua.body.loi || ''),
+      'chợ: không ký gửi quá số hàng đang có');
+
+    var loId = dang.body.cho.ds[0].id;
+    var tuMua = await post(app, '/api/chomua', {loai: 'tudo', id: loId, sl: 10}, tB);
+    ktra(tuMua.status === 400 && /chính mình/.test(tuMua.body.loi || ''),
+      'chợ: không tự mua lô của mình');
+    var quaMua = await post(app, '/api/chomua', {loai: 'tudo', id: loId, sl: 5000}, tM);
+    ktra(quaMua.status === 400, 'chợ: không mua quá số hàng còn lại');
+    var goNho = await post(app, '/api/chogo', {loai: 'tudo', id: loId}, tM);
+    ktra(goNho.status === 400 && /không phải lô hàng của bạn/i.test(goNho.body.loi || ''),
+      'chợ: không gỡ lô của người khác');
+
+    var galBanTruoc = stateCua(app, idB).galana;
+    var galMuaTruoc = stateCua(app, idM).galana;
+    var kimMuaTruoc = stateCua(app, idM).planets[0].res.metal;
+    var muaOk = await post(app, '/api/chomua', {loai: 'tudo', id: loId, sl: 400}, tM);
+    ktra(muaOk.status === 200 && !muaOk.body.loi, 'chợ: mua được hàng của người khác');
+    var stMua = stateCua(app, idM), stBan = stateCua(app, idB);
+    ktra(galMuaTruoc - stMua.galana === 1200, 'chợ: người mua trả đúng 400 × 3 Galana');
+    ktra(stBan.galana - galBanTruoc === 1140, 'chợ: người bán nhận đúng phần sau thuế 5%');
+    ktra(stMua.planets[0].res.metal <= kimMuaTruoc + 1 && (stMua.giaoHang || []).length === 1 &&
+      stMua.giaoHang[0].n === 400, 'chợ: hàng chưa tới ngay mà nằm trên đường giao');
+    ktra(muaOk.body.cho.ds[0].sl === 600, 'chợ: lô hàng bị trừ đúng phần đã bán');
+
+    /* hai lệnh mua cùng lúc trên cùng một lô: tổng bán ra không được vượt ký quỹ */
+    var doi = await Promise.all([
+      post(app, '/api/chomua', {loai: 'tudo', id: loId, sl: 600}, tM),
+      post(app, '/api/chomua', {loai: 'tudo', id: loId, sl: 600}, tM)
+    ]);
+    var thanhCong = doi.filter(function (r) { return r.status === 200 && !r.body.loi; });
+    ktra(thanhCong.length === 1, 'chợ: hai lệnh mua tranh nhau thì chỉ một lệnh ăn hàng (' +
+      JSON.stringify(doi.map(function (r) { return [r.status, r.body && r.body.loi]; })) + ')');
+    var tongNhan = (stateCua(app, idM).giaoHang || []).reduce(function (t, o) {
+      return t + o.n;
+    }, 0);
+    ktra(tongNhan === 1000, 'chợ: tổng hàng giao ra đúng bằng số đã ký gửi');
+
+    /* siêu thị ép giá gốc bất kể người bán khai gì */
+    var st = await post(app, '/api/chodang',
+      {loai: 'sieuthi', pi: 0, res: 'crystal', sl: 100, gia: 999999}, tB);
+    var loST = (st.body.cho.ds || []).filter(function (o) { return o.res === 'crystal'; })[0];
+    ktra(st.status === 200 && loST && Math.abs(loST.gia - 1 / 30) < 1e-12,
+      'chợ: Siêu Thị ép giá gốc, không cho người bán tự ra giá');
+    ktra(st.body.cho.thue === 0.1, 'chợ: thuế Siêu Thị 10%');
+
+    /* rời vũ trụ thì mọi lô hàng phải biến mất theo */
+    var xoa = await post(app, '/api/xoatk', {mk: 'matkhau-ban', xacnhan: 'XOA'}, tB);
+    ktra(xoa.status === 200, 'chợ: xoá được tài khoản người bán');
+    var conTuDo = await get(app, '/api/cho?loai=tudo', tM);
+    var conST = await get(app, '/api/cho?loai=sieuthi', tM);
+    ktra(conTuDo.body.ds.length === 0 && conST.body.ds.length === 0,
+      'chợ: người rời vũ trụ thì lô hàng của họ bị dọn sạch');
+
+    ktra(!records.some(function (r) { return r.level === 'error'; }),
+      'chợ: không có lỗi nào lọt vào logger');
+  } finally {
+    await app.stop().catch(function () {});
+    xoaFixture(directory);
+  }
+}
+
 async function main() {
   await kiemTuCutover();
   await kiemDauVaoXau();
+  await kiemCho();
   var directory = fs.mkdtempSync(path.join(os.tmpdir(), 'thdc-server-durable-'));
   var dbPath = path.join(directory, 'game.sqlite');
   var clock = clockCoDinh();

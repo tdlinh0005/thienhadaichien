@@ -358,10 +358,24 @@ khi có người đọc hoặc gửi. Kênh chung có nguồn từ game gốc, k
 bù của bản phục dựng. Khi liên minh giải thể, lịch sử kênh riêng bị xoá để một liên
 minh tái lập cùng tên/thẻ không đọc được bí mật của nhóm cũ.
 
+**`cho`** — sạp hàng dùng chung của **Siêu Thị Thiên Hà** (`loai:'sieuthi'`) và
+**Chợ Tự Do** (`loai:'tudo'`). Một dòng là một lô: `khi`, `tkBan`, `tenBan` (ảnh chụp
+tên người bán lúc đăng), `res`, `sl`, `gia` (Galana mỗi đơn vị). Bảng này **không** là
+projection — nó là nguồn sự thật duy nhất của hàng đang bày, và hàng trong đó là hàng
+**đã ký quỹ**: `choDang` trừ khỏi `dq.state` của người bán ngay lúc đăng, nên một lô
+không bao giờ bán được cho hai người. Ràng buộc `CHECK(sl>0)` cộng với hai câu ghi có
+điều kiện — `choBot` (`WHERE id=? AND sl>?`, mua một phần) và `choXoaHet`
+(`WHERE id=? AND sl=?`, mua trọn lô) — làm hai lệnh mua chạy song song chỉ có đúng một
+lệnh khớp dòng, lệnh kia bị huỷ cả giao dịch và nhận lỗi luật chơi.
+Chỉ mục `cho_loai(loai,res,gia,id)` và `cho_ban(tkBan,id)`.
+Bảng cố ý **không có khoá ngoại** tới `tk` (lô hàng phải sống sót qua mọi đường xoá
+khác), nên cả hai nhánh của `xoaTaiKhoan` phải tự gọi `choXoaCua(tk)`.
+
 **`bangtin`** — bảng tin toàn server: `id`, `khi`, `loai`, `noi`. `loai` hiện có
 `'tk'` (người mới nhận hành tinh), `'lm'` (lập / gia nhập liên minh), `'chien'`
 (đặt lệnh chiến tranh), `'tran'` (một trận PvP vừa xong), `'tiepte'` (chở tài
-nguyên hoặc chuyển Galana cho đồng minh).
+nguyên hoặc chuyển Galana cho đồng minh), `'cho'` (một lô hàng vừa bán được ở chợ
+dùng chung).
 Chỉ mục `bangtin_khi(khi DESC)`.
 
 **`tran`** — sổ ghi trận PvP để tra cứu về sau.
@@ -409,6 +423,10 @@ Token gửi qua header **`x-thdc-token`**. Lỗi luôn có dạng `{ "loi": "...
 | `/api/lm` | GET | **có** | — | `{ds,tv,xin,don,laChu,chien:{di,den,cho}}`; `chien.di` là lệnh bên mình, `chien.den` là lệnh nhắm vào mình, `cho=86400` |
 | `/api/tuyenchien` | POST | **có** | `{tk}` — id tài khoản mục tiêu | `{ok:true,chien}`; nếu đang ở liên minh chỉ chủ được đặt lệnh cho liên minh; 400 khi mục tiêu sai/cùng phe/lệnh trùng |
 | `/api/chuyengalana` | POST | **có** | `{tk,so}` — id người nhận và số nguyên 1…1.000.000.000.000 | `{ok:true,st,sv}`; chỉ cùng liên minh, kiểm tra lại membership sau khi tua cả hai đế quốc và ghi hai số dư trong một transaction |
+| `/api/cho` | GET | **có** | query `?loai=sieuthi\|tudo` | `{loai,thue,giaoSau,ds,cuaToi,toiDa}` — `ds` là sạp hàng của quầy đang xem (tối đa 200 lô), `cuaToi` là mọi lô của chính người gọi ở **cả hai quầy** |
+| `/api/chodang` | POST | **có** | `{loai,pi,res,sl,gia}` | `{loi,st,cho,sv}` — ký gửi hàng: trừ khỏi kho hành tinh `pi` ngay. Siêu Thị bỏ qua `gia` và dùng giá gốc `1/TY_GIA[res]`; Chợ Tự Do nhận `gia` trong (0, 1.000.000.000]. Tối đa 20 lô mỗi người |
+| `/api/chogo` | POST | **có** | `{loai,id}` | `{loi,st,cho,sv}` — gỡ lô của chính mình, hàng ký quỹ về hành tinh thủ phủ |
+| `/api/chomua` | POST | **có** | `{loai,id,sl}` | `{loi,st,cho,sv}` — chạm **hai tài khoản**: tiền chuyển ngay (trừ thuế), hàng vào `st.giaoHang` của người mua và tới sau `G.C.GIAO_HANG`. 400 khi lô đã hết, khi mua lô của chính mình hoặc không đủ Galana |
 | `/api/lmtao` | POST | **có** | `{ten, tag}` | `{loi, st, sv}` — lập liên minh rồi tự gia nhập · 400 tên/thẻ sai, hoặc tên/thẻ đã tồn tại |
 | `/api/lmxin` | POST | **có** | `{ten}` | gửi đơn xin; không đổi membership ngay, chặn đơn trùng |
 | `/api/lmduyet` | POST | **có** | `{tk}` | chủ duyệt ứng viên và server cập nhật state của người đó |
@@ -441,8 +459,13 @@ Ngoại lệ chưa bắt trong tầng API được `server/index.js` bọc lại
   client cũ bỏ `n`, engine chọn lô tương thích vừa đủ tới mốc vốn level cũ kế tiếp.
 - Đổi thuế qua `/api/lam` với `{ten:'doithue',dl:{pi,thue}}`; `thue` là phần
   trăm hữu hạn từ 0 tới 100, server lưu thành `taxBp` và tick state trước khi đổi.
+- Chợ dùng chung (`/api/cho*`) là **liên tài khoản**, nên `choMua` đi đúng khuôn của
+  `chuyenGalana`: nạp cả hai đế quốc, sửa cả hai state, rồi `luu()` cả hai trong **một**
+  giao dịch SQLite. Writer của scheduler durable bọc thêm `world.choMua` để advance
+  tài khoản người bán tới cùng mốc trước khi state của họ bị ghi.
 - Client (`web/js/mp.js`) gọi `/api/state` mỗi 8 giây và mỗi lần tab được hiện lại;
-  `/api/he`, `/api/xephang`, `/api/lm`, `/api/bangtin`, `/api/chat` gọi khi mở màn tương ứng.
+  `/api/he`, `/api/xephang`, `/api/lm`, `/api/bangtin`, `/api/chat`, `/api/cho` gọi khi mở
+  màn tương ứng.
   Khi đang ở màn Chat, client cũng lấy tin mới mỗi nhịp 8 giây nhưng chỉ thay vùng
   lịch sử, không xoá nội dung người chơi đang gõ.
   Không có WebSocket — tất cả là polling.

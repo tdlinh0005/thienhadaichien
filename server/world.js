@@ -1425,6 +1425,7 @@ TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi, options) {
             (chuMoi ? chuMoi.hienthi : 'Một thành viên') + ' tiếp quản ' + lmChu.ten + ' sau khi chủ cũ rời vũ trụ.');
         } else lmGiaiTan = lmChu.ten;
       }
+      self.kho.q.choXoaCua.run(tk);
       self.kho.q.phienXoaCua.run(tk);
       self.kho.q.tkXoa.run(tk);
       if (lmGiaiTan) self.kho.q.chatLMXoa.run(lmGiaiTan);
@@ -1466,6 +1467,9 @@ TheGioi.prototype.xoaTaiKhoan = function (tk, tenHienThi, options) {
     }
     /* ht / hamdang / dq / phien có ON DELETE CASCADE nên xoá theo;
        bảng tran giữ lại lịch sử để đối thủ vẫn tra được trận cũ. */
+    /* Bảng cho không gắn khoá ngoại (lô hàng phải sống sót qua mọi đường xoá
+       khác), nên phải tự dọn: người rời vũ trụ thì gỡ hết lô đang bán. */
+    kho.q.choXoaCua.run(tk);
     kho.q.phienXoaCua.run(tk);
     kho.q.tkXoa.run(tk);
     if (lmGiaiTan) kho.q.chatLMXoa.run(lmGiaiTan);
@@ -1590,6 +1594,183 @@ TheGioi.prototype.chuyenGalana = function (tkA, tkD, so) {
     this.ghiBangTin(now, 'tiepte', (tenA ? tenA.hienthi : 'Một chỉ huy') + ' chuyển ' +
       G.so(so) + ' Galana cho ' + (tenD ? tenD.hienthi : 'một đồng minh') + '.');
     complete = true;
+  } finally {
+    if (opened) this.ketThuc(complete);
+  }
+  return null;
+};
+
+/* ===================================================================
+ * CHỢ DÙNG CHUNG: SIÊU THỊ THIÊN HÀ & THỊ TRƯỜNG TỰ DO
+ * -------------------------------------------------------------------
+ * [XÁC NHẬN] Siêu thị CHỈ bán hàng do người chơi nhập vào, dùng giá gốc và
+ * thuế 10%; Thị Trường Tự Do là giao dịch trực tiếp giữa người chơi, thuế 5%;
+ * hàng mua tới hành tinh sau 6 GIỜ.
+ *
+ * Hàng niêm yết là hàng ĐÃ KÝ QUỸ — trừ khỏi kho người bán ngay lúc đăng, nên
+ * không thể bán một lô cho hai người. Tiền trả ngay, còn HÀNG thì đi qua đúng
+ * đường giao hàng 6 giờ đã có sẵn trong state người mua (`st.giaoHang`), nên
+ * tua offline vẫn giao đúng lúc mà không cần thêm bảng nào.
+ *
+ * Một lệnh mua chạm tối đa HAI tài khoản, y như chuyenGalana — dùng lại đúng
+ * khuôn đó: nạp cả hai, sửa, rồi luu() cả hai trong một giao dịch SQLite.
+ * =================================================================== */
+
+var CHO_TOI_DA = 20;            /* mỗi người giữ tối đa bấy nhiêu lô đang bán */
+var CHO_SL_TOI_DA = 1e12;
+var CHO_GIA_TOI_DA = 1e9;
+
+function choThue(loai) {
+  return loai === 'sieuthi' ? G.C.ST_THUE : G.C.TT_THUE;
+}
+/* Siêu thị dùng GIÁ GỐC, không cho người bán tự ra giá. */
+function choGiaGoc(res) {
+  return 1 / G.C.TY_GIA[res];
+}
+function choResHopLe(res) {
+  return typeof res === 'string' &&
+    Object.prototype.hasOwnProperty.call(G.C.TY_GIA, res) && !!G.byId(G.RES, res);
+}
+
+TheGioi.prototype.choDS = function (loai, tk) {
+  loai = loai === 'tudo' ? 'tudo' : 'sieuthi';
+  var ds = this.kho.q.choDS.all(loai, 200);
+  var cua = tk ? this.kho.q.choCuaToi.all(Math.floor(tk)) : [];
+  return {
+    loai: loai, thue: choThue(loai),
+    giaoSau: G.C.GIAO_HANG,
+    ds: ds, cuaToi: cua, toiDa: CHO_TOI_DA
+  };
+};
+
+/* Đăng bán: ký quỹ hàng khỏi kho ngay. */
+TheGioi.prototype.choDang = function (tk, loai, pi, res, sl, gia) {
+  loai = loai === 'tudo' ? 'tudo' : 'sieuthi';
+  if (!choResHopLe(res)) return 'Không bán được loại tài nguyên này.';
+  sl = Math.floor(Number(sl));
+  if (!Number.isSafeInteger(sl) || sl < 1 || sl > CHO_SL_TOI_DA)
+    return 'Số lượng phải là số nguyên từ 1 tới ' + G.so(CHO_SL_TOI_DA) + '.';
+  if (loai === 'sieuthi') gia = choGiaGoc(res);
+  else {
+    gia = Number(gia);
+    if (!isFinite(gia) || gia <= 0 || gia > CHO_GIA_TOI_DA)
+      return 'Giá mỗi đơn vị phải lớn hơn 0 và không quá ' + G.so(CHO_GIA_TOI_DA) + ' Galana.';
+  }
+  var dem = this.kho.q.choDemCua.get(Math.floor(tk));
+  if (dem && Number(dem.n) >= CHO_TOI_DA)
+    return 'Chỉ giữ được ' + CHO_TOI_DA + ' lô đang bán cùng lúc.';
+
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  var a = this.nap(tk);
+  if (!a) return 'Không nạp được đế quốc.';
+  pi = Math.floor(Number(pi) || 0);
+  var p = a.st.planets[pi];
+  if (!p) return 'Hành tinh không tồn tại.';
+  if ((p.res[res] || 0) < sl) return 'Không đủ ' + G.byId(G.RES, res).ten + ' ở hành tinh này.';
+  var ten = this.kho.q.tkTheoId.get(Math.floor(tk));
+  p.res[res] -= sl;
+  G.ghi(a.st, 'Đăng bán ' + G.so(sl) + ' ' + G.byId(G.RES, res).ten +
+    (loai === 'sieuthi' ? ' vào Siêu Thị' : ' ra Chợ Tự Do') + '.');
+
+  var now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
+  var opened = !this.ctx, complete = false;
+  if (opened) this.batDau();
+  try {
+    this.kho.q.choThem.run(now, loai, Math.floor(tk), ten ? ten.hienthi : '?', res, sl, gia);
+    this.luu(tk, a.st, mutation ? {mutation: mutation} : undefined);
+    complete = true;
+  } finally { if (opened) this.ketThuc(complete); }
+  return null;
+};
+
+/* Gỡ lô đang bán: hàng ký quỹ trả về kho. */
+TheGioi.prototype.choGo = function (tk, id) {
+  id = Math.floor(Number(id));
+  if (!Number.isSafeInteger(id) || id < 1) return 'Lô hàng không hợp lệ.';
+  var row = this.kho.q.choGet.get(id);
+  if (!row) return 'Lô hàng không còn nữa.';
+  if (Number(row.tkBan) !== Math.floor(tk)) return 'Đây không phải lô hàng của bạn.';
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  var a = this.nap(tk);
+  if (!a) return 'Không nạp được đế quốc.';
+  var p = a.st.planets[0];
+  if (!p) return 'Không còn hành tinh nào để nhận hàng về.';
+  var sl = Math.floor(Number(row.sl));
+  p.res[row.res] = (p.res[row.res] || 0) + sl;
+  G.ghi(a.st, 'Gỡ lô hàng, nhận lại ' + G.so(sl) + ' ' + G.byId(G.RES, row.res).ten + '.');
+  var opened = !this.ctx, complete = false;
+  if (opened) this.batDau();
+  try {
+    this.kho.q.choXoa.run(id);
+    this.luu(tk, a.st, mutation ? {mutation: mutation} : undefined);
+    complete = true;
+  } finally { if (opened) this.ketThuc(complete); }
+  return null;
+};
+
+/* Mua: tiền chuyển ngay, hàng tới sau 6 giờ. Chạm tối đa hai tài khoản. */
+TheGioi.prototype.choMua = function (tk, id, sl) {
+  tk = Math.floor(tk);
+  id = Math.floor(Number(id));
+  if (!Number.isSafeInteger(id) || id < 1) return 'Lô hàng không hợp lệ.';
+  sl = Math.floor(Number(sl));
+  if (!Number.isSafeInteger(sl) || sl < 1) return 'Số lượng mua không hợp lệ.';
+  var row = this.kho.q.choGet.get(id);
+  if (!row) return 'Lô hàng không còn nữa.';
+  var tkBan = Number(row.tkBan);
+  if (tkBan === tk) return 'Không mua lô hàng của chính mình — muốn lấy lại thì gỡ lô.';
+  var conLai = Math.floor(Number(row.sl));
+  if (conLai < sl) return 'Lô này chỉ còn ' + G.so(conLai) + '.';
+
+  var gia = Number(row.gia);
+  var traTho = Math.ceil(gia * sl);
+  if (!(traTho > 0)) return 'Giá trị giao dịch quá nhỏ.';
+  var thue = Math.ceil(traTho * choThue(row.loai));
+  var nhan = traTho - thue;
+
+  var mutation = this._scheduler ? this._schedulerActive(this._schedulerMutation) : null;
+  var now = mutation ? Math.floor(mutation.effectiveNowMs / 1000) : this.gameNow();
+  var a = this.nap(tk), d = this.nap(tkBan);
+  if (!a) return 'Không nạp được đế quốc.';
+  if (!d) return 'Người bán đã rời vũ trụ; lô hàng này không còn hiệu lực.';
+  if ((a.st.galana || 0) < traTho) return 'Cần ' + G.so(traTho) + ' Galana.';
+  if (!a.st.planets.length) return 'Không còn hành tinh nào để nhận hàng.';
+
+  a.st.galana -= traTho;
+  d.st.galana = (d.st.galana || 0) + nhan;
+  if (!Array.isArray(a.st.giaoHang)) a.st.giaoHang = [];
+  a.st.giaoHang.push({ pi: 0, res: row.res, n: sl, den_t: a.st.now + G.C.GIAO_HANG });
+
+  var tenRes = G.byId(G.RES, row.res).ten;
+  var cho = row.loai === 'sieuthi' ? 'Siêu Thị Thiên Hà' : 'Chợ Tự Do';
+  G.tin(a.st, 'he', 'Mua hàng ở ' + cho,
+    'Đã mua ' + G.so(sl) + ' ' + tenRes + ' của ' + row.tenBan + ' hết ' + G.so(traTho) +
+    ' Galana. Hàng tới sau ' + G.tg(G.C.GIAO_HANG) + '.');
+  G.tin(d.st, 'he', 'Bán được hàng ở ' + cho,
+    'Đã bán ' + G.so(sl) + ' ' + tenRes + ', nhận ' + G.so(nhan) + ' Galana (thuế ' +
+    G.so(thue) + ').');
+
+  var self = this, opened = !this.ctx, complete = false;
+  if (opened) this.batDau();
+  try {
+    /* Trừ có điều kiện ngay trong giao dịch: nếu một lệnh mua khác vừa lấy
+       mất phần hàng thì lệnh này không khớp dòng nào và cả giao dịch bị huỷ,
+       không có chuyện bán quá số hàng đã ký quỹ. Mua trọn lô thì xoá hẳn dòng
+       (khớp đúng số lượng đã đọc), mua một phần thì trừ dần. */
+    var kq = conLai === sl
+      ? self.kho.q.choXoaHet.run(id, row.sl)
+      : self.kho.q.choBot.run(sl, id, sl);
+    if (!kq || Number(kq.changes) !== 1) throw new Error('CHO_HET_HANG');
+    self.luu(tk, a.st, mutation ? {mutation: mutation} : undefined);
+    self.luu(tkBan, d.st, mutation ? {mutation: mutation} : undefined);
+    self.ghiBangTin(now, 'cho', row.tenBan + ' bán ' + G.so(sl) + ' ' + tenRes + ' ở ' + cho + '.');
+    complete = true;
+  } catch (e) {
+    if (e && e.message === 'CHO_HET_HANG') {
+      if (opened) { this.ketThuc(false); opened = false; }
+      return 'Lô hàng vừa bị người khác mua mất.';
+    }
+    throw e;
   } finally {
     if (opened) this.ketThuc(complete);
   }
@@ -2377,7 +2558,8 @@ var RULES_HOOK_METHODS = Object.freeze([
   'dongBoChiMuc', 'hamDangToi', 'hamGiuTai', 'hanhDong',
   'danhNguoi', 'doThamNguoi', 'tangNguoi', 'xepHangCho', 'xemHe',
   'oTrong', 'timNha', 'taoDeQuoc', 'tenLuaNguoi', 'xoaTaiKhoan',
-  'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana', 'lmDS', 'lmTao',
+  'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana',
+  'choDS', 'choDang', 'choGo', 'choMua', 'lmDS', 'lmTao',
   'lmThanhVien', 'lmXin', 'lmDuyet', 'lmDuoi', 'lmChuyenChu', 'lmRa',
   'nhip', 'resolvePvpAt', 'resolveTransportAt', 'resolveSpyAt',
   'resolveHoldAt', 'resolveMissileAt'

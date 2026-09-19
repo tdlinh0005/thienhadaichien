@@ -140,6 +140,20 @@ var SCHEMA = [
   "CREATE INDEX IF NOT EXISTS chat_lm ON chat(lm,kenh,khi DESC,id DESC)",
   "CREATE INDEX IF NOT EXISTS chat_khi ON chat(khi)",
 
+  /* [XÁC NHẬN] Siêu Thị Thiên Hà chỉ bán hàng do NGƯỜI CHƠI nhập vào, dùng giá
+     gốc và thuế 10%; Thị Trường Tự Do là giao dịch trực tiếp giữa người chơi,
+     thuế 5%. Cả hai dùng chung một bảng niêm yết, khác nhau ở cột `loai` và ở
+     chỗ giá do ai đặt. Hàng đã niêm yết là hàng ĐÃ KÝ QUỸ: trừ khỏi kho người
+     bán ngay lúc đăng, nên không thể bán một lô hàng cho hai người. */
+  `CREATE TABLE IF NOT EXISTS cho (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, khi INTEGER NOT NULL,
+     loai TEXT NOT NULL CHECK(loai IN ('sieuthi','tudo')),
+     tkBan INTEGER NOT NULL, tenBan TEXT NOT NULL,
+     res TEXT NOT NULL, sl REAL NOT NULL CHECK(sl>0), gia REAL NOT NULL CHECK(gia>0)
+   )`,
+  "CREATE INDEX IF NOT EXISTS cho_loai ON cho(loai,res,gia,id)",
+  "CREATE INDEX IF NOT EXISTS cho_ban ON cho(tkBan,id)",
+
   /* thống kê trận PvP để tra cứu về sau */
   `CREATE TABLE IF NOT EXISTS tran (
      id INTEGER PRIMARY KEY AUTOINCREMENT, khi INTEGER NOT NULL,
@@ -334,6 +348,25 @@ function Kho(duong, options) {
     ),
     chatLMXoa: d.prepare("DELETE FROM chat WHERE kenh='lienminh' AND lm=?"),
     chatDonRac: d.prepare('DELETE FROM chat WHERE khi<?'),
+
+    /* --- chợ dùng chung --- */
+    choThem: d.prepare(
+      'INSERT INTO cho(khi,loai,tkBan,tenBan,res,sl,gia) VALUES(?,?,?,?,?,?,?)'),
+    choGet: d.prepare('SELECT * FROM cho WHERE id=?'),
+    choDS: d.prepare(
+      'SELECT id,khi,loai,tkBan,tenBan,res,sl,gia FROM cho WHERE loai=? ' +
+      'ORDER BY res,gia,id LIMIT ?'),
+    choCuaToi: d.prepare(
+      'SELECT id,khi,loai,tkBan,tenBan,res,sl,gia FROM cho WHERE tkBan=? ORDER BY id'),
+    /* Mua một phần: điều kiện sl>? (không phải >=) để UPDATE không bao giờ
+       hạ lô xuống 0 — dòng số lượng 0 vi phạm CHECK và làm hỏng cả giao dịch. */
+    choBot: d.prepare('UPDATE cho SET sl=sl-? WHERE id=? AND sl>?'),
+    /* Mua trọn lô: xoá có điều kiện khớp ĐÚNG số lượng đã đọc, nên nếu ai đó
+       vừa mua mất một phần thì lệnh này không khớp dòng nào và bị huỷ. */
+    choXoaHet: d.prepare('DELETE FROM cho WHERE id=? AND sl=?'),
+    choXoa: d.prepare('DELETE FROM cho WHERE id=?'),
+    choXoaCua: d.prepare('DELETE FROM cho WHERE tkBan=?'),
+    choDemCua: d.prepare('SELECT COUNT(*) AS n FROM cho WHERE tkBan=?'),
 
     tranThem: d.prepare('INSERT INTO tran(khi,tkA,tkD,td,kq,cuop,matA,matD) VALUES(?,?,?,?,?,?,?,?)'),
     tranDS: d.prepare('SELECT * FROM tran ORDER BY khi DESC LIMIT ?')

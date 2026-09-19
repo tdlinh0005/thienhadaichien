@@ -220,6 +220,13 @@ schema hay công thức đầy đủ:
   Trường Tự Do là giao dịch trực tiếp người chơi, thuế **5%**; hàng mua tới hành
   tinh sau **6 giờ**. Tư liệu còn kể một khủng hoảng nhiên liệu vì siêu thị hết
   tiền, xác nhận thị trường không phải bộ đổi tài nguyên vô hạn.
+  Bản nhiều người nay dựng đúng câu đó: bảng `cho` dùng chung cả server, người chơi
+  ký gửi hàng thật vào (`choDang` trừ khỏi kho ngay), người khác mua thì tiền sang
+  tay ngay còn hàng đi mất 6 giờ. Siêu Thị ép **giá gốc** nên không ai ép giá ai;
+  Chợ Tự Do để người bán tự ra giá. **[TÁI DỰNG]** là các trần vận hành: 20 lô mỗi
+  người, 1e12 đơn vị mỗi lô, 1e9 Galana mỗi đơn vị — nguồn không nói gì về hạn mức.
+  Bản một người vẫn giữ Siêu Thị NPC có kho và quỹ hữu hạn, vì ở đó không có người
+  chơi nào khác để ký gửi hàng.
 - Thời gian bay được nêu theo bậc: cùng hệ mặt trời **6 giờ**, cùng vùng **12 giờ**,
   cùng thiên hà **24 giờ**, khác thiên hà **36 giờ**. Nguồn không còn định nghĩa
   ranh giới “vùng” hay mọi ngoại lệ tốc độ, nên bản phục dựng chưa thể dùng bốn

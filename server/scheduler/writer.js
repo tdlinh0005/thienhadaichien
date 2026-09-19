@@ -816,6 +816,7 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
   var realGuiThu = world.guiThu;
   var realTuyenChien = world.tuyenChien;
   var realChuyenGalana = world.chuyenGalana;
+  var realChoMua = world.choMua;
   function preflight(accountId, targetS) {
     accountId = Number(accountId);
     /* Số hiệu tài khoản ở đây đến THẲNG từ body của client (tuyenChien,
@@ -867,6 +868,17 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
     preflight(Number(tkD), targetS);
     return realChuyenGalana.call(world, tkA, tkD, so);
   };
+  /* Mua ở chợ chạm hai tài khoản y như chuyển Galana: người bán cũng phải
+     được tua tới cùng mốc trước khi state của họ bị ghi thêm Galana. */
+  world.choMua = function (tk, id, sl) {
+    var targetS = Math.floor(mutation.effectiveNowMs / 1000);
+    preflight(Number(tk), targetS);
+    var row = null;
+    var loId = Math.floor(Number(id));
+    if (Number.isSafeInteger(loId) && loId >= 1) row = world.kho.q.choGet.get(loId);
+    if (row) preflight(Number(row.tkBan), targetS);
+    return realChoMua.call(world, tk, id, sl);
+  };
   try { return fn(); }
   finally {
     world.luu = realLuu;
@@ -874,6 +886,7 @@ SchedulerWriter.prototype.withWriterMutationDefaults = function (mutation, fn) {
     world.guiThu = realGuiThu;
     world.tuyenChien = realTuyenChien;
     world.chuyenGalana = realChuyenGalana;
+    world.choMua = realChoMua;
   }
 };
 
