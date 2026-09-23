@@ -772,7 +772,7 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0;overflow-wrap:anywhere}
     <nav id="menu" aria-label="Mục điều hướng"></nav>
     <div class="page-frame">
       <header id="dau-man"></header>
-      <main id="noidung" tabindex="-1"></main>
+      <main id="noidung" tabindex="-1" aria-label="Nội dung chính"></main>
     </div>
   </div>
 
@@ -788,6 +788,11 @@ pre.nd{white-space:pre-wrap;font:inherit;margin:0;overflow-wrap:anywhere}
   </div>
 </div>
 <div id="toast" role="status" aria-live="polite" aria-atomic="false"></div>
+<script src="js/ui/core.js"></script>
+<script src="js/ui/khung.js"></script>
+<script src="js/ui/man.js"></script>
+<script src="js/ui/ve.js"></script>
+<script src="js/ui/dotphan.js"></script>
 <script>
 /* ===== js/data.js ===== */
 /* =========================================================================
@@ -1854,8 +1859,17 @@ G.danhTran = function (A, D, seed) {
         pl.crystal += (d.cost.crystal || 0) * m * G.C.PHE_LIEU;
       } else {           /* công sự: 70% được sửa lại sau trận [SUY LUẬN kiểu OGame] */
         matDPha[d.id] = m;
-        var sua = 0;
-        for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
+        var sua;
+        if (m > 100) {
+          /* xấp xỉ nhị thức B(m, 0.7): tránh vòng lặp O(m) khi m tới hàng triệu.
+             Độ lệch chuẩn sqrt(m·p·(1-p)) ≈ sqrt(0.21m); sai số nhỏ hơn 1 đơn vị
+             trên m lớn — không ảnh hưởng cân bằng game. */
+          sua = Math.round(m * G.C.SUA_CONG_SU + (rnd() * 2 - 1) * Math.sqrt(m * G.C.SUA_CONG_SU * (1 - G.C.SUA_CONG_SU)));
+          if (sua < 0) sua = 0; else if (sua > m) sua = m;
+        } else {
+          sua = 0;
+          for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
+        }
         con += sua; m -= sua;
       }
       if (m > 0) {
@@ -1897,92 +1911,14 @@ G.thuyThu = function (ships) {
   return t;
 };
 
-/* ===== js/engine.js ===== */
-/* THIÊN HÀ ĐẠI CHIẾN — lõi mô phỏng
- * Toàn bộ game chạy theo mốc thời gian thực: state chỉ lưu các mốc, mỗi lần
- * tick (hoặc mở lại game sau nhiều giờ) engine tua lại từng sự kiện theo
- * đúng thứ tự thời gian — nên chơi offline vẫn ra kết quả đúng.            */
+/* ===== js/migration.js ===== */
+/* THIÊN HÀ ĐẠI CHIẾN — migration state (v3 → v7)
+ * Tách khỏi js/engine.js theo review hội đồng: toàn bộ phép nâng cấp
+ * save cũ + quy đổi vốn công trình (slTuCap/capTuSL) nằm ở đây để
+ * engine.js chỉ còn luật mô phỏng thuần. Thứ tự nạp: sau combat, trước
+ * engine (engine gọi G.nangCapState tại G.diem). */
 'use strict';
 var G = window.G = window.G || {};
-G.STATE_VERSION = 7;
-
-/* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
-G.LECH_GIO = 0;
-G.giay = function () { return Math.floor(Date.now() / 1000) + G.LECH_GIO; };
-
-/* =======================================================================
- * KHỞI TẠO
- * ===================================================================== */
-G.moiGame = function (ten, seedStr, home) {
-  var now = G.giay();
-  var seed = seedStr || ('THDC-' + Math.floor(Math.random() * 1e9));
-  var r = G.rng(G.hash(seed));
-  /* home do server chỉ định ở chế độ nhiều người (mỗi người một ô riêng) */
-  if (!home) home = G.toaDo(1 + Math.floor(r() * G.C.SO_THIEN_HA), 1 + Math.floor(r() * 60), 4 + Math.floor(r() * 9));
-
-  var st = {
-    v: G.STATE_VERSION, moHinhCT: 'so-luong-v1', moHinhNhip: G.NHIP_V1.marker,
-    moHinhQuyDao: G.QUY_DAO_V1.marker,
-    seed: seed, now: now, t0: now, lastTick: now,
-    ten: ten || 'Chỉ Huy',
-    home: home,
-    planets: [],
-    tech: {}, ncQueue: null,
-    galana: 3000, techPts: 0,
-    fleets: [], toi: [], tenLua: [],   // toi = hạm đội địch đang bay tới; tenLua = tên lửa đang bay
-    npc: {}, debris: {},
-    msgs: [], nk: [],
-    baoTri: {
-      nextAt: now + G.NHIP_V1.cycleSeconds,
-      cycle: 0,
-      missStreak: 0,
-      arrearsGalana: 0,
-      activatedAt: now,
-      rules: G.NHIP_V1.maintenanceRules
-    },
-    /* Alias state v4: chỉ giữ để client cũ đọc được trong một vòng nâng cấp. */
-    nextMaint: now + G.NHIP_V1.cycleSeconds,
-    nextRaid: now + 3600 * 3,
-    soChuKy: 0, noBaoTri: 0,
-    lm: null,
-    /* Kinh tế thật v7 [XÁC NHẬN khung; hằng số trong G.KINH_TE_V1] */
-    nganHang: { soDu: 0, laiLuc: 0 },
-    dauTuST: { von: 0, ketThucAt: 0 },
-    uranium: 0,
-    luongGD: { muc: 0, traLuc: 0, phanBoi: false },
-    choDon: [],
-    moHinhKT: G.KINH_TE_V1.marker,
-    stats: { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 },
-    fleetIdSeq: 1
-  };
-  var htMe = G.htMoi(st, home, 'Hành Tinh Mẹ', true);
-  /* Hành tinh mẹ luôn là Ôn Hoà — nơi loài người khởi đầu được */
-  htMe.loai = 'onhoa';
-  var Lme = G.LHT('onhoa');
-  htMe.temp = Math.round((Lme.temp[0] + Lme.temp[1]) / 2);
-  htMe.oDat = Math.max(150, htMe.oDat);
-  st.planets.push(htMe);
-  G.tin(st, 'he', 'Chào mừng tới kỷ nguyên liên ngân hà',
-    'Hạm đội thuộc địa đã hạ cánh tại ' + G.tdStr(home) + '. Bộ Chỉ Huy Liên Hành Tinh giao cho ' +
-    st.ten + ' quyền toàn quyền phát triển hành tinh này. Bối cảnh: ' + G.BOI_CANH + '.\n\n' +
-    'Nhắc lại quy định: mỗi 6 giờ hành tinh phải qua một CHU KỲ BẢO TRÌ. ' +
-    'Không đủ Galana để trả phí bảo trì thì sản lượng sụt và nghiên cứu đứng bánh.\n\n' +
-    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
-  return st;
-};
-
-G.htMoi = function (st, c, ten, thuDo) {
-  var d = G.dacTinh(st, c);
-  return {
-    c: { g: c.g, h: c.h, p: c.p }, ten: ten || 'Thuộc Địa', thuDo: !!thuDo,
-    loai: d.loai, temp: d.temp, oDat: d.oDat,
-    b: {}, res: { metal: thuDo ? 1500 : 500, crystal: thuDo ? 800 : 300, deut: thuDo ? 200 : 100, food: thuDo ? 1200 : 400 },
-    ships: {}, def: {}, mis: {}, linh: {},
-    qB: [], qS: [],
-    doi: 0,                    // alias cảnh báo đói của state cũ
-    danSu: G.danSuMacDinh()
-  };
-};
 
 /* =======================================================================
  * MIGRATION V3 -> V4: CẤP CÔNG TRÌNH -> SỐ LƯỢNG
@@ -2012,81 +1948,20 @@ G.capTuSL = function (def, n) {
   return lv;
 };
 
-/* =======================================================================
- * STATE V5: NHỊP BẢO TRÌ, DÂN SỐ VÀ NGHIÊN CỨU TRẢ GÓP
- * -----------------------------------------------------------------------
- * Tư liệu xác nhận nhịp toàn đế quốc 6 giờ, dân số sàn 250.000 và chi phí
- * nghiên cứu bị rút theo từng nhịp. Các tỷ lệ cụ thể nằm trong G.NHIP_V1
- * và đều được đánh dấu [TÁI DỰNG] tại data.js. */
-G.danSuMacDinh = function () {
-  return {
-    population: G.NHIP_V1.populationStart,
-    supportBp: G.NHIP_V1.defaultSupportBp,
-    taxBp: G.NHIP_V1.defaultTaxBp,
-    foodDemandCycle: 0,
-    foodShortfallCycle: 0,
-    decayRemainder: 0
-  };
-};
 
-G.sucChuaDan = function (p) {
-  var city = G.B('city');
-  var moiTP = city && isFinite(city.housing) ? city.housing : G.NHIP_V1.cityHousing;
-  return Math.max(G.NHIP_V1.populationFloor,
-    Math.floor(G.NHIP_V1.baseHousing + Math.max(0, Number((p.b || {}).city) || 0) * moiTP));
-};
+function chuanHoaNen(st) {
+  st.planets = Array.isArray(st.planets) ? st.planets : [];
+  st.fleets = Array.isArray(st.fleets) ? st.fleets : [];
+  st.toi = Array.isArray(st.toi) ? st.toi : [];
+  st.tenLua = Array.isArray(st.tenLua) ? st.tenLua : [];
+  st.msgs = Array.isArray(st.msgs) ? st.msgs : [];
+  st.nk = Array.isArray(st.nk) ? st.nk : [];
+  st.tech = st.tech && typeof st.tech === 'object' ? st.tech : {};
+}
 
-G.nhuCauTPChuKy = function (st, p) {
-  var ds = p && p.danSu;
-  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds && ds.population) || 0));
-  var soCT = 0, soThu = 0, k;
-  for (k in ((p && p.b) || {})) soCT += Math.max(0, Number(p.b[k]) || 0);
-  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
-  var thuyThu = G.thuyThu && p ? G.thuyThu(p.ships || {}) : 0;
-  return population * G.NHIP_V1.foodPerPersonCycle +
-    (0.05 * thuyThu + 0.5 * soCT + 0.01 * soThu) *
-      (G.NHIP_V1.cycleSeconds / 3600) * G.C.TOC_DO_SERVER;
-};
-
-/* Civil v4 chỉ dùng khi tua phần thời gian nằm trước activatedAt. Đây là
- * compatibility bridge, không phải luật dân số mới. */
-G.danSuV4Gio = function (st, p) {
-  var soThu = 0, k;
-  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
-  var anUong = (0.05 * G.thuyThu((p && p.ships) || {}) +
-    0.5 * G.tongSoCT(p) + 0.01 * soThu) * G.C.TOC_DO_SERVER;
-  var thue = G.C.THUE_CO_BAN * G.tongSoCT(p) * G.C.TOC_DO_SERVER * (p.doi > 0 ? 0.5 : 1);
-  return { anUong: anUong, thue: thue };
-};
-
-/* Thuế chạy liên tục để đổi thuế giữa chu kỳ được chia đúng theo thời gian. */
-G.thueDanSuGio = function (st, p) {
-  var ds = p && p.danSu;
-  if (!ds) return 0;
-  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds.population) || 0));
-  var tax = Math.max(G.NHIP_V1.minTaxBp, Math.min(G.NHIP_V1.maxTaxBp, Math.floor(Number(ds.taxBp) || 0)));
-  var support = Math.max(0, Math.min(G.NHIP_V1.maxSupportBp, Math.floor(Number(ds.supportBp) || 0)));
-  return population * G.NHIP_V1.taxGalanaPerPersonHour *
-    G.C.TOC_DO_SERVER * tax / 10000 * support / 10000;
-};
-G.thueDanSuChuKy = function (st, p) {
-  return G.thueDanSuGio(st, p) * (G.NHIP_V1.cycleSeconds / 3600);
-};
-
-G.timHanhTinh = function (st, planetKey) {
-  var ps = st && Array.isArray(st.planets) ? st.planets : [];
-  for (var i = 0; i < ps.length; i++) if (ps[i].c && G.tdKey(ps[i].c) === planetKey) return ps[i];
-  return null;
-};
-
-G.dongBoBaoTriCu = function (st) {
-  if (!st || !st.baoTri) return st;
-  st.nextMaint = st.baoTri.nextAt;
-  st.soChuKy = st.baoTri.cycle;
-  st.noBaoTri = st.baoTri.arrearsGalana;
-  return st;
-};
-
+/* vectorChiPhi/vectorCong: bản sao cục bộ của helper ở js/engine.js
+ * (file nạp sau) — migration phải tự chủ, không phụ thuộc thứ tự ngoài
+ * việc G đã tồn tại. */
 function vectorChiPhi(o) {
   var out = {};
   o = o && typeof o === 'object' ? o : {};
@@ -2101,40 +1976,6 @@ function vectorCong(a, b) {
   b = vectorChiPhi(b);
   for (k in b) out[k] = (out[k] || 0) + b[k];
   return out;
-}
-
-G.chiPhiConLai = function (q) {
-  var out = {}, tong = vectorChiPhi(q && q.totalCost), da = vectorChiPhi(q && q.paidCost);
-  for (var k in tong) {
-    var con = Math.max(0, tong[k] - (da[k] || 0));
-    if (con > 0) out[k] = con;
-  }
-  return out;
-};
-
-/* Mỗi kỳ lấy ceil(phần còn lại / số kỳ còn lại), nên kỳ cuối khép đúng
- * totalCost và không tích luỹ sai số ở các vector tài nguyên khác nhau. */
-G.kyNghienCuu = function (q) {
-  var out = {}, con = G.chiPhiConLai(q);
-  var soKy = Math.max(0, Math.floor(Number(q && q.installmentsLeft) || 0));
-  if (!soKy) return out;
-  for (var k in con) out[k] = Math.ceil(con[k] / soKy);
-  return out;
-};
-
-G.conLaiNghienCuu = function (st, q) {
-  q = q || (st && st.ncQueue);
-  return q ? Math.max(0, Math.floor(Number(q.finishAt) || 0) - Math.floor(Number(st && st.now) || 0)) : 0;
-};
-
-function chuanHoaNen(st) {
-  st.planets = Array.isArray(st.planets) ? st.planets : [];
-  st.fleets = Array.isArray(st.fleets) ? st.fleets : [];
-  st.toi = Array.isArray(st.toi) ? st.toi : [];
-  st.tenLua = Array.isArray(st.tenLua) ? st.tenLua : [];
-  st.msgs = Array.isArray(st.msgs) ? st.msgs : [];
-  st.nk = Array.isArray(st.nk) ? st.nk : [];
-  st.tech = st.tech && typeof st.tech === 'object' ? st.tech : {};
 }
 
 function nangV3LenV4(st) {
@@ -2327,6 +2168,209 @@ G.nangCapState = function (st, activatedAt) {
   if (phienBan === 5) { nangV5LenV6(st, moc); phienBan = 6; }
   if (phienBan === 6) nangV6LenV7(st);
   return st;
+};
+
+/* ===== js/engine.js ===== */
+/* THIÊN HÀ ĐẠI CHIẾN — lõi mô phỏng
+ * Toàn bộ game chạy theo mốc thời gian thực: state chỉ lưu các mốc, mỗi lần
+ * tick (hoặc mở lại game sau nhiều giờ) engine tua lại từng sự kiện theo
+ * đúng thứ tự thời gian — nên chơi offline vẫn ra kết quả đúng.            */
+'use strict';
+var G = window.G = window.G || {};
+G.STATE_VERSION = 7;
+
+/* Lệch giờ giữa máy người chơi và server (bản nhiều người sẽ gán). */
+G.LECH_GIO = 0;
+G.giay = function () { return Math.floor(Date.now() / 1000) + G.LECH_GIO; };
+
+/* =======================================================================
+ * KHỞI TẠO
+ * ===================================================================== */
+G.moiGame = function (ten, seedStr, home) {
+  var now = G.giay();
+  var seed = seedStr || ('THDC-' + Math.floor(Math.random() * 1e9));
+  var r = G.rng(G.hash(seed));
+  /* home do server chỉ định ở chế độ nhiều người (mỗi người một ô riêng) */
+  if (!home) home = G.toaDo(1 + Math.floor(r() * G.C.SO_THIEN_HA), 1 + Math.floor(r() * 60), 4 + Math.floor(r() * 9));
+
+  var st = {
+    v: G.STATE_VERSION, moHinhCT: 'so-luong-v1', moHinhNhip: G.NHIP_V1.marker,
+    moHinhQuyDao: G.QUY_DAO_V1.marker,
+    seed: seed, now: now, t0: now, lastTick: now,
+    ten: ten || 'Chỉ Huy',
+    home: home,
+    planets: [],
+    tech: {}, ncQueue: null,
+    galana: 3000, techPts: 0,
+    fleets: [], toi: [], tenLua: [],   // toi = hạm đội địch đang bay tới; tenLua = tên lửa đang bay
+    npc: {}, debris: {},
+    msgs: [], nk: [],
+    baoTri: {
+      nextAt: now + G.NHIP_V1.cycleSeconds,
+      cycle: 0,
+      missStreak: 0,
+      arrearsGalana: 0,
+      activatedAt: now,
+      rules: G.NHIP_V1.maintenanceRules
+    },
+    /* Alias state v4: chỉ giữ để client cũ đọc được trong một vòng nâng cấp. */
+    nextMaint: now + G.NHIP_V1.cycleSeconds,
+    nextRaid: now + 3600 * 3,
+    soChuKy: 0, noBaoTri: 0,
+    lm: null,
+    /* Kinh tế thật v7 [XÁC NHẬN khung; hằng số trong G.KINH_TE_V1] */
+    nganHang: { soDu: 0, laiLuc: 0 },
+    dauTuST: { von: 0, ketThucAt: 0 },
+    uranium: 0,
+    luongGD: { muc: 0, traLuc: 0, phanBoi: false },
+    choDon: [],
+    moHinhKT: G.KINH_TE_V1.marker,
+    stats: { thang: 0, thua: 0, cuop: 0, tauMat: 0, tauDietDich: 0, chuyenBay: 0 },
+    fleetIdSeq: 1
+  };
+  var htMe = G.htMoi(st, home, 'Hành Tinh Mẹ', true);
+  /* Hành tinh mẹ luôn là Ôn Hoà — nơi loài người khởi đầu được */
+  htMe.loai = 'onhoa';
+  var Lme = G.LHT('onhoa');
+  htMe.temp = Math.round((Lme.temp[0] + Lme.temp[1]) / 2);
+  htMe.oDat = Math.max(150, htMe.oDat);
+  st.planets.push(htMe);
+  G.tin(st, 'he', 'Chào mừng tới kỷ nguyên liên ngân hà',
+    'Hạm đội thuộc địa đã hạ cánh tại ' + G.tdStr(home) + '. Bộ Chỉ Huy Liên Hành Tinh giao cho ' +
+    st.ten + ' quyền toàn quyền phát triển hành tinh này. Bối cảnh: ' + G.BOI_CANH + '.\n\n' +
+    'Nhắc lại quy định: mỗi 6 giờ hành tinh phải qua một CHU KỲ BẢO TRÌ. ' +
+    'Không đủ Galana để trả phí bảo trì thì sản lượng sụt và nghiên cứu đứng bánh.\n\n' +
+    'Chưa biết bắt đầu từ đâu thì mở màn HƯỚNG DẪN ở cuối menu bên trái.');
+  return st;
+};
+
+G.htMoi = function (st, c, ten, thuDo) {
+  var d = G.dacTinh(st, c);
+  return {
+    c: { g: c.g, h: c.h, p: c.p }, ten: ten || 'Thuộc Địa', thuDo: !!thuDo,
+    loai: d.loai, temp: d.temp, oDat: d.oDat,
+    b: {}, res: { metal: thuDo ? 1500 : 500, crystal: thuDo ? 800 : 300, deut: thuDo ? 200 : 100, food: thuDo ? 1200 : 400 },
+    ships: {}, def: {}, mis: {}, linh: {},
+    qB: [], qS: [],
+    doi: 0,                    // alias cảnh báo đói của state cũ
+    danSu: G.danSuMacDinh()
+  };
+};
+
+
+/* =======================================================================
+ * STATE V5: NHỊP BẢO TRÌ, DÂN SỐ VÀ NGHIÊN CỨU TRẢ GÓP
+ * -----------------------------------------------------------------------
+ * Tư liệu xác nhận nhịp toàn đế quốc 6 giờ, dân số sàn 250.000 và chi phí
+ * nghiên cứu bị rút theo từng nhịp. Các tỷ lệ cụ thể nằm trong G.NHIP_V1
+ * và đều được đánh dấu [TÁI DỰNG] tại data.js. */
+G.danSuMacDinh = function () {
+  return {
+    population: G.NHIP_V1.populationStart,
+    supportBp: G.NHIP_V1.defaultSupportBp,
+    taxBp: G.NHIP_V1.defaultTaxBp,
+    foodDemandCycle: 0,
+    foodShortfallCycle: 0,
+    decayRemainder: 0
+  };
+};
+
+G.sucChuaDan = function (p) {
+  var city = G.B('city');
+  var moiTP = city && isFinite(city.housing) ? city.housing : G.NHIP_V1.cityHousing;
+  return Math.max(G.NHIP_V1.populationFloor,
+    Math.floor(G.NHIP_V1.baseHousing + Math.max(0, Number((p.b || {}).city) || 0) * moiTP));
+};
+
+G.nhuCauTPChuKy = function (st, p) {
+  var ds = p && p.danSu;
+  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds && ds.population) || 0));
+  var soCT = 0, soThu = 0, k;
+  for (k in ((p && p.b) || {})) soCT += Math.max(0, Number(p.b[k]) || 0);
+  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
+  var thuyThu = G.thuyThu && p ? G.thuyThu(p.ships || {}) : 0;
+  return population * G.NHIP_V1.foodPerPersonCycle +
+    (0.05 * thuyThu + 0.5 * soCT + 0.01 * soThu) *
+      (G.NHIP_V1.cycleSeconds / 3600) * G.C.TOC_DO_SERVER;
+};
+
+/* Civil v4 chỉ dùng khi tua phần thời gian nằm trước activatedAt. Đây là
+ * compatibility bridge, không phải luật dân số mới. */
+G.danSuV4Gio = function (st, p) {
+  var soThu = 0, k;
+  for (k in ((p && p.def) || {})) soThu += Math.max(0, Number(p.def[k]) || 0);
+  var anUong = (0.05 * G.thuyThu((p && p.ships) || {}) +
+    0.5 * G.tongSoCT(p) + 0.01 * soThu) * G.C.TOC_DO_SERVER;
+  var thue = G.C.THUE_CO_BAN * G.tongSoCT(p) * G.C.TOC_DO_SERVER * (p.doi > 0 ? 0.5 : 1);
+  return { anUong: anUong, thue: thue };
+};
+
+/* Thuế chạy liên tục để đổi thuế giữa chu kỳ được chia đúng theo thời gian. */
+G.thueDanSuGio = function (st, p) {
+  var ds = p && p.danSu;
+  if (!ds) return 0;
+  var population = Math.max(G.NHIP_V1.populationFloor, Math.floor(Number(ds.population) || 0));
+  var tax = Math.max(G.NHIP_V1.minTaxBp, Math.min(G.NHIP_V1.maxTaxBp, Math.floor(Number(ds.taxBp) || 0)));
+  var support = Math.max(0, Math.min(G.NHIP_V1.maxSupportBp, Math.floor(Number(ds.supportBp) || 0)));
+  return population * G.NHIP_V1.taxGalanaPerPersonHour *
+    G.C.TOC_DO_SERVER * tax / 10000 * support / 10000;
+};
+G.thueDanSuChuKy = function (st, p) {
+  return G.thueDanSuGio(st, p) * (G.NHIP_V1.cycleSeconds / 3600);
+};
+
+G.timHanhTinh = function (st, planetKey) {
+  var ps = st && Array.isArray(st.planets) ? st.planets : [];
+  for (var i = 0; i < ps.length; i++) if (ps[i].c && G.tdKey(ps[i].c) === planetKey) return ps[i];
+  return null;
+};
+
+G.dongBoBaoTriCu = function (st) {
+  if (!st || !st.baoTri) return st;
+  st.nextMaint = st.baoTri.nextAt;
+  st.soChuKy = st.baoTri.cycle;
+  st.noBaoTri = st.baoTri.arrearsGalana;
+  return st;
+};
+
+function vectorChiPhi(o) {
+  var out = {};
+  o = o && typeof o === 'object' ? o : {};
+  for (var k in o) {
+    var n = Number(o[k]);
+    if (isFinite(n) && n > 0) out[k] = n;
+  }
+  return out;
+}
+function vectorCong(a, b) {
+  var out = vectorChiPhi(a), k;
+  b = vectorChiPhi(b);
+  for (k in b) out[k] = (out[k] || 0) + b[k];
+  return out;
+}
+
+G.chiPhiConLai = function (q) {
+  var out = {}, tong = vectorChiPhi(q && q.totalCost), da = vectorChiPhi(q && q.paidCost);
+  for (var k in tong) {
+    var con = Math.max(0, tong[k] - (da[k] || 0));
+    if (con > 0) out[k] = con;
+  }
+  return out;
+};
+
+/* Mỗi kỳ lấy ceil(phần còn lại / số kỳ còn lại), nên kỳ cuối khép đúng
+ * totalCost và không tích luỹ sai số ở các vector tài nguyên khác nhau. */
+G.kyNghienCuu = function (q) {
+  var out = {}, con = G.chiPhiConLai(q);
+  var soKy = Math.max(0, Math.floor(Number(q && q.installmentsLeft) || 0));
+  if (!soKy) return out;
+  for (var k in con) out[k] = Math.ceil(con[k] / soKy);
+  return out;
+};
+
+G.conLaiNghienCuu = function (st, q) {
+  q = q || (st && st.ncQueue);
+  return q ? Math.max(0, Math.floor(Number(q.finishAt) || 0) - Math.floor(Number(st && st.now) || 0)) : 0;
 };
 
 /* =======================================================================
@@ -2771,7 +2815,9 @@ var G = window.G = window.G || {};
  * bán, hồi dần theo giờ (tỉ lệ/giờ) lên trần. Multiplayer bỏ qua. */
 G.CHO_NPC = {
   TRAN: { metal: 2000000, crystal: 1000000, deut: 400000, food: 1500000 },
-  HOI_GIO: 0.02          // mỗi giờ hồi 2% trần
+  HOI_GIO: 0.02,         // mỗi giờ hồi 2% trần
+  MUA_GIO: 0.08,         // NPC mua mỗi giờ tối đa 8% số lượng mỗi đơn bán [TÁI DỰNG]
+  MUA_CHE: 0.2           // NPC chỉ mua khi giá ≤ 120% giá gốc [TÁI DỨNG]
 };
 
 function donKeTiep(st) {
@@ -2912,7 +2958,39 @@ G.tickCho = function (st, t) {
       }
     }
   }
+  /* NPC NGƯỜI MUA (solo): quét các đơn bán của người chơi, mua dần đơn giá
+   * hợp lý — README hướng dẫn "bán Kim Loại lấy Galana trả bảo trì" nhưng
+   * trước đây không ai mua, tài nguyên bị giam vĩnh viễn trong đơn. Luật:
+   *   - mỗi tick thị trường, mỗi đơn NPC mua tối đa MUA_GIO tỉ lệ số lượng;
+   *   - chỉ mua khi giá ≤ (1 + MUA_CHE) × giá gốc — định giá quá cao thì
+   *     đơn vẫn nằm, người chơi phải cân nhắc giá;
+   *   - tiền vào đơn (daBan/thuNhap sau thuế) như một lượt mua thật; người
+   *     chơi thu qua tickThuNhap đã có sẵn. */
+  var muaGio = G.CHO_NPC.MUA_GIO || 0;
+  if (muaGio > 0) {
+    for (i = 0; i < st.choDon.length; i++) {
+      var donN = st.choDon[i];
+      if (!donN.soConLai || donN.soConLai <= 0) continue;
+      if (donN.loai !== 'sieuthi' && donN.loai !== 'tudo') continue;
+      if (donN.gia > G.giaGoc(donN.res) * (1 + (G.CHO_NPC.MUA_CHE || 0))) continue;
+      var mua = Math.min(donN.soConLai, Math.max(1, Math.round(donN.soConLai * muaGio * gioTick(st, t))));
+      if (mua <= 0) continue;
+      var thueN = donN.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
+      var glN = Math.ceil(mua * donN.gia);
+      var thucNhan = Math.floor(glN * (1 - thueN));
+      st.galana += thucNhan;                         // NPC là nguồn Galana mới ở solo
+      donN.soConLai -= mua;
+      donN.daBan = (donN.daBan || 0) + mua;
+      donN.thuNhap = (donN.thuNhap || 0) + thucNhan;
+    }
+  }
 };
+
+/* Số giờ trôi từ lần tick thị trường trước (đơn giản hoá: dùng lastTick). */
+function gioTick(st, t) {
+  var tr = t - Number(st.lastTick || t);
+  return isFinite(tr) && tr > 0 ? Math.min(tr / 3600, 24) : 1;
+}
 
 /* ===== js/fleet.js ===== */
 /* THIÊN HÀ ĐẠI CHIẾN — hạm đội, nhiệm vụ, bảo trì, dòng thời gian
@@ -3358,12 +3436,12 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'recycle') {
-    var pl = G.pheLieu(st, o.key);
+    var plTL = G.pheLieu(st, o.key);
     var suc = G.khoangHang(f.ships), lay = { metal: 0, crystal: 0 };
     var conCho = suc;
-    lay.metal = Math.min(pl.metal, conCho); conCho -= lay.metal;
-    lay.crystal = Math.min(pl.crystal, conCho);
-    pl.metal -= lay.metal; pl.crystal -= lay.crystal;
+    lay.metal = Math.min(plTL.metal, conCho); conCho -= lay.metal;
+    lay.crystal = Math.min(plTL.crystal, conCho);
+    plTL.metal -= lay.metal; plTL.crystal -= lay.crystal;
     f.cargo.metal = (f.cargo.metal || 0) + Math.floor(lay.metal);
     f.cargo.crystal = (f.cargo.crystal || 0) + Math.floor(lay.crystal);
     G.tin(st, 'ham', 'Thu hồi phế liệu ' + G.tdStr(f.den),
@@ -4633,8 +4711,8 @@ G.chay = function (st, ten, dl) {
   return f(st, dl || {}) || null;
 };
 
-/* ===== js/ui.js ===== */
-/* THIÊN HÀ ĐẠI CHIẾN — giao diện */
+/* ===== js/ui/core.js ===== */
+/* UI — lõi + tiện ích hiển thị (tách từ ui.js) */
 'use strict';
 var G = window.G, U = window.U = {}, APP = window.APP = window.APP || {};
 
@@ -4648,7 +4726,7 @@ U.sigCu = '';
 
 U.esc = function (s) {
   return String(s === undefined || s === null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 U.st = function () { return window.ST; };
 U.datPi = function (pi, st) {
@@ -5209,6 +5287,12 @@ U.sigTrangThaiUI = function (st) {
   return JSON.stringify(sig);
 };
 
+
+/* ===== js/ui/khung.js ===== */
+/* UI — khung: thanh tài nguyên, menu, cảnh báo (tách từ ui.js) */
+'use strict';
+var G = window.G, U = window.U, APP = window.APP;
+
 /* ======================================================================
  * KHUNG: thanh trên, menu, cảnh báo
  * ==================================================================== */
@@ -5664,6 +5748,12 @@ U.htmlHangCanXuLy = function (a) {
     '<p>' + U.esc(a.consequence) + '</p><div class="tq-viec-meta">' + U.htmlEtaViec(a) + '</div></div>' +
     U.htmlNutDenViec(a, 'tq-viec-cta') + '</article>';
 };
+
+
+/* ===== js/ui/man.js ===== */
+/* UI — các màn hình chính (tách từ ui.js) */
+'use strict';
+var G = window.G, U = window.U, APP = window.APP;
 
 /* ======================================================================
  * MÀN: TỔNG QUAN
@@ -7020,6 +7110,12 @@ U.m_huongdan = function () {
   return h;
 };
 
+
+/* ===== js/ui/ve.js ===== */
+/* UI — vẽ & vòng cập nhật live (tách từ ui.js) */
+'use strict';
+var G = window.G, U = window.U, APP = window.APP;
+
 /* ======================================================================
  * VẼ & CẬP NHẬT
  * ==================================================================== */
@@ -7324,6 +7420,12 @@ U.live = function () {
     if (Number.isFinite(t)) ds[i].textContent = G.tg(t - st.now);
   }
 };
+
+
+/* ===== js/ui/dotphan.js ===== */
+/* UI — máy tính trận đánh (tách từ ui.js) */
+'use strict';
+var G = window.G, U = window.U, APP = window.APP;
 
 /* ======================================================================
  * MÀN: MÁY TÍNH TRẬN ĐÁNH (mô phỏng trước khi xuất kích)

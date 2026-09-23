@@ -2,7 +2,7 @@
 global.window = global;
 var fs = require('fs'), path = require('path');
 var goc = path.join(__dirname, '..', 'js');
-['data', 'util', 'galaxy', 'combat', 'migration', 'engine', 'thitruong', 'fleet', 'actions'].forEach(function (f) {
+['data', 'util', 'galaxy', 'combat', 'migration', 'engine', 'thitruong', 'fleet', 'actions', 'ui/core', 'ui/khung', 'ui/man', 'ui/ve', 'ui/dotphan'].forEach(function (f) {
   eval(fs.readFileSync(path.join(goc, f + '.js'), 'utf8'));
 });
 var G = window.G;

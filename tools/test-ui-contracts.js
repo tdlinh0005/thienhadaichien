@@ -13,7 +13,8 @@ var ROOT = path.join(__dirname, '..');
 function doc(file) { return fs.readFileSync(path.join(ROOT, file), 'utf8'); }
 
 var SRC = {
-  ui: doc('js/ui.js'),
+  ui: ['js/ui/core.js', 'js/ui/khung.js', 'js/ui/man.js', 'js/ui/ve.js', 'js/ui/dotphan.js']
+    .map(doc).join('\n'),
   app: doc('js/app.js'),
   solo: doc('js/main.js'),
   mp: doc('web/js/mp.js'),

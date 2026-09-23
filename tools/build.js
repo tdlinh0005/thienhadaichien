@@ -4,7 +4,7 @@ var goc = path.join(__dirname, '..');
 var html = fs.readFileSync(path.join(goc, 'index.html'), 'utf8');
 var tokens = fs.readFileSync(path.join(goc, 'css', 'tokens.css'), 'utf8');
 var css = fs.readFileSync(path.join(goc, 'css', 'style.css'), 'utf8');
-var thuTu = ['data', 'util', 'galaxy', 'combat', 'migration', 'engine', 'thitruong', 'fleet', 'actions', 'ui', 'app', 'main'];
+var thuTu = ['data', 'util', 'galaxy', 'combat', 'migration', 'engine', 'thitruong', 'fleet', 'actions', 'ui/core', 'ui/khung', 'ui/man', 'ui/ve', 'ui/dotphan', 'app', 'main'];
 var artifactSom = process.argv.indexOf('--artifact') >= 0;
 var js = thuTu.map(function (f) {
   return '/* ===== js/' + f + '.js ===== */\n' + fs.readFileSync(path.join(goc, 'js', f + '.js'), 'utf8');
