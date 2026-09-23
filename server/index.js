@@ -14,6 +14,7 @@ var API = require('./api.js').API;
 var G = require('./rules.js').G;
 
 var CONG = parseInt(process.env.PORT || '8080', 10);
+var TOC_DO = parseInt(process.env.THDC_TOC_DO || '8', 10);  // tốc độ sản xuất
 var GOC = path.join(__dirname, '..');
 
 var kho = new Kho();
@@ -21,6 +22,18 @@ var tg = new TheGioi(kho);
 var SO_NANG_CAP = tg.nangCapDuLieu();
 var api = new API(kho, tg);
 tg.seed();
+
+// Ghi tốc độ vào config DB nếu chưa có
+var tocCu = kho.cauhinh('tocDo');
+if (!tocCu) kho.cauhinh('tocDo', String(TOC_DO));
+else {
+  // Dùng giá trị từ DB (cho phép đổi lúc chạy)
+  var tocMoi = parseInt(tocCu, 10);
+  if (tocMoi > 0) {
+    G.C.TOC_DO_SERVER = tocMoi;
+    console.log('  Tốc độ      : sản xuất x' + tocMoi + ' (từ config)');
+  }
+}
 
 /* ------------------------------------------------------------ file tĩnh */
 var LOAI = {

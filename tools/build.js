@@ -2,6 +2,7 @@
 var fs = require('fs'), path = require('path');
 var goc = path.join(__dirname, '..');
 var html = fs.readFileSync(path.join(goc, 'index.html'), 'utf8');
+var tokens = fs.readFileSync(path.join(goc, 'css', 'tokens.css'), 'utf8');
 var css = fs.readFileSync(path.join(goc, 'css', 'style.css'), 'utf8');
 var thuTu = ['data', 'util', 'galaxy', 'combat', 'engine', 'thitruong', 'fleet', 'actions', 'ui', 'app', 'main'];
 var artifactSom = process.argv.indexOf('--artifact') >= 0;
@@ -16,7 +17,11 @@ if (artifactSom) {
 }
 
 /* dùng hàm thay thế: nội dung có ký tự $ sẽ bị hiểu là mẫu $' , $& nếu truyền chuỗi */
-html = html.replace('<link rel="stylesheet" href="css/style.css">', function () { return '<style>\n' + css + '\n</style>'; });
+html = html.replace('<link rel="stylesheet" href="css/tokens.css">', '');
+html = html.replace('<link rel="stylesheet" href="css/style.css">', function () {
+  return '<style>\n/* ===== tokens.css ===== */\n' + tokens +
+    '\n/* ===== css/style.css ===== */\n' + css + '\n</style>';
+});
 html = html.replace(/\n?\s*<script src="js\/[a-z]+\.js"><\/script>/g, '');
 html = html.replace('</body>', function () { return '<script>\n' + js + '\n<' + '/script>\n</body>'; });
 html = html.replace('<a href="docs/NGHIEN-CUU.md">phần nghiên cứu</a>',

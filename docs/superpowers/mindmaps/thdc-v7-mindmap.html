@@ -161,7 +161,7 @@ const DATA = {
   label:['THIÊN HÀ ĐẠI CHIẾN','STATE v7'],
   kind:'root',
   detail:{ pills:[], secs:[
-    ['Bối cảnh',['Phục dựng webgame ITD 2004–2010 theo tư liệu GVN + GameLand','Hiện trạng: v1.36, state v6, solo + multiplayer Node/SQLite']],
+    ['Bối cảnh',['Phục dựng webgame ITD 2004–2010 theo tư liệu GVN + GameLand','Hiện trạng: v1.36, state v7, solo + multiplayer Node/SQLite']],
     ['Quyết định đã chốt',['Trung thành lịch sử là ưu tiên số 1','Một đợt — 4 phase, mỗi phase commit riêng + npm test xanh','Neo con số tư liệu trước, cân bằng sau']],
   ]},
   children:[
@@ -212,7 +212,7 @@ const DATA = {
     { label:'UNIQUE(phieuId, tkBau)', tag:'' },
   ]},
   { label:'KỸ THUẬT', sub:'State v7 & kiểm thử', kind:'branch', accent:'var(--nl)', detail:{ pills:[['Migration additive',''],['Test mở rộng khuôn cũ','']], secs:[
-    ['Migration v6→v7',['Additive: chỉ gắn default, không đụng dữ liệu cũ','LM cũ → chinhThe docTai','State mới hơn engine → từ chối khởi động (giữ nguyên hành vi)','Solo đọc key v7 rồi fallback v6→v3, giữ key cũ dự phòng']],
+    ['Migration v6→v7',['Additive: chỉ gắn default, không đụng dữ liệu cũ','LM cũ → chinhThe docTai','State mới hơn engine → từ chối khởi động (giữ nguyên hành vi)','Solo giữ compatibility slot thdc_save_v6 chứa state v7; fallback v5→v3, giữ key raw dự phòng']],
     ['Kiểm thử',['tools/smoke.js: lãi đúng dải · đơn chợ trừ đúng · hệ số nhân đúng lớp · phiếu thực thi đúng · phản bội đúng ngưỡng','tools/test-server.js: chợ chéo 2 đế quốc · phiếu LM 2 tài khoản thật · migration giữ save · NPC hồi hàng','Sau mỗi phase: npm test xanh + npm run build']],
     ['Error handling',['Validation chuẩn soDuong/chuoi/tdParse','Mutation chéo đế quốc bọc unit-of-work SQLite','Client cũ thiếu trường mới → default, không crash']],
   ]}, children:[
@@ -424,4 +424,3 @@ build();wrapGroups();addLegend();updateSum();
 const TOTAL_W=340+4*(IW+RX)+40;
 fit();
 </script>
-

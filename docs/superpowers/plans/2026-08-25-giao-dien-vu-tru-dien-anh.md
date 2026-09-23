@@ -106,7 +106,7 @@ git commit -m "ui: chip tài nguyên — chấm màu theo tài nguyên, cảnh b
 
 - [ ] **Step 1: Định nghĩa U.svgIcon + bổ sung icon vào U.MAN**
 
-16 màn: tongquan(sao), tainguyen(dồng hồ), congtrinh(cần cẩu), nghiencuu(tinh thể), xuong(tàu), phongthu(khiên), hamdoi(hạm), thienha(thiên hà xoắn), lienminh(cờ), taichinh(ngân hàng cột), xephang(cúp), mophong(máy tính trận), tinnhan(thư), huongdan(sách), nhatky(bút), bangtin(loa), chat(bong bóng). Mỗi icon ≤4 path/circle đơn giản, `fill="none" stroke="currentColor" stroke-width="1.7"`.
+18 icon destination trong union solo/MP: tongquan(sao), tainguyen(đồng hồ), congtrinh(cần cẩu), nghiencuu(tinh thể), xuong(tàu), phongthu(khiên), hamdoi(hạm), thienha(thiên hà xoắn), lienminh(cờ), taichinh(ngân hàng cột), xephang(cúp), mophong(máy tính trận), tinnhan(thư), huongdan(sách), nhatky(bút), bangtin(loa), chat(bong bóng), taikhoan(người dùng). Mỗi icon ≤4 path/circle đơn giản, `fill="none" stroke="currentColor" stroke-width="1.7"`.
 
 - [ ] **Step 2: Sửa U.veMenu chèn icon**
 

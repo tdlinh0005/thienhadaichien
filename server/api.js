@@ -107,6 +107,15 @@ API.prototype.thongTin = function () {
   };
 };
 
+API.prototype.doiTocDo = function (tocDo) {
+  tocDo = parseInt(tocDo, 10);
+  if (![1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].includes(tocDo))
+    return { loi: 'Chỉ chấp nhận: 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000.' };
+  G.C.TOC_DO_SERVER = tocDo;
+  this.kho.cauhinh('tocDo', String(tocDo));
+  return { loi: null, tocDo: tocDo };
+};
+
 API.prototype.goiState = function (p) {
   var st = this.tg.tick(p.tk, null);
   if (!st) {
@@ -133,6 +142,14 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
 
   /* ---- công khai ---- */
   if (duong === '/api/thongtin') return json(res, 200, self.thongTin());
+
+  /* [v7] đổi tốc độ server (admin) */
+  if (duong === '/api/admin/tocdo' && req.method === 'POST') {
+    var b = await docBody(req);
+    var r = self.doiTocDo(b.tocDo);
+    if (r.loi) return json(res, 400, r);
+    return json(res, 200, r);
+  }
 
   if (duong === '/api/dangky' && req.method === 'POST') {
     if (!self.gioiHan('dk:' + ip, NHIP_XAC_THUC)) return json(res, 429, { loi: 'Thao tác quá nhanh, chờ một lát.' });

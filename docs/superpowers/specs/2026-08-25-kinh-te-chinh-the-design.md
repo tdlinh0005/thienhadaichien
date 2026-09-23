@@ -68,7 +68,10 @@ lm_phieu_chi_tiet (id PK, phieuId FK, tkBau, giaTri 0|1)   -- UNIQUE(phieuId, tk
 
 Migration v6→v7 chạy trong `TheGioi.nangCapDuLieu()`: gắn default cho mọi đế quốc,
 LM cũ nhận `chinhThe:'docTai'`. State mới hơn engine → từ chối khởi động (giữ nguyên
-hành vi v6). Bản một người đọc key v7 rồi fallback v6→v3, giữ key cũ làm dự phòng.
+hành vi v6). Quyết định tương thích 2026-08-26: bản một người tiếp tục dùng
+`thdc_save_v6` làm canonical compatibility slot nhưng payload được nâng lên state
+v7; fallback vẫn đọc v5→v3 và giữ key raw làm dự phòng. Đổi tên storage key là
+migration dữ liệu riêng, không thuộc scope redesign UI.
 
 ## Phase 1 — Kinh tế thật
 

@@ -1,0 +1,102 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+/* Thiên Hà Đại Chiến — semantic tokens from design.md (2026-08-25). */
+:root {
+  color-scheme: dark;
+
+  /* Theme: deep-space command, restrained amber signal. */
+  --color-paper: oklch(13% 0.018 255);
+  --color-paper-2: oklch(17% 0.020 255);
+  --color-paper-3: oklch(21% 0.022 255);
+  --color-surface-active: oklch(25% 0.026 255);
+  --color-ink: oklch(94% 0.012 255);
+  --color-ink-2: oklch(79% 0.018 255);
+  --color-muted: oklch(66% 0.020 255);
+  --color-rule: oklch(32% 0.025 255);
+  --color-rule-strong: oklch(43% 0.032 255);
+  --color-control-rule: oklch(49% 0.032 255);
+
+  --color-accent: oklch(75% 0.170 55);
+  --color-accent-ink: oklch(16% 0.025 55);
+  --color-focus-ring: oklch(75% 0.170 55);
+  --color-focus-gap: oklch(13% 0.018 255);
+
+  --color-info: oklch(76% 0.120 230);
+  --color-success: oklch(75% 0.140 150);
+  --color-warning: oklch(82% 0.150 85);
+  --color-danger: oklch(70% 0.190 28);
+  --color-info-surface: oklch(20% 0.040 230);
+  --color-success-surface: oklch(20% 0.040 150);
+  --color-warning-surface: oklch(21% 0.045 85);
+  --color-danger-surface: oklch(20% 0.050 28);
+
+  /* Typography. */
+  --font-display: "Chakra Petch", "Segoe UI", sans-serif;
+  --font-body: "Be Vietnam Pro", "Segoe UI", Tahoma, Arial, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.5rem;
+  --text-xl: 2rem;
+  --text-display: clamp(2rem, 4vw, 3.5rem);
+
+  /* Spacing, radius, shell sizing and stacking. */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  --space-3xl: 4rem;
+
+  --radius-control: 0.375rem;
+  --radius-panel: 0.5rem;
+  --radius-pill: 999px;
+  --rule-thin: 1px;
+
+  --size-control: 2.75rem;
+  --size-header: 3.5rem;
+  --size-situation: 3rem;
+  --size-workspace-rail: 4.5rem;
+  --size-secondary-nav: 13.5rem;
+  --size-context-panel: 20rem;
+  --size-content-max: 100rem;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* Motion. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 360ms;
+
+  /* Legacy compatibility aliases. New component CSS uses semantic names. */
+  --den: var(--color-paper);
+  --den2: var(--color-paper-2);
+  --panel: var(--color-paper-2);
+  --panel2: var(--color-paper-3);
+  --vien: var(--color-rule-strong);
+  --vien2: var(--color-control-rule);
+  --chu: var(--color-ink);
+  --mo: var(--color-muted);
+  --sang: var(--color-ink);
+  --cam: var(--color-accent);
+  --cam2: var(--color-accent);
+  --lam: var(--color-info);
+  --luc: var(--color-success);
+  --do: var(--color-danger);
+  --tim: var(--color-ink-2);
+  --vang: var(--color-warning);
+  --font-chu: var(--font-body);
+  --font-so: var(--font-display);
+}

@@ -44,6 +44,14 @@ var loi = 0, ok = 0;
 function ktra(dk, ten) { if (dk) ok++; else { loi++; console.log('  ✗ ' + ten); } }
 function log(s) { console.log('  · ' + s); }
 function nghi(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+async function onDinhFontNgoai(ctx) {
+  await ctx.route('https://fonts.googleapis.com/**', async function (route) {
+    await route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: '' });
+  });
+  await ctx.route('https://fonts.gstatic.com/**', async function (route) {
+    await route.fulfill({ status: 200, contentType: 'application/octet-stream', body: '' });
+  });
+}
 function suaStateUI(hienThi, f) {
   var db = new DatabaseSync(DB);
   var row = db.prepare(`SELECT dq.tk,dq.state FROM dq JOIN tk ON tk.id=dq.tk WHERE tk.hienthi=?`).get(hienThi);
@@ -80,8 +88,23 @@ async function nhan(page, sel, cho) {
 async function chuNoiDung(page) {
   return await page.$eval('#noidung', function (e) { return (e.innerText || e.textContent || '').trim(); });
 }
+async function chonMan(page, man) {
+  var workspace = await page.evaluate(function (id) {
+    var m = window.U && U.metaMan(id);
+    return m && m.workspace;
+  }, man);
+  if (!workspace) throw new Error('Destination không có trong registry: ' + man);
+  var truoc = await page.evaluate('U.man');
+  await page.click('#workspace [data-workspace="' + workspace + '"]');
+  if (truoc !== man && await page.evaluate(function (id) { return U.man === id; }, man)) return;
+  await page.waitForSelector('#menu [data-man="' + man + '"]', { state: 'visible' });
+  await page.click('#menu [data-man="' + man + '"]');
+}
 async function vaoMan(page, man, cho) {
-  await nhan(page, '#menu [data-man="' + man + '"]', cho);
+  var p = cho ? page.waitForResponse(function (r) { return r.url().indexOf(cho) >= 0; }, { timeout: 20000 }) : null;
+  await chonMan(page, man);
+  if (p) await p;
+  await nghi(cho ? 350 : 200);
 }
 
 /* ------------------------------------------------------------- đăng ký / nhập */
@@ -167,6 +190,7 @@ async function chay() {
   /* ---------- 2. hai người chơi, hai browser context ---------- */
   var ctx1 = await browser.newContext({ viewport: { width: 1400, height: 950 }, locale: 'vi-VN' });
   var ctx2 = await browser.newContext({ viewport: { width: 1400, height: 950 }, locale: 'vi-VN' });
+  await onDinhFontNgoai(ctx1); await onDinhFontNgoai(ctx2);
   var p1 = await moTrang(ctx1, 'người 1');
   var p2 = await moTrang(ctx2, 'người 2');
 
@@ -185,13 +209,35 @@ async function chay() {
 
   ktra(await p1.isVisible('#thanh-tren'), 'người 1 vào được game (thanh trên hiện ra)');
   ktra(await p1.isHidden('#man-khoidong'), 'màn đăng nhập đã tắt sau khi vào game');
-  var res1 = await p1.$eval('#tt-res', function (e) { return e.textContent; });
-  ktra(/Kim Loại/.test(res1) && /Galana/.test(res1), 'thanh tài nguyên hiện đủ các mục');
+  var khoaRes1 = await p1.$$eval('#tt-res [data-live]', function (els) {
+    return els.map(function (e) { return e.getAttribute('data-live'); });
+  });
+  var nhanRes1 = await p1.$$eval('#tt-res .chip > .n', function (els) {
+    return els.map(function (e) { return e.textContent.trim(); });
+  });
+  ktra(JSON.stringify(khoaRes1) === JSON.stringify([
+    'res.metal', 'rate.metal', 'res.crystal', 'rate.crystal',
+    'res.deut', 'rate.deut', 'res.food', 'rate.food',
+    'galana', 'rate.galana', 'tech', 'rate.tech'
+  ]), 'thanh tài nguyên hiện đúng 12 trường live (' + khoaRes1.length + ')');
+  ktra(JSON.stringify(nhanRes1) === JSON.stringify(['KL', 'TA', 'NL', 'TP', 'GL', 'KT', 'Điện', 'Bảo trì']),
+    'thanh tài nguyên giữ đủ 8 chip và nhãn rút gọn');
   var ten1 = await p1.evaluate('window.MP.ten');
   ktra(ten1 === 'Quốc Bình', 'giao diện nhận đúng tên chỉ huy từ máy chủ (' + ten1 + ')');
-  var tqDanSu = await chuNoiDung(p1);
-  ktra(/Dân số/.test(tqDanSu) && /Ủng hộ/.test(tqDanSu) && /Thuế/.test(tqDanSu),
-    'tổng quan hiện đủ dân số, ủng hộ và thuế');
+  var nhanTongQuan = await p1.$$eval('#noidung .dash-the-lon .n, #noidung .pill-chiso .n',
+    function (els) { return els.map(function (e) { return e.textContent.trim(); }); });
+  ktra(JSON.stringify(nhanTongQuan) === JSON.stringify([
+    'Điểm đế quốc', 'Bảo trì sau', 'Dân số', 'Loại hành tinh', 'Ô đất',
+    'Khe hạm đội', 'Số hành tinh', 'Ủng hộ', 'Thuế', 'Thực phẩm chu kỳ'
+  ]) && await p1.isVisible('#thue-pct') && await p1.isVisible('[data-act="doithue"]'),
+  'Tổng Quan giữ đủ dashboard dân số/ủng hộ/thuế và control đổi thuế');
+  var thanhTienDo = await p1.$eval('.dash-the-lon .bar', function (e) {
+    var b = e.getBoundingClientRect(), cs = getComputedStyle(e);
+    return { display: cs.display, cao: b.height, rong: b.width };
+  });
+  ktra(thanhTienDo.display === 'block' && thanhTienDo.cao > 0 && thanhTienDo.cao <= 8 && thanhTienDo.rong > 20,
+    'thanh tiến độ Tổng Quan có kích thước ổn định (' + Math.round(thanhTienDo.rong) + '×' +
+    Math.round(thanhTienDo.cao) + ')');
   await p1.fill('#thue-pct', '19');
   await nhan(p1, '[data-act="doithue"]', '/api/lam');
   ktra(await p1.evaluate('window.ST.planets[0].danSu.taxBp === 1900'),
@@ -199,13 +245,26 @@ async function chay() {
   await chup(p1, 'tongquan');
 
   /* ---------- 3. bấm đủ các mục menu ---------- */
-  var dsMan = await p1.$$eval('#menu [data-man]', function (els) {
-    return els.map(function (e) { return e.getAttribute('data-man'); });
+  var registryNav = await p1.evaluate(function () {
+    return {
+      workspaces: U.WORKSPACES.map(function (w) { return w.id; }),
+      destinations: U.MAN.map(function (m) { return m.id; })
+    };
   });
-  ktra(dsMan.length === 16, 'menu có đủ 16 mục (' + dsMan.length + ')');
+  var dsMan = registryNav.destinations;
+  var MAN_MP_MONG_DOI = [
+    'tongquan', 'tainguyen', 'congtrinh', 'nghiencuu', 'xuong', 'phongthu',
+    'taichinh', 'thienha', 'hamdoi', 'mophong', 'tinnhan', 'lienminh',
+    'xephang', 'bangtin', 'chat', 'huongdan', 'taikhoan'
+  ];
+  ktra(JSON.stringify(dsMan) === JSON.stringify(MAN_MP_MONG_DOI),
+    'registry multiplayer giữ đúng 17 destination và thứ tự IA (' + dsMan.length + ')');
+  ktra(JSON.stringify(registryNav.workspaces) === JSON.stringify(['chi_huy', 'phat_trien', 'tac_chien', 'lien_minh', 'he_thong']),
+    'workspace rail giữ đúng 5 nhóm và thứ tự');
   ktra(dsMan.indexOf('huongdan') >= 0, 'menu có mục Hướng Dẫn');
   ktra(dsMan.indexOf('mophong') >= 0, 'menu có mục Máy Tính Trận');
-  var CHO_API = { thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm', bangtin: '/api/bangtin', chat: '/api/chat' };
+  var CHO_API = { thienha: '/api/he', xephang: '/api/xephang', lienminh: '/api/lm',
+    taichinh: '/api/cho', bangtin: '/api/bangtin', chat: '/api/chat' };
   for (var j = 0; j < dsMan.length; j++) {
     var m = dsMan[j];
     var truoc = soLoi.length;
@@ -217,6 +276,21 @@ async function chay() {
     ktra(soLoi.length === truoc, 'mục "' + m + '" không sinh lỗi JS' +
       (soLoi.length > truoc ? ': ' + soLoi[truoc].noi : ''));
   }
+  await vaoMan(p1, 'chat', '/api/chat');
+  await p1.fill('#chat-noi-chung', 'Mệnh lệnh đang soạn');
+  await p1.evaluate(function () {
+    var e = document.getElementById('chat-noi-chung');
+    e.focus(); e.setSelectionRange(4, 9);
+    U.ve();
+  });
+  var focusChat = await p1.evaluate(function () {
+    var e = document.getElementById('chat-noi-chung');
+    return { id: document.activeElement && document.activeElement.id, value: e && e.value,
+      start: e && e.selectionStart, end: e && e.selectionEnd };
+  });
+  ktra(focusChat.id === 'chat-noi-chung' && focusChat.value === 'Mệnh lệnh đang soạn' &&
+    focusChat.start === 4 && focusChat.end === 9,
+    'full render cùng màn giữ focus, nội dung và selection của input text');
   await chup(p1, 'man-cuoi');
 
   /* ---------- 4. thao tác thật: xây, bán, xem thiên hà ---------- */
@@ -225,6 +299,17 @@ async function chay() {
   ktra(await p1.isVisible('[data-act="xay"][data-id="city"]'), 'màn Công Trình có Thành Phố mở sức chứa dân cư');
   ktra(await p1.isVisible('#ct-sl-metalMine'), 'công trình có ô nhập số lượng lô');
   await p1.fill('#ct-sl-metalMine', '5');
+  await p1.evaluate(function () {
+    var e = document.getElementById('ct-sl-metalMine');
+    e.focus();
+    U.ve();
+  });
+  var focusXay = await p1.evaluate(function () {
+    var e = document.getElementById('ct-sl-metalMine');
+    return { id: document.activeElement && document.activeElement.id, value: e && e.value };
+  });
+  ktra(focusXay.id === 'ct-sl-metalMine' && focusXay.value === '5',
+    'full render cùng màn giữ focus và giá trị của input number');
   await p1.waitForFunction(function () {
     return (document.querySelector('[data-act="xay"][data-id="metalMine"]') || {}).textContent.indexOf('×5') >= 0;
   });
@@ -240,15 +325,74 @@ async function chay() {
   ktra(await p1.isVisible('[data-act="huyxay"]'), 'hàng đợi có nút Huỷ');
 
   await vaoMan(p1, 'tainguyen');
-  ktra(await p1.isVisible('#cho-metal'), 'màn Tài Nguyên có Chợ Thiên Hà');
-  var gal0 = await p1.evaluate('window.ST.galana');
-  await p1.fill('#cho-metal', '900');
-  await nhan(p1, '[data-act="ban"][data-res="metal"]', '/api/lam');
+  ktra(await p1.isHidden('#cho-metal') &&
+    await p1.isVisible('#noidung [data-act="man"][data-man="taichinh"]'),
+    'màn Tài Nguyên đã bỏ chợ cũ và có CTA tới Ngân Hàng & Thị Trường');
+  await p1.click('#noidung [data-act="man"][data-man="taichinh"]');
+  await p1.waitForFunction(function () { return U.man === 'taichinh'; });
+  ktra(await p1.evaluate('U.tabTC === "nganhang"'),
+    'mở Tài chính ở tab Ngân hàng không gửi loại chợ không hợp lệ');
+  await nhan(p1, '[data-act="tab-tc"][data-tab="tudo"]', '/api/cho?loai=tudo');
+  ktra(await p1.evaluate('U.tabTC === "tudo" && MP.cho && MP.cho.loai === "tudo"'),
+    'tab Thị Trường Tự Do nạp đúng dataset multiplayer');
+  await nhan(p1, '[data-act="tab-tc"][data-tab="sieuthi"]', '/api/cho?loai=sieuthi');
+  ktra(await p1.evaluate('U.tabTC === "sieuthi" && MP.cho && MP.cho.loai === "sieuthi"'),
+    'tab Siêu Thị nạp lại đúng dataset multiplayer');
+  ktra(await p1.isVisible('#ban-metal'), 'màn Ngân Hàng & Thị Trường có form đăng bán Siêu Thị');
+
+  /* Tạo một global choId trước bằng người 2 để id local của người 1 chắc chắn
+     lệch choId; như vậy nút Huỷ phải dùng đúng id toàn cục của server. */
+  await vaoMan(p2, 'taichinh');
+  await nhan(p2, '[data-act="tab-tc"][data-tab="sieuthi"]', '/api/cho?loai=sieuthi');
+  await p2.fill('#ban-crystal', '1');
+  var donDemTraVe = p2.waitForResponse(function (r) {
+    return r.request().method() === 'POST' && /\/api\/cho$/.test(r.url());
+  }, { timeout: 20000 });
+  await p2.click('[data-act="dang-ban"][data-loai="sieuthi"]');
+  await donDemTraVe;
+  await p2.waitForFunction(function () {
+    return window.ST.choDon.some(function (d) { return d.res === 'crystal' && d.soConLai === 1; });
+  });
+
+  var metal0 = await p1.evaluate('window.ST.planets[0].res.metal');
+  await p1.fill('#ban-metal', '900');
+  var dangBanTraVe = p1.waitForResponse(function (r) {
+    return r.request().method() === 'POST' && /\/api\/cho$/.test(r.url());
+  }, { timeout: 20000 });
+  await p1.click('[data-act="dang-ban"][data-loai="sieuthi"]');
+  await dangBanTraVe;
+  await p1.waitForFunction(function () {
+    return window.ST.choDon.some(function (d) {
+      return d.res === 'metal' && d.loai === 'sieuthi' && d.soConLai === 900;
+    });
+  });
+  await p1.waitForFunction(function () {
+    var b = document.querySelector('#noidung [data-act="huy-don"]');
+    var tr = b && b.closest('tr');
+    return !!(tr && /Kim Loại/.test(tr.textContent) && /900/.test(tr.textContent));
+  });
+  ktra(await p1.isVisible('#noidung [data-act="huy-don"]'),
+    'đơn vừa đăng render thành hàng Kim Loại ×900 với nút Huỷ');
+  var idDonP1 = await p1.evaluate(function () {
+    var d = window.ST.choDon.filter(function (x) { return x.res === 'metal' && x.loai === 'sieuthi'; })[0];
+    var b = document.querySelector('#noidung [data-act="huy-don"]');
+    return { id: d && d.id, choId: d && d.choId, renderId: b && b.getAttribute('data-id') };
+  });
+  ktra(idDonP1.id !== idDonP1.choId && idDonP1.renderId === String(idDonP1.choId),
+    'nút Huỷ render global choId khi local id lệch (' + idDonP1.id + ' ≠ ' + idDonP1.choId + ')');
   var nk = await p1.evaluate('window.ST.nk.map(function(x){return x.s;}).join(" | ")');
-  ktra(/Bán .*Kim Loại/.test(nk), 'bán tài nguyên xong, nhật ký ghi lại giao dịch');
-  var gal1 = await p1.evaluate('window.ST.galana');
-  ktra(gal1 > gal0, 'Galana tăng lên sau khi bán (' + Math.round(gal0) + ' → ' + Math.round(gal1) + ')');
-  await chup(p1, 'tainguyen');
+  ktra(/Đăng bán .*Kim Loại/.test(nk), 'đăng bán tài nguyên xong, nhật ký ghi lại giao dịch');
+  var metal1 = await p1.evaluate('window.ST.planets[0].res.metal');
+  ktra(metal1 < metal0, 'state authoritative trừ tài nguyên ngay sau POST chợ (' +
+    Math.round(metal0) + ' → ' + Math.round(metal1) + ')');
+  await nhan(p1, '#noidung [data-act="huy-don"]', '/api/cho/huy');
+  var sauHuy = await p1.evaluate(function () {
+    return { conDon: window.ST.choDon.some(function (d) { return d.res === 'metal'; }),
+      metal: window.ST.planets[0].res.metal };
+  });
+  ktra(!sauHuy.conDon && sauHuy.metal > metal1,
+    'Huỷ bằng global choId xoá đúng đơn và hoàn tài nguyên vào kho');
+  await chup(p1, 'taichinh');
 
   await vaoMan(p1, 'thienha', '/api/he');
   var n15 = await soHang(p1);
@@ -500,6 +644,7 @@ async function chay() {
 
   /* Một thành viên thường không được thấy nút tuyên chiến thay cho chủ LM. */
   var ctxNgoai = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'vi-VN' });
+  await onDinhFontNgoai(ctxNgoai);
   var pNgoai = await moTrang(ctxNgoai, 'người ngoài');
   var dkNgoai = await dangKy(pNgoai, 'trinhnghiem', 'Trinh Nghiệm', 'matkhau789');
   var nhaNgoai = dkNgoai.nha || await pNgoai.evaluate('window.ST.planets[0].c');
@@ -584,9 +729,9 @@ async function chay() {
     await moChatCu;
     await route.fulfill({ response: responseA });
   });
-  await p1.click('[data-man="chat"]');
+  await chonMan(p1, 'chat');
   await chatCuDaVeServer;
-  await p1.click('[data-man="taikhoan"]');
+  await chonMan(p1, 'taikhoan');
   await nhan(p1, '[data-act="dangxuat"]', '/api/dangxuat');
   var daDonCache = await p1.evaluate('MP.chat === null && MP.lm === null && U.mp === null && U.man === "tongquan" && ' +
     '!document.querySelector("#noidung").textContent && !document.querySelector("#dn-mk").value && ' +
@@ -623,15 +768,32 @@ async function chay() {
     viewport: { width: 390, height: 844 }, locale: 'vi-VN',
     deviceScaleFactor: 2, isMobile: true, hasTouch: true
   });
+  await onDinhFontNgoai(ctx3);
   var p3 = await moTrang(ctx3, 'mobile');
   await dangNhap(p3, 'quocbinh', 'matkhau123');
   ktra(await p3.isVisible('#thanh-tren'), 'mobile: đăng nhập lại tài khoản 1 vào được game');
   ktra(await p3.isVisible('#nut-menu'), 'mobile: nút ☰ hiện ra ở khổ hẹp');
+  ktra(await p3.isHidden('#nut-res') && await p3.isVisible('.tinh-hinh-mo-res'),
+    'mobile: resource trigger nằm trong Dải tình hình, không chiếm header');
+  ktra(await p3.isHidden('#tt-res'), 'mobile: chip tài nguyên không chiếm nhiều hàng mặc định');
+  await p3.click('.tinh-hinh-mo-res');
+  ktra(await p3.isVisible('#tt-res') &&
+    (await p3.getAttribute('#nut-res', 'aria-expanded')) === 'true' &&
+    (await p3.getAttribute('.tinh-hinh-mo-res', 'aria-expanded')) === 'true',
+    'mobile: resource panel mở và đồng bộ aria-expanded cho mọi trigger');
+  ktra((await p3.locator('#workspace [data-workspace]').count()) === 5,
+    'mobile: bottom navigation có đủ 5 workspace');
   ktra(await p3.isHidden('#menu'), 'mobile: menu ẩn khi chưa bấm');
   await p3.click('#nut-menu');
+  ktra(await p3.isHidden('#tt-res') &&
+    (await p3.getAttribute('#nut-res', 'aria-expanded')) === 'false' &&
+    (await p3.getAttribute('.tinh-hinh-mo-res', 'aria-expanded')) === 'false',
+    'mobile: mở điều hướng tự đóng resource panel');
   await nghi(250);
   var moRa = await p3.$eval('#menu', function (e) { return e.classList.contains('mo-ra'); });
   ktra(moRa, 'mobile: bấm ☰ thì menu nhận class mo-ra');
+  ktra((await p3.getAttribute('#nut-menu', 'aria-expanded')) === 'true',
+    'mobile: menu mở đồng bộ aria-expanded=true');
   ktra(await p3.isVisible('#menu'), 'mobile: menu mở ra và nhìn thấy được');
   var hopMenu = await p3.$eval('#menu', function (e) { var b = e.getBoundingClientRect(); return [b.width, b.height]; });
   ktra(hopMenu[0] > 100 && hopMenu[1] > 40, 'mobile: menu chiếm chỗ thật trên trang (' +
@@ -641,17 +803,99 @@ async function chay() {
   ktra((await chuNoiDung(p3)).length > 40, 'mobile: chọn mục trong menu vẫn vẽ được màn');
   var conMo = await p3.$eval('#menu', function (e) { return e.classList.contains('mo-ra'); });
   ktra(!conMo, 'mobile: menu tự đóng sau khi chọn một mục');
+  ktra((await p3.getAttribute('#nut-menu', 'aria-expanded')) === 'false',
+    'mobile: chọn destination trả aria-expanded=false');
+
+  await p3.evaluate(function () {
+    var st = window.ST, p = st && st.planets && st.planets[0];
+    if (!st || !p) return;
+    st.toi = (st.toi || []).filter(function (x) { return x.id !== 'ui-responsive-alert'; });
+    st.toi.push({
+      id: 'ui-responsive-alert', pi: 0,
+      ten: 'Hạm đội viễn chinh có tên rất dài để kiểm tra khả năng co giãn của cảnh báo',
+      lm: '', tu: { g: p.c.g, h: p.c.h + 1, p: p.c.p }, den_t: st.now + 7200
+    });
+    U.ve();
+  });
+  var focusBen = await p3.evaluate(function () {
+    var cta = document.getElementById('nut-tinh-hinh-chinh');
+    if (!cta) return { cta: false, res: false, detail: false };
+    cta.focus(); U.ve();
+    var ctaOk = document.activeElement && document.activeElement.id === 'nut-tinh-hinh-chinh';
+    var res = document.getElementById('nut-res-strip');
+    res.focus(); U.ve();
+    var resOk = document.activeElement && document.activeElement.id === 'nut-res-strip';
+    var detail = document.getElementById('tq-planet-details-0');
+    var summary = document.getElementById('tq-planet-summary-0');
+    if (detail && summary) { detail.open = true; summary.focus(); U.ve(); }
+    var detailMoi = document.getElementById('tq-planet-details-0');
+    var detailOk = !!detailMoi && detailMoi.open && document.activeElement && document.activeElement.id === 'tq-planet-summary-0';
+    return { cta: ctaOk, res: resOk, detail: detailOk };
+  });
+  ktra(focusBen.cta && focusBen.res && focusBen.detail,
+    'mobile: full render giữ focus CTA/resource và trạng thái mở Planet Matrix');
+
+  var cacViewport = [
+    { width: 320, height: 568 }, { width: 375, height: 667 },
+    { width: 414, height: 736 }, { width: 768, height: 1024 }
+  ];
+  for (var vp of cacViewport) {
+    var rw = vp.width;
+    await p3.setViewportSize(vp);
+    await nghi(120);
+    var responsive = await p3.evaluate(function () {
+      var strip = document.querySelector('#thanh-canh'), canh = document.querySelector('.tinh-hinh-canh');
+      var dangChay = document.querySelector('.tinh-hinh-dang-chay');
+      var taiNguyen = document.querySelector('.tinh-hinh-tai-nguyen');
+      var nutStrip = document.querySelector('.tinh-hinh-mo-res');
+      var nutHeader = document.querySelector('#nut-res');
+      var cta = document.querySelector('.tinh-hinh-cta');
+      var hauQua = document.querySelector('.tinh-hinh-hau-qua');
+      var matrixMobile = document.querySelector('.tq-ma-tran-mobile');
+      var matrixTable = document.querySelector('.tq-ma-tran table');
+      var summary = document.querySelector('.tq-ma-tran-item summary');
+      var thay = function (el) { return !!el && getComputedStyle(el).display !== 'none'; };
+      var b = strip && strip.getBoundingClientRect(), c = canh && canh.getBoundingClientRect();
+      var hop = function (el) { return el ? el.getBoundingClientRect() : null; };
+      var ctaB = hop(cta), resB = hop(nutStrip), sumB = hop(summary);
+      var csCta = cta && getComputedStyle(cta), csHauQua = hauQua && getComputedStyle(hauQua);
+      return {
+        ngang: document.documentElement.scrollWidth <= window.innerWidth + 1 && document.body.scrollWidth <= window.innerWidth + 1,
+        stripTrongKhung: !!b && b.left >= -1 && b.right <= window.innerWidth + 1,
+        canhTrongFold: !!c && c.top >= -1 && c.bottom <= window.innerHeight,
+        hitTarget: !!ctaB && ctaB.width >= 44 && ctaB.height >= 44 &&
+          (window.innerWidth > 639 || (!!resB && resB.width >= 44 && resB.height >= 44)),
+        ctaMotDong: !!csCta && csCta.whiteSpace === 'nowrap' && cta.scrollWidth <= ctaB.width + 1,
+        hauQuaHien: !!csHauQua && csHauQua.display !== 'none' && hauQua.getClientRects().length > 0,
+        matrixUuTien: window.innerWidth >= 960 ? thay(matrixTable) && !thay(matrixMobile) :
+          thay(matrixMobile) && !thay(matrixTable) && !!sumB && sumB.height >= 44,
+        mobileToiGian: !thay(dangChay) && !thay(taiNguyen) && thay(nutStrip) && !thay(nutHeader),
+        tabletDayDu: thay(dangChay) && thay(taiNguyen) && !thay(nutStrip)
+      };
+    });
+    ktra(responsive.ngang && responsive.stripTrongKhung && responsive.canhTrongFold,
+      'responsive ' + rw + 'px: không tràn ngang và cảnh báo nằm trong viewport đầu');
+    ktra(rw <= 639 ? responsive.mobileToiGian : responsive.tabletDayDu,
+      'responsive ' + rw + 'px: Dải tình hình đúng mức chi tiết theo breakpoint');
+    ktra(responsive.hitTarget && responsive.ctaMotDong && responsive.hauQuaHien && responsive.matrixUuTien,
+      'responsive ' + rw + 'px: CTA ≥44px một dòng, hậu quả hiện và Matrix đúng disclosure');
+  }
+  await p3.setViewportSize({ width: 390, height: 844 });
   await chup(p3, 'mobile-tongquan');
 
-  /* ---------- 9. save một người: migration localStorage v3 → v6 ---------- */
+  /* ---------- 9. save một người: slot localStorage v6, state v3 → v7 ---------- */
   var ctxSolo = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'vi-VN' });
+  await onDinhFontNgoai(ctxSolo);
   var pSolo = await ctxSolo.newPage();
   theoDoi('một người', pSolo);
   await pSolo.goto(URL + '/motnguoi', { waitUntil: 'domcontentloaded' });
   await pSolo.waitForFunction('window.G && G.STATE_VERSION === 7', null, { timeout: 20000 });
   await pSolo.evaluate(function () {
     var s = G.moiGame('Cựu Chỉ Huy', 'THDC-LOCAL-V3');
-    s.v = 3; delete s.moHinhCT;
+    s.v = 3;
+    delete s.moHinhCT; delete s.moHinhNhip; delete s.moHinhQuyDao; delete s.moHinhKT;
+    delete s.baoTri; delete s.nganHang; delete s.dauTuST; delete s.uranium;
+    delete s.luongGD; delete s.choDon; delete s.planets[0].danSu;
     s.planets[0].b = { metalMine: 4, robot: 2 };
     s.planets[0].qB = [{ id: 'metalMine', lv: 5, cost: { metal: 777, crystal: 333 }, tg: 321, xong: s.now + 9999 }];
     localStorage.removeItem('thdc_save_v6');
@@ -665,20 +909,22 @@ async function chay() {
     return { cu: JSON.parse(localStorage.getItem('thdc_save_v3')),
       moi: JSON.parse(localStorage.getItem('thdc_save_v6')) };
   });
-  ktra(saveLocal.cu.v === 3 && saveLocal.moi.v === 6 &&
+  ktra(saveLocal.cu.v === 3 && saveLocal.moi.v === 7 &&
     saveLocal.moi.moHinhNhip === 'bao-tri-dan-su-v1' &&
-    saveLocal.moi.moHinhQuyDao === 'giu-quy-dao-v1' && saveLocal.moi.planets[0].b.metalMine === 8,
-    'solo tự tạo save v6 đã migrate nhưng vẫn giữ nguyên bản raw v3');
+    saveLocal.moi.moHinhQuyDao === 'giu-quy-dao-v1' &&
+    saveLocal.moi.moHinhKT === 'kinh-te-that-v1' && saveLocal.moi.planets[0].b.metalMine === 8,
+    'solo tự tạo state v7 trong slot v6 nhưng vẫn giữ nguyên bản raw v3');
   ktra(saveLocal.moi.planets[0].qB[0].n === 5 && saveLocal.moi.planets[0].qB[0].lv === undefined,
     'solo đổi hàng đợi v3 sang số lượng đúng trước khi hiện nút Tiếp tục');
   await pSolo.click('#kd-tieptuc');
   await pSolo.waitForSelector('#game', { state: 'visible', timeout: 20000 });
-  ktra(await pSolo.evaluate('ST.v === 6 && ST.moHinhCT === "so-luong-v1" && ' +
-    'ST.moHinhNhip === "bao-tri-dan-su-v1" && ST.moHinhQuyDao === "giu-quy-dao-v1"'),
-    'bàn solo tiếp tục bằng state v6');
+  ktra(await pSolo.evaluate('ST.v === 7 && ST.moHinhCT === "so-luong-v1" && ' +
+    'ST.moHinhNhip === "bao-tri-dan-su-v1" && ST.moHinhQuyDao === "giu-quy-dao-v1" && ' +
+    'ST.moHinhKT === "kinh-te-that-v1"'),
+    'bàn solo tiếp tục bằng state v7');
 
   /* Xoá thật phải vô hiệu state trước khi reload; nếu không beforeunload sẽ
-     ghi lại đúng save v6 vừa xoá. */
+     ghi lại compatibility slot v6 vừa xoá. */
   await pSolo.evaluate(function () {
     localStorage.setItem('thdc_save_v5', '{}');
     localStorage.setItem('thdc_save_v4', '{}');
@@ -695,6 +941,8 @@ async function chay() {
     ['v3', 'v4', 'v5'].forEach(function (x, i) {
       var s = G.moiGame('Nguồn ' + x, 'THDC-FALLBACK-' + x);
       s.v = Number(x.slice(1));
+      delete s.moHinhKT; delete s.nganHang; delete s.dauTuST; delete s.uranium;
+      delete s.luongGD; delete s.choDon;
       if (s.v < 6) delete s.moHinhQuyDao;
       if (s.v < 5) { delete s.moHinhNhip; delete s.baoTri; delete s.planets[0].danSu; }
       if (s.v < 4) delete s.moHinhCT;
@@ -705,15 +953,18 @@ async function chay() {
   await pSolo.reload({ waitUntil: 'domcontentloaded' });
   await pSolo.waitForSelector('#kd-tieptuc', { state: 'visible', timeout: 20000 });
   var uuTien = await pSolo.evaluate(function () {
-    return { ten: JSON.parse(localStorage.getItem('thdc_save_v6')).ten,
+    var can = JSON.parse(localStorage.getItem('thdc_save_v6'));
+    return { ten: can.ten, v: can.v, moHinhKT: can.moHinhKT,
       raws: ['v3', 'v4', 'v5'].map(function (x) { return !!localStorage.getItem('thdc_save_' + x); }) };
   });
-  ktra(uuTien.ten === 'Nguồn v5' && uuTien.raws.every(Boolean),
-    'solo ưu tiên fallback v5 trước v4/v3 và giữ nguyên cả ba bản raw');
+  ktra(uuTien.ten === 'Nguồn v5' && uuTien.v === 7 && uuTien.moHinhKT === 'kinh-te-that-v1' &&
+    uuTien.raws.every(Boolean),
+    'solo ưu tiên fallback v5, nâng canonical lên v7 và giữ nguyên cả ba bản raw');
   await ctxSolo.close();
 
   /* Một context sạch giữ ST=null, nên beforeunload không thể ghi đè fixture tương lai. */
   var ctxFuture = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'vi-VN' });
+  await onDinhFontNgoai(ctxFuture);
   var pFuture = await ctxFuture.newPage();
   theoDoi('save tương lai', pFuture);
   await pFuture.goto(URL + '/motnguoi', { waitUntil: 'domcontentloaded' });
@@ -725,7 +976,7 @@ async function chay() {
   });
   await pFuture.reload({ waitUntil: 'domcontentloaded' });
   await pFuture.waitForFunction(function () {
-    return /mới hơn engine v6/.test((document.querySelector('.kd-form') || {}).textContent || '');
+    return /mới hơn engine v7/.test((document.querySelector('.kd-form') || {}).textContent || '');
   }, null, { timeout: 20000 });
   ktra(await pFuture.isHidden('#kd-tieptuc') &&
     (await pFuture.evaluate('JSON.parse(localStorage.getItem("thdc_save_v6")).v')) === 999,
@@ -757,7 +1008,7 @@ async function chay() {
   if (!soLoi.length) console.log('  · không có lỗi nào');
   else for (var i = 0; i < soLoi.length; i++)
     console.log('  ! [' + soLoi[i].ai + '] ' + soLoi[i].kieu + ': ' + soLoi[i].noi);
-  ktra(!soLoi.length, 'không có lỗi JS/console nào trong cả ba context');
+  ktra(!soLoi.length, 'không có lỗi JS/console nào trong mọi context');
 
   console.log('  · ảnh chụp màn hình: ' + path.join(ANH, 'thdc-*' + HAU));
   console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');

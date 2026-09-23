@@ -82,7 +82,7 @@ Nguyên tắc gốc: **một bộ luật duy nhất, chạy được ở cả ha
 | `web/js/mp.js` | driver client: gọi API, đồng bộ, chat, quản trị liên minh và các màn multiplayer |
 
 Bản nhiều người dùng lại nguyên `js/ui.js` và `js/app.js`; `web/js/mp.js` chỉ ghi đè
-`APP.lam`, `APP.taiHe`, `APP.luu`, `U.nguon` và bảng màn `U.MAN` (16 màn: bỏ
+`APP.lam`, `APP.taiHe`, `APP.luu`, `U.nguon` và bảng màn `U.MAN` (17 màn: bỏ
 *Nhật Ký & Lưu* của bản một người, thêm *Bảng Tin Vũ Trụ*, *Phòng Chat* và *Tài Khoản*).
 
 ## 2. Cách chạy
@@ -185,7 +185,7 @@ một người chơi, và ai cũng chỉ đọc/ghi dòng của mình (trừ khi
 
 Chỉ mục: `dq_ketiep(keTiep)` cho scheduler, `dq_diem(diem DESC)` cho bảng xếp hạng.
 
-#### Contract state v6: số lượng, nhịp dân sự và giữ quỹ đạo
+#### Contract state v7: kế thừa số lượng, nhịp dân sự và giữ quỹ đạo v6
 
 State hiện có `st.v = 7` (+ `moHinhKT = 'kinh-te-that-v1'`: ngân hàng `st.nganHang`, đầu tư siêu thị `st.dauTuST`, Uranium `st.uranium`, lương gián điệp `st.luongGD`, đơn chợ projection `st.choDon`), `st.moHinhCT = 'so-luong-v1'`,
 `st.moHinhNhip = 'bao-tri-dan-su-v1'` và

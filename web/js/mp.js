@@ -9,7 +9,17 @@
   var token = null;
   try { token = localStorage.getItem(KHOA_TOKEN); } catch (e) { token = null; }
 
-  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, chat: null, sv: null, ten: null, lienLac: true };
+  var MP = window.MP = { he: null, xh: null, lm: null, bt: null, chat: null, sv: null, ten: null, lienLac: null };
+  MP._giuProjection = function (stMoi, stCu) {
+    if (!stMoi || !stCu) return stMoi;
+    var khoa = ['pvpToi', 'pvpGiu'];
+    for (var i = 0; i < khoa.length; i++) {
+      var k = khoa[i];
+      if (!Object.prototype.hasOwnProperty.call(stMoi, k) &&
+          Object.prototype.hasOwnProperty.call(stCu, k)) stMoi[k] = stCu[k];
+    }
+    return stMoi;
+  };
   G.MO_PHONG_NHE = true;
   APP.mp = true;
 
@@ -25,24 +35,32 @@
     return fetch(duong, opt).then(function (r) {
       return r.json().catch(function () { return { loi: 'Máy chủ trả về dữ liệu không đọc được.' }; })
         .then(function (o) {
-          netOK(true);
           /* Bỏ mọi response thuộc phiên cũ; request A có thể về muộn sau khi
              người dùng đã logout rồi đăng nhập B trong cùng tab. */
           if (tokenLucGoi !== token) throw new Error('Phiên đã thay đổi.');
+          netOK(true);
           if (r.status === 401 && token) { dangXuatCuc('Phiên đăng nhập đã hết hạn.'); throw new Error('Chưa đăng nhập.'); }
           if (!r.ok && o && o.loi) throw new Error(o.loi);
           if (!r.ok) throw new Error('Máy chủ lỗi ' + r.status + '.');
           return o;
         });
     }, function (e) {
+      if (tokenLucGoi !== token) throw new Error('Phiên đã thay đổi.');
       netOK(false);
       throw new Error('Mất kết nối tới máy chủ.');
     });
   }
-  function netOK(ok) {
+  function netOK(ok, dangThuLai) {
+    var nhan = ok ? 'Đã kết nối' : (dangThuLai ? 'Mất kết nối · đang thử lại' : 'Mất kết nối');
+    if (MP.lienLac === ok && MP._nhanLienLac === nhan) return;
     MP.lienLac = ok;
+    MP._nhanLienLac = nhan;
     var e = document.getElementById('tt-net');
-    if (e) { e.style.color = ok ? 'var(--luc)' : 'var(--do)'; e.title = ok ? 'Đã kết nối máy chủ' : 'Mất kết nối'; }
+    if (e) {
+      e.style.color = ok ? 'var(--luc)' : (dangThuLai ? 'var(--cam)' : 'var(--do)');
+      if (e.textContent !== nhan) e.textContent = nhan;
+      e.title = nhan;
+    }
   }
 
   function apDung(goi) {
@@ -51,8 +69,9 @@
       G.LECH_GIO = goi.sv.now - Math.floor(Date.now() / 1000);
     }
     if (goi.st) {
+      MP._giuProjection(goi.st, window.ST);
       window.ST = goi.st;
-      if (U.pi >= goi.st.planets.length) U.pi = 0;
+      if (U.pi >= goi.st.planets.length) U.datPi(0, goi.st);
     }
     if (goi.toi) { MP.ten = goi.toi.ten; MP.tk = goi.toi.tk; }
   }
@@ -65,14 +84,44 @@
     }, function (e) { if (xong) xong(e.message); });
   };
   APP.taiXepHang = function (loai) {
-    api('/api/xephang?loai=' + encodeURIComponent(loai || 'tong')).then(function (r) {
-      MP.xh = r.ds; U.ve();
-    }, function (e) { U.toast(e.message, 'loi'); });
+    loai = loai || 'tong';
+    if (MP._xhDangTai === loai && MP._xhPromise) return MP._xhPromise;
+    var phienXh = (MP._phienXh || 0) + 1;
+    MP._phienXh = phienXh;
+    MP._xhDangTai = loai;
+    var yeuCau = api('/api/xephang?loai=' + encodeURIComponent(loai)).then(function (r) {
+      if (MP._phienXh !== phienXh) return r;
+      MP.xh = r.ds; MP.xhLoai = loai;
+      if (U.man === 'xephang' && (U.xhLoai || 'tong') === loai) U.ve();
+      return r;
+    }, function (e) {
+      if (MP._phienXh === phienXh) U.toast(e.message, 'loi');
+    });
+    MP._xhPromise = yeuCau.then(function (v) {
+      if (MP._phienXh === phienXh) { MP._xhDangTai = null; MP._xhPromise = null; }
+      return v;
+    });
+    return MP._xhPromise;
   };
   APP.taiHe = function (g, h) {
-    api('/api/he?g=' + g + '&h=' + h).then(function (r) {
-      MP.he = r; U.ve();
-    }, function (e) { U.toast(e.message, 'loi'); });
+    var khoaHe = g + ':' + h;
+    if (MP._heDangTai === khoaHe && MP._hePromise) return MP._hePromise;
+    var phienHe = (MP._phienHe || 0) + 1;
+    MP._phienHe = phienHe;
+    MP._heDangTai = khoaHe;
+    var yeuCau = api('/api/he?g=' + g + '&h=' + h).then(function (r) {
+      if (MP._phienHe !== phienHe) return r;
+      MP.he = r;
+      if (U.man === 'thienha' && U.gal && U.gal.g === g && U.gal.h === h) U.ve();
+      return r;
+    }, function (e) {
+      if (MP._phienHe === phienHe) U.toast(e.message, 'loi');
+    });
+    MP._hePromise = yeuCau.then(function (v) {
+      if (MP._phienHe === phienHe) { MP._heDangTai = null; MP._hePromise = null; }
+      return v;
+    });
+    return MP._hePromise;
   };
   APP.luu = function () { U.toast('Bản nhiều người tự lưu trên máy chủ sau mỗi thao tác.'); };
 
@@ -94,10 +143,10 @@
       if (U.man === 'chat') taiChat(false).catch(function () { });
       if (U.man === 'lienminh') taiLienMinh(false).catch(function () { });
     }, function (e) {
+      if (e && e.message === 'Phiên đã thay đổi.') return;
       if (++demLoiDongBo >= 2) {
-        var tt = document.getElementById('tt-net');
-        if (tt) { tt.textContent = '⚠'; tt.style.color = 'var(--cam)'; }
-        U.toast('Mất kết nối máy chủ, đang thử lại…', 'loi');
+        netOK(false, true);
+        if (demLoiDongBo === 2) U.toast('Mất kết nối máy chủ, đang thử lại…', 'loi');
       }
     });
   }
@@ -107,9 +156,9 @@
     xemHe: function (g, h) {
       if (MP.he && MP.he.g === g && MP.he.h === h) return MP.he.o;
       APP.taiHe(g, h);
-      return (MP.he && MP.he.o) || [];      /* giữ dữ liệu hệ cũ trong lúc chờ server */
+      return [];                            /* không hiển thị dữ liệu của hệ cũ */
     },
-    xepHang: function () { return MP.xh || []; },
+    xepHang: function (loai) { return MP.xhLoai === (loai || 'tong') ? (MP.xh || []) : []; },
     dsLM: function () { return (MP.lm && MP.lm.ds) || []; },
     thanhVien: function () { return (MP.lm && MP.lm.tv) || []; },
     daXin: function (ten) {
@@ -122,6 +171,7 @@
     duocBau: function () { return !!(MP.lm && MP.lm.duocBau); },
     phieuDS: function () { return (MP.lm && MP.lm.phieu) || []; },
     choDonNgoai: function (loai) {
+      if (!MP.cho || MP.cho.loai !== loai) return [];
       var ds = (MP.cho && MP.cho.don) || [];
       var out = [];
       var tkTa = MP.tk !== undefined ? MP.tk : null;
@@ -148,35 +198,17 @@
   }
 
   /* -------------------------------------------------- menu & màn riêng - */
-  U.MAN = [
-    { id: 'tongquan', icon: 'tongquan', ten: 'Tổng Quan' },
-    { id: 'tainguyen', icon: 'tainguyen', ten: 'Tài Nguyên' },
-    { id: 'congtrinh', icon: 'congtrinh', ten: 'Công Trình' },
-    { id: 'nghiencuu', icon: 'nghiencuu', ten: 'Nghiên Cứu' },
-    { id: 'xuong', icon: 'xuong', ten: 'Xưởng Đóng Tàu' },
-    { id: 'phongthu', icon: 'phongthu', ten: 'Phòng Thủ' },
-    { id: 'hamdoi', icon: 'hamdoi', ten: 'Hạm Đội' },
-    { id: 'thienha', icon: 'thienha', ten: 'Thiên Hà' },
-    { id: 'lienminh', icon: 'lienminh', ten: 'Liên Minh' },
-    { id: 'taichinh', icon: 'taichinh', ten: 'Ngân Hàng & Thị Trường' },
-    { id: 'xephang', icon: 'xephang', ten: 'Bảng Xếp Hạng' },
-    { id: 'bangtin', icon: 'bangtin', ten: 'Bảng Tin Vũ Trụ' },
-    { id: 'chat', icon: 'chat', ten: 'Phòng Chat' },
-    { id: 'mophong', icon: 'mophong', ten: 'Máy Tính Trận' },
-    { id: 'tinnhan', icon: 'tinnhan', ten: 'Tin Nhắn' },
-    { id: 'huongdan', icon: 'huongdan', ten: 'Hướng Dẫn' },
-    { id: 'taikhoan', icon: 'taikhoan', ten: 'Tài Khoản' }
-  ];
+  U.MAN = U.taoMAN('mp');
 
   U.m_bangtin = function () {
     var bt = (MP.bt && MP.bt.bt) || [], tr = (MP.bt && MP.bt.tran) || [];
-    var h = '<div class="panel"><h3>Chuyện đang xảy ra trong vũ trụ</h3><div class="noi">';
+    var h = '<div class="panel"><h2>Chuyện đang xảy ra trong vũ trụ</h2><div class="noi">';
     if (!bt.length) h += '<span class="mo">Chưa có gì. Vũ trụ đang yên.</span>';
     else for (var i = 0; i < bt.length; i++)
       h += '<div><span class="hu sz">' + G.gio(bt[i].khi * 1000) + '</span> ' + U.esc(bt[i].noi) + '</div>';
     h += '</div></div>';
 
-    h += '<div class="panel"><h3>Những trận đánh gần nhất</h3><div class="noi bang-cuon">';
+    h += '<div class="panel"><h2>Những trận đánh gần nhất</h2><div class="noi bang-cuon">';
     if (!tr.length) h += '<span class="mo">Chưa có trận nào.</span>';
     else {
       h += '<table><tr><th>Lúc</th><th>Toạ độ</th><th>Kết quả</th><th class="r">Cướp được</th><th class="r">Tàu mất (công/thủ)</th></tr>';
@@ -252,16 +284,18 @@
   U.m_chat = function () {
     var c = MP.chat, dangTai = !c;
     var h = '<div class="luoi2">';
-    h += '<div class="panel"><h3>Kênh chung toàn vũ trụ</h3><div class="noi">' +
+    h += '<div class="panel"><h2>Kênh chung toàn vũ trụ</h2><div class="noi">' +
       '<div id="chat-ds-chung" class="chat-ds">' + noiChat(c && c.chung, dangTai) + '</div>' +
-      '<div class="chat-gui"><input id="chat-noi-chung" class="chat-nhap" maxlength="300" autocomplete="off" ' +
+      '<div class="chat-gui"><label class="sr-only" for="chat-noi-chung">Tin nhắn kênh chung</label>' +
+      '<input id="chat-noi-chung" class="chat-nhap" maxlength="300" autocomplete="off" ' +
       'placeholder="Nói với toàn vũ trụ..."><button class="nut oke" data-act="chat-gui" data-kenh="chung">Gửi</button></div>' +
       '<p class="mo chat-ghi">Tối đa 300 ký tự · 3 tin mỗi 10 giây.</p></div></div>';
 
-    h += '<div class="panel"><h3>Kênh liên minh' + (c && c.lm ? ' — ' + U.esc(c.lm) : '') + '</h3><div class="noi">';
+    h += '<div class="panel"><h2>Kênh liên minh' + (c && c.lm ? ' — ' + U.esc(c.lm) : '') + '</h2><div class="noi">';
     if (c && c.lm) {
       h += '<div id="chat-ds-lienminh" class="chat-ds">' + noiChat(c.lienminh, false) + '</div>' +
-        '<div class="chat-gui"><input id="chat-noi-lienminh" class="chat-nhap" maxlength="300" autocomplete="off" ' +
+        '<div class="chat-gui"><label class="sr-only" for="chat-noi-lienminh">Tin nhắn kênh liên minh</label>' +
+        '<input id="chat-noi-lienminh" class="chat-nhap" maxlength="300" autocomplete="off" ' +
         'placeholder="Nói riêng với đồng minh..."><button class="nut oke" data-act="chat-gui" data-kenh="lienminh">Gửi</button></div>';
     } else {
       h += '<div class="chat-ds"><span class="mo">Gia nhập một liên minh để mở kênh riêng.</span></div>';
@@ -273,7 +307,7 @@
   U.m_taikhoan = function () {
     var st = U.st(), d = G.diem(st), sv = MP.sv || {};
     var h = '<div class="luoi2">';
-    h += '<div class="panel"><h3>Tài khoản</h3><div class="noi"><table>' +
+    h += '<div class="panel"><h2>Tài khoản</h2><div class="noi"><table>' +
       '<tr><td>Chỉ huy</td><td class="r">' + U.esc(MP.ten || st.ten) + '</td></tr>' +
       '<tr><td>Liên minh</td><td class="r">' + U.esc(st.lm ? st.lm.ten : '—') + '</td></tr>' +
       '<tr><td>Điểm</td><td class="r sz">' + G.so(d.tong) + '</td></tr>' +
@@ -284,12 +318,12 @@
       '<tr><td>Tàu địch bắn hạ</td><td class="r sz">' + G.so(st.stats.tauDietDich) + '</td></tr>' +
       '<tr><td>Tàu của ta bị mất</td><td class="r sz">' + G.so(st.stats.tauMat) + '</td></tr>' +
       '</table>' +
-      '<div style="margin-top:8px"><button class="nut nho" data-act="doi-mk">Đổi mật khẩu</button> ' +
+      '<div class="cach-tren-xs"><button class="nut nho" data-act="doi-mk">Đổi mật khẩu</button> ' +
       '<button class="nut nho" data-act="dangxuat">Đăng xuất</button> ' +
       '<button class="nut nho xoa" data-act="xoa-tk">Xoá tài khoản</button></div>' +
       '</div></div>';
 
-    h += '<div class="panel"><h3>Máy chủ</h3><div class="noi"><table>' +
+    h += '<div class="panel"><h2>Máy chủ</h2><div class="noi"><table>' +
       '<tr><td>Hạt giống vũ trụ</td><td class="r sz">' + U.esc(sv.seed || '—') + '</td></tr>' +
       '<tr><td>Số tài khoản</td><td class="r sz">' + G.so(sv.soNguoi || 0) + '</td></tr>' +
       '<tr><td>Hành tinh đã có chủ</td><td class="r sz">' + G.so(sv.soHT || 0) + '</td></tr>' +
@@ -301,7 +335,7 @@
       'chu kỳ bảo trì vẫn trừ tiền, và người chơi khác vẫn đánh được vào hành tinh của ta.</p></div></div>';
     h += '</div>';
 
-    h += '<div class="panel"><h3>Nhật ký</h3><div class="noi">';
+    h += '<div class="panel"><h2>Nhật ký</h2><div class="noi">';
     if (!st.nk.length) h += '<span class="mo">Chưa có gì.</span>';
     else for (var i = 0; i < st.nk.length; i++)
       h += '<div><span class="hu sz">' + G.gio(st.nk[i].t * 1000) + '</span> ' + U.esc(st.nk[i].s) + '</div>';
@@ -317,15 +351,15 @@
     var st = U.st();
     var h = lmGoc();
     if (!st.lm) {
-      h += '<div class="panel"><h3>Lập liên minh mới</h3><div class="noi">' +
-        '<div class="gal-dh">Thẻ <input id="lm-tag" maxlength="6" style="width:80px" placeholder="THDC">' +
-        'Tên <input id="lm-ten" maxlength="32" style="width:220px" placeholder="Thiên Hà Đại Chiến">' +
+      h += '<div class="panel"><h2>Lập liên minh mới</h2><div class="noi">' +
+        '<div class="gal-dh"><label for="lm-tag">Thẻ</label><input id="lm-tag" maxlength="6" style="width:80px" placeholder="THDC">' +
+        '<label for="lm-ten">Tên</label><input id="lm-ten" maxlength="32" style="width:220px" placeholder="Thiên Hà Đại Chiến">' +
         '<button class="nut oke" data-act="lm-tao">Lập</button></div>' +
         '<p class="mo">Thẻ 2–6 chữ/số, hiện trước tên trên bảng xếp hạng. Người lập là chủ liên minh.</p>' +
         '</div></div>';
     }
     if (!st.lm && MP.lm && MP.lm.xin && MP.lm.xin.length) {
-      h += '<div class="panel"><h3>Đơn đang chờ duyệt</h3><div class="noi">';
+      h += '<div class="panel"><h2>Đơn đang chờ duyệt</h2><div class="noi">';
       for (var x = 0; x < MP.lm.xin.length; x++)
         h += '<div><span class="tag-lm">' + U.esc(MP.lm.xin[x].lm) + '</span> · gửi ' +
           G.gio(MP.lm.xin[x].khi * 1000) + '</div>';
@@ -333,10 +367,10 @@
     }
     if (st.lm && MP.lm && MP.lm.laChu) {
       var don = MP.lm.don || [], tv = MP.lm.tv || [];
-      h += '<div class="panel"><h3>Bộ Chỉ Huy Liên Minh</h3><div class="noi">' +
+      h += '<div class="panel"><h2>Bộ Chỉ Huy Liên Minh</h2><div class="noi">' +
         '<p class="mo">Chủ liên minh duyệt thành viên, loại người vi phạm hoặc chuyển quyền chỉ huy. ' +
         'Phải chuyển quyền trước khi rời nếu liên minh còn người khác.</p>';
-      h += '<h3 style="margin-top:10px">Đơn xin gia nhập</h3>';
+      h += '<h3 class="cach-tren-sm">Đơn xin gia nhập</h3>';
       if (!don.length) h += '<span class="mo">Không có đơn nào đang chờ.</span>';
       else {
         h += '<div class="bang-cuon"><table><tr><th>Chỉ huy</th><th class="r">Điểm</th><th class="r">Hành tinh</th><th></th></tr>';
@@ -348,7 +382,7 @@
         h += '</table></div>';
       }
       if (tv.length > 1) {
-        h += '<h3 style="margin-top:14px">Điều hành thành viên</h3><div class="bang-cuon"><table>' +
+        h += '<h3 class="cach-tren-md">Điều hành thành viên</h3><div class="bang-cuon"><table>' +
           '<tr><th>Chỉ huy</th><th class="r">Điểm</th><th></th></tr>';
         for (var v = 0; v < tv.length; v++) if (!tv[v].ta)
           h += '<tr><td>' + U.esc(tv[v].ten) + '</td><td class="r sz">' + G.so(tv[v].diem) + '</td><td class="r">' +
@@ -360,10 +394,10 @@
     }
     var chien = MP.lm && MP.lm.chien;
     if (chien) {
-      h += '<div class="panel"><h3>Lệnh chiến tranh</h3><div class="noi">' +
+      h += '<div class="panel"><h2>Lệnh chiến tranh</h2><div class="noi">' +
         '<p class="mo">Lệnh nhắm tới một chỉ huy và chỉ có hiệu lực sau 24 giờ. Khi đang ở liên minh, ' +
         'chỉ chủ liên minh ra lệnh; mọi thành viên hiện tại cùng hưởng quyền giao chiến.</p>';
-      h += '<h3 style="margin-top:10px">Bên ta đã tuyên</h3>';
+      h += '<h3 class="cach-tren-sm">Bên ta đã tuyên</h3>';
       if (!chien.di.length) h += '<span class="mo">Chưa tuyên chiến với ai.</span>';
       else {
         h += '<div class="bang-cuon"><table><tr><th>Mục tiêu</th><th>Liên minh</th><th>Lúc tuyên</th><th>Trạng thái</th></tr>';
@@ -377,7 +411,7 @@
         }
         h += '</table></div>';
       }
-      h += '<h3 style="margin-top:14px">Bên tuyên chiến với ta</h3>';
+      h += '<h3 class="cach-tren-md">Bên tuyên chiến với ta</h3>';
       if (!chien.den.length) h += '<span class="mo">Không có lệnh nào nhắm tới ta.</span>';
       else {
         h += '<div class="bang-cuon"><table><tr><th>Bên tuyên</th><th>Lúc tuyên</th><th>Trạng thái</th></tr>';
@@ -399,10 +433,61 @@
 
   /* -------------------------------------------------- hành động riêng -- */
   function soO2(e) { return e ? Math.max(0, Math.floor(+e.value || 0)) : 0; }
-  var manCu = APP.ACT.man;
+  var tabTCCu = APP.ACT['tab-tc'];
+  function taiCho(loai, lamMoi) {
+    if (loai !== 'sieuthi' && loai !== 'tudo') return null;
+    if (!lamMoi && MP._choDangTai === loai && MP._choPromise) return MP._choPromise;
+    var phienCho = (MP._phienCho || 0) + 1;
+    MP._phienCho = phienCho;
+    MP._choDangTai = loai;
+    var yeuCau = api('/api/cho?loai=' + loai).then(function (r) {
+      if (MP._phienCho !== phienCho) return r;
+      MP.cho = r;
+      if (U.man === 'taichinh' && U.tabTC === loai) U.ve();
+      return r;
+    }, function (e) {
+      if (MP._phienCho === phienCho && U.man === 'taichinh' && U.tabTC === loai) U.toast(e.message, 'loi');
+    });
+    MP._choPromise = yeuCau.then(function (v) {
+      if (MP._phienCho === phienCho) { MP._choDangTai = null; MP._choPromise = null; }
+      return v;
+    });
+    return MP._choPromise;
+  }
+  APP.preloadMan = function (meta) {
+    if (!meta || !meta.preload) return;
+    if (meta.preload === 'thienha') {
+      if (!U.gal) { var c = U.ht().c; U.gal = { g: c.g, h: c.h }; }
+      APP.taiHe(U.gal.g, U.gal.h);
+    } else if (meta.preload === 'xephang') {
+      APP.taiXepHang(U.xhLoai);
+    } else if (meta.preload === 'lienminh') {
+      taiLienMinh(true).catch(function () { });
+    } else if (meta.preload === 'taichinh') {
+      var loaiCho = U.tabTC;
+      if (loaiCho !== 'sieuthi' && loaiCho !== 'tudo') return;
+      taiCho(loaiCho);
+    } else if (meta.preload === 'bangtin') {
+      api('/api/bangtin').then(function (r) {
+        if (U.man !== meta.id) return;
+        MP.bt = r; U.ve();
+      }, function () { });
+    } else if (meta.preload === 'chat') {
+      taiChat(true).catch(function () { });
+    }
+  };
   /* [v7] MP: ba thao tác chợ phải đi qua /api/cho* để server ghi bảng chung;
      gọi lam('dangBan'…) sẽ chỉ chạy luật trên state local, đơn vô hình với người khác. */
   APP.themACT({
+    'tab-tc': function (el) {
+      var loai = el.getAttribute('data-tab');
+      tabTCCu(el);
+      if (loai === 'nganhang') {
+        MP._phienCho = (MP._phienCho || 0) + 1; MP._choDangTai = null; MP._choPromise = null;
+        return;
+      }
+      taiCho(loai);
+    },
     'dang-ban': function (el) {
       var loai = el.getAttribute('data-loai'), dl = { pi: U.pi, loai: loai }, co = false;
       for (var i = 0; i < G.RES_HANH_TINH.length; i++) {
@@ -415,37 +500,23 @@
         if (!g || !(Number(g.value) > 0)) { U.toast('Nhập giá Galana cho Thị Trường Tự Do.', 'loi'); return; }
         dl.gia = Number(g.value);
       }
-      api('/api/cho', dl).then(function () {
+      api('/api/cho', dl).then(function (r) {
+        apDung(r);
         U.toast('Đã đăng bán.', 'ok');
-        return api('/api/cho?loai=' + loai).then(function (r) { MP.cho = r; U.ve(); });
+        return taiCho(loai, true);
       }, function (e) { U.toast(e.message, 'loi'); U.ve(); });
     },
     'mua-don': function (el) {
       var id = el.getAttribute('data-id');
       var e = document.getElementById('mua-' + id);
-      api('/api/cho/mua', { choId: id, so: soO2(e) || 0 }).then(function () {
-        U.toast('Đã mua.', 'ok'); U.ve();
+      api('/api/cho/mua', { choId: id, so: soO2(e) || 0 }).then(function (r) {
+        apDung(r); U.toast('Đã mua.', 'ok'); taiCho(U.tabTC, true);
       }, function (er) { U.toast(er.message, 'loi'); U.ve(); });
     },
     'huy-don': function (el) {
-      api('/api/cho/huy', { choId: el.getAttribute('data-id') }).then(function () {
-        U.toast('Đã huỷ đơn.', 'ok'); U.ve();
+      api('/api/cho/huy', { choId: el.getAttribute('data-id') }).then(function (r) {
+        apDung(r); U.toast('Đã huỷ đơn.', 'ok'); taiCho(U.tabTC, true);
       }, function (e) { U.toast(e.message, 'loi'); U.ve(); });
-    },
-    man: function (el) {
-      var m = el.getAttribute('data-man');
-      manCu(el);
-      if (m === 'thienha') {
-        if (!U.gal) { var c = U.st().planets[0].c; U.gal = { g: c.g, h: c.h }; }
-        APP.taiHe(U.gal.g, U.gal.h);
-      }
-      if (m === 'xephang') APP.taiXepHang(U.xhLoai);
-      if (m === 'lienminh') taiLienMinh(true).catch(function () { });
-      if (m === 'taichinh') api('/api/cho?loai=' + (U.tabTC || 'sieuthi')).then(function (r) {
-        MP.cho = r; U.ve();
-      }, function () { });
-      if (m === 'bangtin') api('/api/bangtin').then(function (r) { MP.bt = r; U.ve(); }, function () { });
-      if (m === 'chat') taiChat(true).catch(function () { });
     },
     /* vào/ra liên minh xong phải nạp lại danh sách thành viên từ server */
     'lm-vao': function (el) {
@@ -526,9 +597,9 @@
       var tk = +el.getAttribute('data-tk'), ten = el.getAttribute('data-ten') || 'đồng minh';
       U.hop('Chuyển Galana cho ' + ten,
         '<p>Kho hiện có <b class="vang">' + G.so(U.st().galana || 0) + ' Galana</b>.</p>' +
-        '<input id="galana-so" type="number" min="1" step="1000" style="width:100%" placeholder="Số Galana">' +
+        '<label for="galana-so">Số Galana</label><input id="galana-so" type="number" min="1" step="1000" style="width:100%" placeholder="Số Galana">' +
         '<p class="mo">Nguồn lịch sử xác nhận chỉ thành viên cùng liên minh mới được chuyển tiền cho nhau.</p>' +
-        '<button class="nut oke" data-act="chuyen-galana-ok" data-tk="' + tk + '" style="margin-top:8px">CHUYỂN</button>');
+        '<button class="nut oke cach-tren-xs" data-act="chuyen-galana-ok" data-tk="' + tk + '">CHUYỂN</button>');
     },
     'chuyen-galana-ok': function (el) {
       var o = document.getElementById('galana-so'), so = Math.floor(+(o && o.value || 0));
@@ -541,9 +612,9 @@
       var ten = el.getAttribute('data-ten') || '';
       U.hop('Gửi thư cho ' + ten,
         '<p class="mo">Thư sẽ xuất hiện trong hộp tin của họ. Tối đa 1.200 ký tự.</p>' +
-        '<input id="thu-den" value="' + U.esc(ten) + '" style="width:100%;margin-bottom:6px" placeholder="tên chỉ huy">' +
-        '<textarea id="thu-noi" style="width:100%;height:150px" placeholder="Chào đồng minh..."></textarea>' +
-        '<div style="margin-top:8px"><button class="nut oke" data-act="gui-thu-ok">Gửi</button></div>');
+        '<label for="thu-den">Người nhận</label><input id="thu-den" class="cach-duoi-xs" value="' + U.esc(ten) + '" style="width:100%" placeholder="tên chỉ huy">' +
+        '<label for="thu-noi">Nội dung thư</label><textarea id="thu-noi" style="width:100%;height:150px" placeholder="Chào đồng minh..."></textarea>' +
+        '<div class="cach-tren-xs"><button class="nut oke" data-act="gui-thu-ok">Gửi</button></div>');
     },
     'gui-thu-ok': function () {
       var den = (document.getElementById('thu-den') || {}).value || '';
@@ -572,9 +643,9 @@
     },
     'doi-mk': function () {
       U.hop('Đổi mật khẩu',
-        '<div class="kd-form"><label>Mật khẩu hiện tại</label><input id="mk-cu" type="password">' +
-        '<label>Mật khẩu mới</label><input id="mk-moi" type="password">' +
-        '<button class="nut oke" data-act="doi-mk-ok" style="margin-top:10px">Đổi</button></div>');
+        '<div class="kd-form"><label for="mk-cu">Mật khẩu hiện tại</label><input id="mk-cu" type="password">' +
+        '<label for="mk-moi">Mật khẩu mới</label><input id="mk-moi" type="password">' +
+        '<button class="nut oke cach-tren-sm" data-act="doi-mk-ok">Đổi</button></div>');
     },
     'doi-mk-ok': function () {
       api('/api/doimk', {
@@ -587,8 +658,8 @@
       U.hop('Xoá tài khoản',
         '<p>Toàn bộ đế quốc sẽ bị xoá khỏi máy chủ và các hành tinh của ta trở về trạng thái trống ' +
         'cho người khác chiếm. <b>Không lấy lại được.</b></p>' +
-        '<div class="kd-form"><label>Mật khẩu</label><input id="xtk-mk" type="password">' +
-        '<label>Gõ chữ <b>XOA</b> để xác nhận</label><input id="xtk-xn" maxlength="10">' +
+        '<div class="kd-form"><label for="xtk-mk">Mật khẩu</label><input id="xtk-mk" type="password">' +
+        '<label for="xtk-xn">Gõ chữ <b>XOA</b> để xác nhận</label><input id="xtk-xn" maxlength="10">' +
         '<button class="nut lon xoa" data-act="xoa-tk-ok">XOÁ VĨNH VIỄN</button></div>');
     },
     'xoa-tk-ok': function () {
@@ -616,9 +687,14 @@
     token = null; window.ST = null;
     /* Không để dữ liệu theo tài khoản A lọt sang tài khoản B khi đăng nhập lại
        trong cùng tab, đặc biệt là lịch sử chat riêng và quyền quản trị LM. */
-    MP.he = null; MP.xh = null; MP.lm = null; MP.bt = null; MP.chat = null;
-    MP.ten = null; U.man = 'tongquan'; U.pi = 0; U.gal = null; U.form = null;
-    U.moTin = {}; U.cho = {}; U.mp = null; U.sigCu = '';
+    MP.he = null; MP._heDangTai = null; MP._hePromise = null; MP._phienHe = (MP._phienHe || 0) + 1;
+    MP.xh = null; MP.xhLoai = null; MP._xhDangTai = null; MP._xhPromise = null; MP._phienXh = (MP._phienXh || 0) + 1;
+    MP.cho = null; MP._choDangTai = null; MP._choPromise = null; MP._phienCho = (MP._phienCho || 0) + 1;
+    MP.tk = null; MP.lm = null; MP.bt = null; MP.chat = null;
+    MP.ten = null; U.man = 'tongquan'; U.workspace = 'chi_huy'; U.pi = 0; U.gal = null; U.form = null;
+    U.tabTC = 'nganhang'; U.xhLoai = 'tong';
+    U.moTin = {}; U.cho = {}; U.mp = null; U.sigCu = ''; U._nguCanhDaVe = '';
+    if (U.datLaiCanhLive) U.datLaiCanhLive();
     var ndCu = document.getElementById('noidung'); if (ndCu) ndCu.textContent = '';
     var menuCu = document.getElementById('menu'); if (menuCu) menuCu.classList.remove('mo-ra');
     if (U.dongHop) U.dongHop();
@@ -690,10 +766,6 @@
       if (e.key === 'Enter') document.getElementById(id === 'dn-mk' ? 'nut-dn' : 'nut-dk').click();
     });
   });
-  document.getElementById('nut-menu').onclick = function () {
-    document.getElementById('menu').classList.toggle('mo-ra');
-  };
-
   /* -------------------------------------------------- khởi động -------- */
   document.getElementById('kd-ver').textContent = G.VERSION;
   api('/api/thongtin').then(function (sv) {
@@ -703,9 +775,28 @@
       U.esc(G.BOI_CANH) + ' &middot; vũ trụ <b>' + U.esc(sv.seed) + '</b><br>' +
       G.so(sv.soNguoi) + ' chỉ huy &middot; ' + G.so(sv.soHT) + ' hành tinh đã có chủ &middot; ' +
       'sản xuất x' + sv.tocDo + ' &middot; bảo trì mỗi ' + (sv.chuKy / 3600) + ' giờ';
+    // Hiện tốc độ trong form đăng ký
+    var el = document.getElementById('tocdo-info');
+    if (el) el.textContent = 'Tốc độ hiện tại: x' + sv.tocDo + ' (1 chu kỳ = ' + (6 / sv.tocDo).toFixed(1) + ' giờ thật)';
+    // Điền select với giá trị hiện tại
+    var sel = document.getElementById('cauhinh-tocdo');
+    if (sel) sel.value = String(sv.tocDo);
   }, function () {
     document.getElementById('kd-sv').textContent = 'Không liên lạc được với máy chủ.';
   });
+
+  /* Endpoint đổi tốc độ chưa có authorization contract. Giữ form dirty ở
+     trạng thái inert để client không biến nó thành một admin surface. */
+  var nutDongCauHinh = document.getElementById('nut-dong-cauhinh');
+  if (nutDongCauHinh) nutDongCauHinh.onclick = function () {
+    var form = document.getElementById('form-cauhinh');
+    if (form) form.style.display = 'none';
+  };
+  var nutLuuCauHinh = document.getElementById('nut-luu-cauhinh');
+  if (nutLuuCauHinh) {
+    nutLuuCauHinh.disabled = true;
+    nutLuuCauHinh.title = 'Chưa bật: cần xác thực và phân quyền quản trị phía server.';
+  }
 
   if (token) {
     api('/api/state').then(function (g) { vaoGame(g); }, function () { /* token cũ: ở lại màn đăng nhập */ });

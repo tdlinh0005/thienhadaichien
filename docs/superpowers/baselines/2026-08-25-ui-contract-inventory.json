@@ -1,0 +1,4341 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-25",
+  "purpose": "Phase 0 UI contract baseline; descriptive, not a new runtime contract",
+  "sourceCommit": "51f5101466242a880177a44d62c471b2c826a3fa",
+  "worktree": {
+    "branch": "main",
+    "upstreamRelation": {
+      "ahead": 38,
+      "behind": 0
+    },
+    "trackedModified": [
+      "css/style.css",
+      "server/api.js",
+      "server/index.js",
+      "web/index.html",
+      "web/js/mp.js"
+    ],
+    "untrackedAtCapture": [
+      "design.md",
+      "docs/superpowers/mindmaps/2026-08-25-trung-tam-chi-huy-review.html",
+      "docs/superpowers/plans/2026-08-25-trung-tam-chi-huy-hybrid.md",
+      "docs/superpowers/specs/2026-08-25-trung-tam-chi-huy-hybrid-design.md"
+    ],
+    "trackedDiffStat": {
+      "files": 5,
+      "insertions": 92,
+      "deletions": 2
+    },
+    "trackedDiffSha256": "45dcd24c0daee03d0d2a87ed439799672e75ff07f38b0fe199ac1ccd30b9c58f"
+  },
+  "sourceFiles": {
+    "index.html": {
+      "bytes": 3727,
+      "sha256": "6f05c20d74e897b7a31456dc94266da09b53b902db69cc75fa0cc2fbb94f4d30"
+    },
+    "web/index.html": {
+      "bytes": 5454,
+      "sha256": "8e70543330b485ba8ccf64cafa289c78c802d6cf2b5e1ab456d6200cd3ffdc26"
+    },
+    "css/style.css": {
+      "bytes": 19324,
+      "sha256": "0d6a802ce9bdd0ec92b22dd70d1c00357f1facc76e74a88dafbf11f18cda5812"
+    },
+    "js/ui.js": {
+      "bytes": 115594,
+      "sha256": "dd97e74da92d4a0cc5b5ad638c9da3e2e7aa040135e94f231ba7274acaae72d0"
+    },
+    "js/app.js": {
+      "bytes": 16412,
+      "sha256": "f0977d8394318d8dacef24e8066d48d635f0d60f3d0dc6a42ce9cecb6d63c6eb"
+    },
+    "js/main.js": {
+      "bytes": 8806,
+      "sha256": "1028e97681484a47957745396fdf65f7e46eed390d102776ba66ef5847e2a9d3"
+    },
+    "web/js/mp.js": {
+      "bytes": 39539,
+      "sha256": "b173311a160f78cbd5959a2ca35856a0ac3580a4a515f05b929f1e3d3b7cfaa7"
+    },
+    "tools/build.js": {
+      "bytes": 2460,
+      "sha256": "26b6ab6264148b3d637e824751ebd1594bcd099600b0d3309f818837b607101d"
+    },
+    "tools/test-mp-ui.mjs": {
+      "bytes": 43159,
+      "sha256": "c0b260e5397d82f8af97a067a3ebccb3945c28d5d97a38a7bb8a29a3e2ad0d38"
+    }
+  },
+  "destinations": {
+    "expectedCurrentCounts": {
+      "solo": 15,
+      "multiplayer": 17,
+      "common": 14,
+      "union": 18
+    },
+    "actualCounts": {
+      "solo": 15,
+      "multiplayer": 17,
+      "common": 14,
+      "union": 18
+    },
+    "solo": [
+      {
+        "id": "tongquan",
+        "icon": "tongquan",
+        "label": "Tổng Quan",
+        "location": "js/ui.js:166"
+      },
+      {
+        "id": "tainguyen",
+        "icon": "tainguyen",
+        "label": "Tài Nguyên",
+        "location": "js/ui.js:167"
+      },
+      {
+        "id": "congtrinh",
+        "icon": "congtrinh",
+        "label": "Công Trình",
+        "location": "js/ui.js:168"
+      },
+      {
+        "id": "nghiencuu",
+        "icon": "nghiencuu",
+        "label": "Nghiên Cứu",
+        "location": "js/ui.js:169"
+      },
+      {
+        "id": "xuong",
+        "icon": "xuong",
+        "label": "Xưởng Đóng Tàu",
+        "location": "js/ui.js:170"
+      },
+      {
+        "id": "phongthu",
+        "icon": "phongthu",
+        "label": "Phòng Thủ",
+        "location": "js/ui.js:171"
+      },
+      {
+        "id": "hamdoi",
+        "icon": "hamdoi",
+        "label": "Hạm Đội",
+        "location": "js/ui.js:172"
+      },
+      {
+        "id": "thienha",
+        "icon": "thienha",
+        "label": "Thiên Hà",
+        "location": "js/ui.js:173"
+      },
+      {
+        "id": "lienminh",
+        "icon": "lienminh",
+        "label": "Liên Minh",
+        "location": "js/ui.js:174"
+      },
+      {
+        "id": "taichinh",
+        "icon": "taichinh",
+        "label": "Ngân Hàng & Thị Trường",
+        "location": "js/ui.js:175"
+      },
+      {
+        "id": "xephang",
+        "icon": "xephang",
+        "label": "Bảng Xếp Hạng",
+        "location": "js/ui.js:176"
+      },
+      {
+        "id": "mophong",
+        "icon": "mophong",
+        "label": "Máy Tính Trận",
+        "location": "js/ui.js:177"
+      },
+      {
+        "id": "tinnhan",
+        "icon": "tinnhan",
+        "label": "Tin Nhắn",
+        "location": "js/ui.js:178"
+      },
+      {
+        "id": "huongdan",
+        "icon": "huongdan",
+        "label": "Hướng Dẫn",
+        "location": "js/ui.js:179"
+      },
+      {
+        "id": "nhatky",
+        "icon": "nhatky",
+        "label": "Nhật Ký & Lưu",
+        "location": "js/ui.js:180"
+      }
+    ],
+    "multiplayer": [
+      {
+        "id": "tongquan",
+        "icon": "tongquan",
+        "label": "Tổng Quan",
+        "location": "web/js/mp.js:152"
+      },
+      {
+        "id": "tainguyen",
+        "icon": "tainguyen",
+        "label": "Tài Nguyên",
+        "location": "web/js/mp.js:153"
+      },
+      {
+        "id": "congtrinh",
+        "icon": "congtrinh",
+        "label": "Công Trình",
+        "location": "web/js/mp.js:154"
+      },
+      {
+        "id": "nghiencuu",
+        "icon": "nghiencuu",
+        "label": "Nghiên Cứu",
+        "location": "web/js/mp.js:155"
+      },
+      {
+        "id": "xuong",
+        "icon": "xuong",
+        "label": "Xưởng Đóng Tàu",
+        "location": "web/js/mp.js:156"
+      },
+      {
+        "id": "phongthu",
+        "icon": "phongthu",
+        "label": "Phòng Thủ",
+        "location": "web/js/mp.js:157"
+      },
+      {
+        "id": "hamdoi",
+        "icon": "hamdoi",
+        "label": "Hạm Đội",
+        "location": "web/js/mp.js:158"
+      },
+      {
+        "id": "thienha",
+        "icon": "thienha",
+        "label": "Thiên Hà",
+        "location": "web/js/mp.js:159"
+      },
+      {
+        "id": "lienminh",
+        "icon": "lienminh",
+        "label": "Liên Minh",
+        "location": "web/js/mp.js:160"
+      },
+      {
+        "id": "taichinh",
+        "icon": "taichinh",
+        "label": "Ngân Hàng & Thị Trường",
+        "location": "web/js/mp.js:161"
+      },
+      {
+        "id": "xephang",
+        "icon": "xephang",
+        "label": "Bảng Xếp Hạng",
+        "location": "web/js/mp.js:162"
+      },
+      {
+        "id": "bangtin",
+        "icon": "bangtin",
+        "label": "Bảng Tin Vũ Trụ",
+        "location": "web/js/mp.js:163"
+      },
+      {
+        "id": "chat",
+        "icon": "chat",
+        "label": "Phòng Chat",
+        "location": "web/js/mp.js:164"
+      },
+      {
+        "id": "mophong",
+        "icon": "mophong",
+        "label": "Máy Tính Trận",
+        "location": "web/js/mp.js:165"
+      },
+      {
+        "id": "tinnhan",
+        "icon": "tinnhan",
+        "label": "Tin Nhắn",
+        "location": "web/js/mp.js:166"
+      },
+      {
+        "id": "huongdan",
+        "icon": "huongdan",
+        "label": "Hướng Dẫn",
+        "location": "web/js/mp.js:167"
+      },
+      {
+        "id": "taikhoan",
+        "icon": "taikhoan",
+        "label": "Tài Khoản",
+        "location": "web/js/mp.js:168"
+      }
+    ],
+    "common": [
+      "congtrinh",
+      "hamdoi",
+      "huongdan",
+      "lienminh",
+      "mophong",
+      "nghiencuu",
+      "phongthu",
+      "taichinh",
+      "tainguyen",
+      "thienha",
+      "tinnhan",
+      "tongquan",
+      "xephang",
+      "xuong"
+    ],
+    "soloOnly": [
+      "nhatky"
+    ],
+    "multiplayerOnly": [
+      "bangtin",
+      "chat",
+      "taikhoan"
+    ],
+    "union": [
+      "bangtin",
+      "chat",
+      "congtrinh",
+      "hamdoi",
+      "huongdan",
+      "lienminh",
+      "mophong",
+      "nghiencuu",
+      "nhatky",
+      "phongthu",
+      "taichinh",
+      "taikhoan",
+      "tainguyen",
+      "thienha",
+      "tinnhan",
+      "tongquan",
+      "xephang",
+      "xuong"
+    ],
+    "renderers": [
+      {
+        "value": "bangtin",
+        "locations": [
+          "web/js/mp.js:171"
+        ]
+      },
+      {
+        "value": "chat",
+        "locations": [
+          "web/js/mp.js:252"
+        ]
+      },
+      {
+        "value": "congtrinh",
+        "locations": [
+          "js/ui.js:494"
+        ]
+      },
+      {
+        "value": "hamdoi",
+        "locations": [
+          "js/ui.js:740"
+        ]
+      },
+      {
+        "value": "huongdan",
+        "locations": [
+          "js/ui.js:1374"
+        ]
+      },
+      {
+        "value": "lienminh",
+        "locations": [
+          "js/ui.js:982",
+          "web/js/mp.js:316"
+        ]
+      },
+      {
+        "value": "mophong",
+        "locations": [
+          "js/ui.js:1674"
+        ]
+      },
+      {
+        "value": "nghiencuu",
+        "locations": [
+          "js/ui.js:507"
+        ]
+      },
+      {
+        "value": "nhatky",
+        "locations": [
+          "js/ui.js:1334"
+        ]
+      },
+      {
+        "value": "phongthu",
+        "locations": [
+          "js/ui.js:606"
+        ]
+      },
+      {
+        "value": "taichinh",
+        "locations": [
+          "js/ui.js:1055"
+        ]
+      },
+      {
+        "value": "taikhoan",
+        "locations": [
+          "web/js/mp.js:273"
+        ]
+      },
+      {
+        "value": "tainguyen",
+        "locations": [
+          "js/ui.js:384"
+        ]
+      },
+      {
+        "value": "thienha",
+        "locations": [
+          "js/ui.js:886"
+        ]
+      },
+      {
+        "value": "tinnhan",
+        "locations": [
+          "js/ui.js:1307"
+        ]
+      },
+      {
+        "value": "tongquan",
+        "locations": [
+          "js/ui.js:248"
+        ]
+      },
+      {
+        "value": "xephang",
+        "locations": [
+          "js/ui.js:1167"
+        ]
+      },
+      {
+        "value": "xuong",
+        "locations": [
+          "js/ui.js:578"
+        ]
+      }
+    ],
+    "menuWithoutRenderer": [],
+    "renderersOutsideMenu": [],
+    "iconKeys": [
+      "bangtin",
+      "chat",
+      "congtrinh",
+      "hamdoi",
+      "huongdan",
+      "lienminh",
+      "mophong",
+      "nghiencuu",
+      "nhatky",
+      "phongthu",
+      "taichinh",
+      "tainguyen",
+      "thienha",
+      "tinnhan",
+      "tongquan",
+      "xephang",
+      "xuong"
+    ],
+    "menuItemsWithoutIconDefinition": [
+      "taikhoan"
+    ]
+  },
+  "delegatedActions": {
+    "markup": [
+      {
+        "value": "ban-ten-lua",
+        "locations": [
+          "js/ui.js:644"
+        ]
+      },
+      {
+        "value": "bau-phieu",
+        "locations": [
+          "js/ui.js:1005",
+          "js/ui.js:1006"
+        ]
+      },
+      {
+        "value": "bo-hoang",
+        "locations": [
+          "js/ui.js:304"
+        ]
+      },
+      {
+        "value": "bo-hoang-ok",
+        "locations": [
+          "js/app.js:285"
+        ]
+      },
+      {
+        "value": "chat-gui",
+        "locations": [
+          "web/js/mp.js:258",
+          "web/js/mp.js:265"
+        ]
+      },
+      {
+        "value": "chuyen-galana",
+        "locations": [
+          "js/ui.js:1021"
+        ]
+      },
+      {
+        "value": "chuyen-galana-ok",
+        "locations": [
+          "web/js/mp.js:531"
+        ]
+      },
+      {
+        "value": "dang-ban",
+        "locations": [
+          "js/ui.js:1137"
+        ]
+      },
+      {
+        "value": "dangxuat",
+        "locations": [
+          "web/index.html:75",
+          "web/js/mp.js:288"
+        ]
+      },
+      {
+        "value": "dau-tu-st",
+        "locations": [
+          "js/ui.js:1090"
+        ]
+      },
+      {
+        "value": "doc-het",
+        "locations": [
+          "js/ui.js:1310"
+        ]
+      },
+      {
+        "value": "doc-tin",
+        "locations": [
+          "js/ui.js:1315"
+        ]
+      },
+      {
+        "value": "doi-mk",
+        "locations": [
+          "web/js/mp.js:287"
+        ]
+      },
+      {
+        "value": "doi-mk-ok",
+        "locations": [
+          "web/js/mp.js:577"
+        ]
+      },
+      {
+        "value": "doi-ten",
+        "locations": [
+          "js/ui.js:303"
+        ]
+      },
+      {
+        "value": "doi-ten-ok",
+        "locations": [
+          "js/app.js:303"
+        ]
+      },
+      {
+        "value": "doihuong",
+        "locations": [
+          "js/ui.js:765"
+        ]
+      },
+      {
+        "value": "doihuong-ok",
+        "locations": [
+          "js/app.js:225"
+        ]
+      },
+      {
+        "value": "doithue",
+        "locations": [
+          "js/ui.js:286"
+        ]
+      },
+      {
+        "value": "dong",
+        "locations": [
+          "js/ui.js:572"
+        ]
+      },
+      {
+        "value": "dong-ht",
+        "locations": [
+          "index.html:61",
+          "js/main.js:136",
+          "web/index.html:92"
+        ]
+      },
+      {
+        "value": "gal",
+        "locations": [
+          "js/ui.js:895",
+          "js/ui.js:897",
+          "js/ui.js:898",
+          "js/ui.js:900"
+        ]
+      },
+      {
+        "value": "gal-di",
+        "locations": [
+          "js/ui.js:901"
+        ]
+      },
+      {
+        "value": "gal-nha",
+        "locations": [
+          "js/ui.js:902"
+        ]
+      },
+      {
+        "value": "gal-tu-form",
+        "locations": [
+          "js/ui.js:825"
+        ]
+      },
+      {
+        "value": "goive",
+        "locations": [
+          "js/ui.js:766"
+        ]
+      },
+      {
+        "value": "gui",
+        "locations": [
+          "js/ui.js:839"
+        ]
+      },
+      {
+        "value": "gui-nh",
+        "locations": [
+          "js/ui.js:1079"
+        ]
+      },
+      {
+        "value": "gui-thu",
+        "locations": [
+          "js/ui.js:963"
+        ]
+      },
+      {
+        "value": "gui-thu-ok",
+        "locations": [
+          "web/js/mp.js:546"
+        ]
+      },
+      {
+        "value": "huy-don",
+        "locations": [
+          "js/ui.js:1125"
+        ]
+      },
+      {
+        "value": "huydong",
+        "locations": [
+          "js/ui.js:334"
+        ]
+      },
+      {
+        "value": "huync",
+        "locations": [
+          "js/ui.js:352",
+          "js/ui.js:518"
+        ]
+      },
+      {
+        "value": "huyxay",
+        "locations": [
+          "js/ui.js:320"
+        ]
+      },
+      {
+        "value": "lm-chuyen",
+        "locations": [
+          "web/js/mp.js:355"
+        ]
+      },
+      {
+        "value": "lm-chuyen-ok",
+        "locations": [
+          "web/js/mp.js:502"
+        ]
+      },
+      {
+        "value": "lm-duoi",
+        "locations": [
+          "web/js/mp.js:356"
+        ]
+      },
+      {
+        "value": "lm-duoi-ok",
+        "locations": [
+          "web/js/mp.js:492"
+        ]
+      },
+      {
+        "value": "lm-duyet",
+        "locations": [
+          "web/js/mp.js:346"
+        ]
+      },
+      {
+        "value": "lm-ra",
+        "locations": [
+          "js/ui.js:1026"
+        ]
+      },
+      {
+        "value": "lm-tao",
+        "locations": [
+          "web/js/mp.js:323"
+        ]
+      },
+      {
+        "value": "lm-tu-choi",
+        "locations": [
+          "web/js/mp.js:347"
+        ]
+      },
+      {
+        "value": "lm-vao",
+        "locations": [
+          "js/ui.js:1042"
+        ]
+      },
+      {
+        "value": "luu",
+        "locations": [
+          "index.html:42",
+          "js/ui.js:1355"
+        ]
+      },
+      {
+        "value": "man",
+        "locations": [
+          "index.html:38",
+          "js/ui.js:191",
+          "js/ui.js:294",
+          "js/ui.js:295",
+          "js/ui.js:296",
+          "js/ui.js:297",
+          "js/ui.js:441",
+          "web/index.html:70"
+        ]
+      },
+      {
+        "value": "max-hang",
+        "locations": [
+          "js/ui.js:878"
+        ]
+      },
+      {
+        "value": "max-linh",
+        "locations": [
+          "js/ui.js:867"
+        ]
+      },
+      {
+        "value": "max-tau",
+        "locations": [
+          "js/ui.js:850"
+        ]
+      },
+      {
+        "value": "mp-chay",
+        "locations": [
+          "js/ui.js:1685"
+        ]
+      },
+      {
+        "value": "mp-nap-bc",
+        "locations": [
+          "js/ui.js:1696"
+        ]
+      },
+      {
+        "value": "mp-nap-ham",
+        "locations": [
+          "js/ui.js:1686"
+        ]
+      },
+      {
+        "value": "mp-xoa",
+        "locations": [
+          "js/ui.js:1687"
+        ]
+      },
+      {
+        "value": "mua-diem",
+        "locations": [
+          "js/ui.js:1096"
+        ]
+      },
+      {
+        "value": "mua-don",
+        "locations": [
+          "js/ui.js:1110"
+        ]
+      },
+      {
+        "value": "nc",
+        "locations": [
+          "js/ui.js:535"
+        ]
+      },
+      {
+        "value": "nhap",
+        "locations": [
+          "js/ui.js:1357"
+        ]
+      },
+      {
+        "value": "nhap-file",
+        "locations": [
+          "js/main.js:121"
+        ]
+      },
+      {
+        "value": "nhap-ok",
+        "locations": [
+          "js/main.js:120"
+        ]
+      },
+      {
+        "value": "nv",
+        "locations": [
+          "js/ui.js:938",
+          "js/ui.js:940",
+          "js/ui.js:952",
+          "js/ui.js:954",
+          "js/ui.js:956",
+          "js/ui.js:960",
+          "js/ui.js:961",
+          "js/ui.js:966",
+          "js/ui.js:967"
+        ]
+      },
+      {
+        "value": "rut-nh",
+        "locations": [
+          "js/ui.js:1082"
+        ]
+      },
+      {
+        "value": "rut-nh-all",
+        "locations": [
+          "js/ui.js:1080"
+        ]
+      },
+      {
+        "value": "tab-tc",
+        "locations": [
+          "js/ui.js:1062"
+        ]
+      },
+      {
+        "value": "tang-toc",
+        "locations": [
+          "js/ui.js:1094"
+        ]
+      },
+      {
+        "value": "tra-luong",
+        "locations": [
+          "js/ui.js:1077"
+        ]
+      },
+      {
+        "value": "tuyen-chien",
+        "locations": [
+          "js/ui.js:946"
+        ]
+      },
+      {
+        "value": "tuyen-chien-ok",
+        "locations": [
+          "web/js/mp.js:514"
+        ]
+      },
+      {
+        "value": "xay",
+        "locations": [
+          "js/app.js:331",
+          "js/ui.js:488"
+        ]
+      },
+      {
+        "value": "xem-tt",
+        "locations": [
+          "js/ui.js:950"
+        ]
+      },
+      {
+        "value": "xh-loai",
+        "locations": [
+          "js/ui.js:1173"
+        ]
+      },
+      {
+        "value": "xoa-game",
+        "locations": [
+          "js/ui.js:1358"
+        ]
+      },
+      {
+        "value": "xoa-that",
+        "locations": [
+          "js/main.js:135"
+        ]
+      },
+      {
+        "value": "xoa-tin",
+        "locations": [
+          "js/ui.js:1311"
+        ]
+      },
+      {
+        "value": "xoa-tk",
+        "locations": [
+          "web/js/mp.js:289"
+        ]
+      },
+      {
+        "value": "xoa-tk-ok",
+        "locations": [
+          "web/js/mp.js:592"
+        ]
+      },
+      {
+        "value": "xuat",
+        "locations": [
+          "js/ui.js:1356"
+        ]
+      },
+      {
+        "value": "xuat-copy",
+        "locations": [
+          "js/main.js:87"
+        ]
+      },
+      {
+        "value": "xuat-file",
+        "locations": [
+          "js/main.js:88"
+        ]
+      }
+    ],
+    "handlers": [
+      {
+        "value": "ban",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:113"
+        ]
+      },
+      {
+        "value": "ban-ten-lua",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:208"
+        ]
+      },
+      {
+        "value": "bau-phieu",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:457"
+        ]
+      },
+      {
+        "value": "bo-hoang",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:277"
+        ]
+      },
+      {
+        "value": "bo-hoang-ok",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:286"
+        ]
+      },
+      {
+        "value": "chat-gui",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:555"
+        ]
+      },
+      {
+        "value": "chuyen-galana",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:524"
+        ]
+      },
+      {
+        "value": "chuyen-galana-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:532"
+        ]
+      },
+      {
+        "value": "dang-ban",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:97",
+          "web/js/mp.js:405"
+        ]
+      },
+      {
+        "value": "dangxuat",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:602"
+        ]
+      },
+      {
+        "value": "dau-tu-st",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:76"
+        ]
+      },
+      {
+        "value": "doc-het",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:260"
+        ]
+      },
+      {
+        "value": "doc-tin",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:250"
+        ]
+      },
+      {
+        "value": "doi-mk",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:572"
+        ]
+      },
+      {
+        "value": "doi-mk-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:578"
+        ]
+      },
+      {
+        "value": "doi-ten",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:297"
+        ]
+      },
+      {
+        "value": "doi-ten-ok",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:304"
+        ]
+      },
+      {
+        "value": "doihuong",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:214"
+        ]
+      },
+      {
+        "value": "doihuong-ok",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:226"
+        ]
+      },
+      {
+        "value": "doithue",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:57"
+        ]
+      },
+      {
+        "value": "dong",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:52"
+        ]
+      },
+      {
+        "value": "dong-ht",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:41"
+        ]
+      },
+      {
+        "value": "gal",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:121"
+        ]
+      },
+      {
+        "value": "gal-di",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:127"
+        ]
+      },
+      {
+        "value": "gal-nha",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:134"
+        ]
+      },
+      {
+        "value": "gal-tu-form",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:139"
+        ]
+      },
+      {
+        "value": "goive",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:207"
+        ]
+      },
+      {
+        "value": "gui",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:195"
+        ]
+      },
+      {
+        "value": "gui-nh",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:65"
+        ]
+      },
+      {
+        "value": "gui-thu",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:539"
+        ]
+      },
+      {
+        "value": "gui-thu-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:547"
+        ]
+      },
+      {
+        "value": "huy-don",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:94",
+          "web/js/mp.js:429"
+        ]
+      },
+      {
+        "value": "huydong",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:56"
+        ]
+      },
+      {
+        "value": "huync",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:51"
+        ]
+      },
+      {
+        "value": "huyxay",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:49"
+        ]
+      },
+      {
+        "value": "lm-chuyen",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:498"
+        ]
+      },
+      {
+        "value": "lm-chuyen-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:503"
+        ]
+      },
+      {
+        "value": "lm-duoi",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:488"
+        ]
+      },
+      {
+        "value": "lm-duoi-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:493"
+        ]
+      },
+      {
+        "value": "lm-duyet",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:478"
+        ]
+      },
+      {
+        "value": "lm-ra",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:274",
+          "web/js/mp.js:462"
+        ]
+      },
+      {
+        "value": "lm-tao",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:469"
+        ]
+      },
+      {
+        "value": "lm-tu-choi",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:483"
+        ]
+      },
+      {
+        "value": "lm-vao",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:273",
+          "web/js/mp.js:450"
+        ]
+      },
+      {
+        "value": "luu",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:42"
+        ]
+      },
+      {
+        "value": "man",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:36",
+          "web/js/mp.js:434"
+        ]
+      },
+      {
+        "value": "max-hang",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:168"
+        ]
+      },
+      {
+        "value": "max-linh",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:155"
+        ]
+      },
+      {
+        "value": "max-tau",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:162"
+        ]
+      },
+      {
+        "value": "mp-chay",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:239"
+        ]
+      },
+      {
+        "value": "mp-nap-bc",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:242"
+        ]
+      },
+      {
+        "value": "mp-nap-ham",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:240"
+        ]
+      },
+      {
+        "value": "mp-xoa",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:241"
+        ]
+      },
+      {
+        "value": "mua",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:116"
+        ]
+      },
+      {
+        "value": "mua-diem",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:83"
+        ]
+      },
+      {
+        "value": "mua-don",
+        "modes": [
+          "multiplayer",
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:89",
+          "web/js/mp.js:422"
+        ]
+      },
+      {
+        "value": "nc",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:50"
+        ]
+      },
+      {
+        "value": "nhap",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:115"
+        ]
+      },
+      {
+        "value": "nhap-file",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:131"
+        ]
+      },
+      {
+        "value": "nhap-ok",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:122"
+        ]
+      },
+      {
+        "value": "nv",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:146"
+        ]
+      },
+      {
+        "value": "rut-nh",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:69"
+        ]
+      },
+      {
+        "value": "rut-nh-all",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:73"
+        ]
+      },
+      {
+        "value": "tab-tc",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:64"
+        ]
+      },
+      {
+        "value": "tang-toc",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:80"
+        ]
+      },
+      {
+        "value": "tra-luong",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:86"
+        ]
+      },
+      {
+        "value": "tuyen-chien",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:508"
+        ]
+      },
+      {
+        "value": "tuyen-chien-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:515"
+        ]
+      },
+      {
+        "value": "xay",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:45"
+        ]
+      },
+      {
+        "value": "xem-tt",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:266"
+        ]
+      },
+      {
+        "value": "xh-loai",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:232"
+        ]
+      },
+      {
+        "value": "xoa-game",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:132"
+        ]
+      },
+      {
+        "value": "xoa-that",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:137"
+        ]
+      },
+      {
+        "value": "xoa-tin",
+        "modes": [
+          "shared"
+        ],
+        "locations": [
+          "js/app.js:265"
+        ]
+      },
+      {
+        "value": "xoa-tk",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:585"
+        ]
+      },
+      {
+        "value": "xoa-tk-ok",
+        "modes": [
+          "multiplayer"
+        ],
+        "locations": [
+          "web/js/mp.js:593"
+        ]
+      },
+      {
+        "value": "xuat",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:80"
+        ]
+      },
+      {
+        "value": "xuat-copy",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:90"
+        ]
+      },
+      {
+        "value": "xuat-file",
+        "modes": [
+          "solo"
+        ],
+        "locations": [
+          "js/main.js:103"
+        ]
+      }
+    ],
+    "markupWithoutHandler": [],
+    "handlersWithoutStaticMarkup": [
+      "ban",
+      "mua"
+    ]
+  },
+  "liveUpdates": {
+    "dataLive": [
+      {
+        "value": "galana",
+        "locations": [
+          "js/ui.js:124"
+        ]
+      },
+      {
+        "value": "rate.${id}",
+        "locations": [
+          "js/ui.js:120"
+        ]
+      },
+      {
+        "value": "rate.galana",
+        "locations": [
+          "js/ui.js:125"
+        ]
+      },
+      {
+        "value": "rate.tech",
+        "locations": [
+          "js/ui.js:128"
+        ]
+      },
+      {
+        "value": "res.${id}",
+        "locations": [
+          "js/ui.js:119"
+        ]
+      },
+      {
+        "value": "tech",
+        "locations": [
+          "js/ui.js:127"
+        ]
+      }
+    ],
+    "values": [
+      "galana",
+      "rate.${id}",
+      "rate.galana",
+      "rate.tech",
+      "res.${id}",
+      "tech"
+    ],
+    "expandedCurrentValues": [
+      "res.metal",
+      "rate.metal",
+      "res.crystal",
+      "rate.crystal",
+      "res.deut",
+      "rate.deut",
+      "res.food",
+      "rate.food",
+      "galana",
+      "rate.galana",
+      "tech",
+      "rate.tech"
+    ]
+  },
+  "navigationTargets": {
+    "dataMan": [
+      {
+        "value": "${m.id}",
+        "locations": [
+          "js/ui.js:191"
+        ]
+      },
+      {
+        "value": "congtrinh",
+        "locations": [
+          "js/ui.js:294"
+        ]
+      },
+      {
+        "value": "nghiencuu",
+        "locations": [
+          "js/ui.js:295"
+        ]
+      },
+      {
+        "value": "taichinh",
+        "locations": [
+          "js/ui.js:441"
+        ]
+      },
+      {
+        "value": "thienha",
+        "locations": [
+          "js/ui.js:297"
+        ]
+      },
+      {
+        "value": "tongquan",
+        "locations": [
+          "index.html:38",
+          "web/index.html:70"
+        ]
+      },
+      {
+        "value": "xuong",
+        "locations": [
+          "js/ui.js:296"
+        ]
+      }
+    ],
+    "staticValues": [
+      "congtrinh",
+      "nghiencuu",
+      "taichinh",
+      "thienha",
+      "tongquan",
+      "xuong"
+    ]
+  },
+  "dom": {
+    "renderedIdTemplates": [
+      {
+        "value": "${b.id}",
+        "locations": [
+          "js/ui.js:488"
+        ]
+      },
+      {
+        "value": "${bb2.id}",
+        "locations": [
+          "js/ui.js:867"
+        ]
+      },
+      {
+        "value": "${bid}",
+        "locations": [
+          "js/app.js:331"
+        ]
+      },
+      {
+        "value": "${d.id}",
+        "locations": [
+          "js/ui.js:1110",
+          "js/ui.js:535"
+        ]
+      },
+      {
+        "value": "${dj.id}",
+        "locations": [
+          "js/ui.js:1125"
+        ]
+      },
+      {
+        "value": "${m.id}",
+        "locations": [
+          "js/ui.js:1315"
+        ]
+      },
+      {
+        "value": "${P.id}",
+        "locations": [
+          "js/ui.js:1005",
+          "js/ui.js:1006"
+        ]
+      },
+      {
+        "value": "${s.id}",
+        "locations": [
+          "js/ui.js:850"
+        ]
+      },
+      {
+        "value": "${tienTo}-${u.id}",
+        "locations": [
+          "js/ui.js:1671"
+        ]
+      },
+      {
+        "value": "${u.id}",
+        "locations": [
+          "js/ui.js:572"
+        ]
+      },
+      {
+        "value": "ban-${resId}",
+        "locations": [
+          "js/ui.js:1134"
+        ]
+      },
+      {
+        "value": "ban-gia",
+        "locations": [
+          "js/ui.js:1136"
+        ]
+      },
+      {
+        "value": "bh-xn",
+        "locations": [
+          "js/app.js:284"
+        ]
+      },
+      {
+        "value": "cauhinh-tocdo",
+        "locations": [
+          "web/index.html:49"
+        ]
+      },
+      {
+        "value": "chan",
+        "locations": [
+          "index.html:54",
+          "web/index.html:87"
+        ]
+      },
+      {
+        "value": "chan-tt",
+        "locations": [
+          "index.html:55",
+          "web/index.html:87"
+        ]
+      },
+      {
+        "value": "chat-ds-chung",
+        "locations": [
+          "web/js/mp.js:256"
+        ]
+      },
+      {
+        "value": "chat-ds-lienminh",
+        "locations": [
+          "web/js/mp.js:263"
+        ]
+      },
+      {
+        "value": "chat-noi-chung",
+        "locations": [
+          "web/js/mp.js:257"
+        ]
+      },
+      {
+        "value": "chat-noi-lienminh",
+        "locations": [
+          "web/js/mp.js:264"
+        ]
+      },
+      {
+        "value": "chon-ht",
+        "locations": [
+          "index.html:41",
+          "web/index.html:73"
+        ]
+      },
+      {
+        "value": "ct-gia-${b.id}",
+        "locations": [
+          "js/ui.js:485"
+        ]
+      },
+      {
+        "value": "ct-sl-${b.id}",
+        "locations": [
+          "js/ui.js:486"
+        ]
+      },
+      {
+        "value": "ct-tg-${b.id}",
+        "locations": [
+          "js/ui.js:489"
+        ]
+      },
+      {
+        "value": "dh-g",
+        "locations": [
+          "js/app.js:222"
+        ]
+      },
+      {
+        "value": "dh-h",
+        "locations": [
+          "js/app.js:223"
+        ]
+      },
+      {
+        "value": "dh-p",
+        "locations": [
+          "js/app.js:224"
+        ]
+      },
+      {
+        "value": "dk-hienthi",
+        "locations": [
+          "web/index.html:39"
+        ]
+      },
+      {
+        "value": "dk-mk",
+        "locations": [
+          "web/index.html:41"
+        ]
+      },
+      {
+        "value": "dk-ten",
+        "locations": [
+          "web/index.html:37"
+        ]
+      },
+      {
+        "value": "dn-mk",
+        "locations": [
+          "web/index.html:31"
+        ]
+      },
+      {
+        "value": "dn-ten",
+        "locations": [
+          "web/index.html:29"
+        ]
+      },
+      {
+        "value": "f-g",
+        "locations": [
+          "js/ui.js:822"
+        ]
+      },
+      {
+        "value": "f-giu",
+        "locations": [
+          "js/ui.js:835"
+        ]
+      },
+      {
+        "value": "f-h",
+        "locations": [
+          "js/ui.js:823"
+        ]
+      },
+      {
+        "value": "f-mission",
+        "locations": [
+          "js/ui.js:826"
+        ]
+      },
+      {
+        "value": "f-p",
+        "locations": [
+          "js/ui.js:824"
+        ]
+      },
+      {
+        "value": "f-pct",
+        "locations": [
+          "js/ui.js:833"
+        ]
+      },
+      {
+        "value": "f-pct-v",
+        "locations": [
+          "js/ui.js:832"
+        ]
+      },
+      {
+        "value": "fc-${rid}",
+        "locations": [
+          "js/ui.js:875"
+        ]
+      },
+      {
+        "value": "file-nhap",
+        "locations": [
+          "js/ui.js:1359"
+        ]
+      },
+      {
+        "value": "fl-${bb2.id}",
+        "locations": [
+          "js/ui.js:865"
+        ]
+      },
+      {
+        "value": "form-cauhinh",
+        "locations": [
+          "web/index.html:46"
+        ]
+      },
+      {
+        "value": "form-dk",
+        "locations": [
+          "web/index.html:35"
+        ]
+      },
+      {
+        "value": "form-dn",
+        "locations": [
+          "web/index.html:27"
+        ]
+      },
+      {
+        "value": "ft-${s.id}",
+        "locations": [
+          "js/ui.js:849"
+        ]
+      },
+      {
+        "value": "g-g",
+        "locations": [
+          "js/ui.js:896"
+        ]
+      },
+      {
+        "value": "g-h",
+        "locations": [
+          "js/ui.js:899"
+        ]
+      },
+      {
+        "value": "galana-so",
+        "locations": [
+          "web/js/mp.js:529"
+        ]
+      },
+      {
+        "value": "game",
+        "locations": [
+          "index.html:36",
+          "web/index.html:68"
+        ]
+      },
+      {
+        "value": "hd-tt",
+        "locations": [
+          "js/ui.js:838"
+        ]
+      },
+      {
+        "value": "hop-thoai",
+        "locations": [
+          "index.html:59",
+          "web/index.html:90"
+        ]
+      },
+      {
+        "value": "ht-noi",
+        "locations": [
+          "index.html:62",
+          "web/index.html:93"
+        ]
+      },
+      {
+        "value": "ht-td",
+        "locations": [
+          "index.html:61",
+          "web/index.html:92"
+        ]
+      },
+      {
+        "value": "kd-batdau",
+        "locations": [
+          "index.html:26"
+        ]
+      },
+      {
+        "value": "kd-loi",
+        "locations": [
+          "web/index.html:59"
+        ]
+      },
+      {
+        "value": "kd-seed",
+        "locations": [
+          "index.html:25"
+        ]
+      },
+      {
+        "value": "kd-sv",
+        "locations": [
+          "web/index.html:20"
+        ]
+      },
+      {
+        "value": "kd-tab",
+        "locations": [
+          "web/index.html:22"
+        ]
+      },
+      {
+        "value": "kd-ten",
+        "locations": [
+          "index.html:23"
+        ]
+      },
+      {
+        "value": "kd-tieptuc",
+        "locations": [
+          "index.html:27"
+        ]
+      },
+      {
+        "value": "kd-ver",
+        "locations": [
+          "index.html:19",
+          "web/index.html:19"
+        ]
+      },
+      {
+        "value": "lm-tag",
+        "locations": [
+          "web/js/mp.js:321"
+        ]
+      },
+      {
+        "value": "lm-ten",
+        "locations": [
+          "web/js/mp.js:322"
+        ]
+      },
+      {
+        "value": "man-khoidong",
+        "locations": [
+          "index.html:16",
+          "web/index.html:16"
+        ]
+      },
+      {
+        "value": "menu",
+        "locations": [
+          "index.html:50",
+          "web/index.html:83"
+        ]
+      },
+      {
+        "value": "mk-cu",
+        "locations": [
+          "web/js/mp.js:575"
+        ]
+      },
+      {
+        "value": "mk-moi",
+        "locations": [
+          "web/js/mp.js:576"
+        ]
+      },
+      {
+        "value": "mo-cauhinh",
+        "locations": [
+          "web/js/mp.js:706",
+          "web/js/mp.js:741"
+        ]
+      },
+      {
+        "value": "mp-bc",
+        "locations": [
+          "js/ui.js:1691"
+        ]
+      },
+      {
+        "value": "mpta-armor",
+        "locations": [
+          "js/ui.js:1751"
+        ]
+      },
+      {
+        "value": "mpta-shield",
+        "locations": [
+          "js/ui.js:1750"
+        ]
+      },
+      {
+        "value": "mpta-weapon",
+        "locations": [
+          "js/ui.js:1749"
+        ]
+      },
+      {
+        "value": "mptd-armor",
+        "locations": [
+          "js/ui.js:1762"
+        ]
+      },
+      {
+        "value": "mptd-shield",
+        "locations": [
+          "js/ui.js:1761"
+        ]
+      },
+      {
+        "value": "mptd-weapon",
+        "locations": [
+          "js/ui.js:1760"
+        ]
+      },
+      {
+        "value": "mua-${d.id}",
+        "locations": [
+          "js/ui.js:1109"
+        ]
+      },
+      {
+        "value": "nh-gui",
+        "locations": [
+          "js/ui.js:1078"
+        ]
+      },
+      {
+        "value": "nh-rut",
+        "locations": [
+          "js/ui.js:1081"
+        ]
+      },
+      {
+        "value": "nhap-js",
+        "locations": [
+          "js/main.js:119"
+        ]
+      },
+      {
+        "value": "noidung",
+        "locations": [
+          "index.html:51",
+          "web/index.html:84"
+        ]
+      },
+      {
+        "value": "nut-dk",
+        "locations": [
+          "web/index.html:43"
+        ]
+      },
+      {
+        "value": "nut-dn",
+        "locations": [
+          "web/index.html:32"
+        ]
+      },
+      {
+        "value": "nut-dong-cauhinh",
+        "locations": [
+          "web/index.html:56"
+        ]
+      },
+      {
+        "value": "nut-luu-cauhinh",
+        "locations": [
+          "web/index.html:55"
+        ]
+      },
+      {
+        "value": "nut-menu",
+        "locations": [
+          "index.html:43",
+          "web/index.html:76"
+        ]
+      },
+      {
+        "value": "sl-${u.id}",
+        "locations": [
+          "js/ui.js:571"
+        ]
+      },
+      {
+        "value": "st-von",
+        "locations": [
+          "js/ui.js:1089"
+        ]
+      },
+      {
+        "value": "tab-dk",
+        "locations": [
+          "web/index.html:24"
+        ]
+      },
+      {
+        "value": "tab-dn",
+        "locations": [
+          "web/index.html:23"
+        ]
+      },
+      {
+        "value": "ten-ht",
+        "locations": [
+          "js/app.js:302"
+        ]
+      },
+      {
+        "value": "thanh-canh",
+        "locations": [
+          "index.html:47",
+          "web/index.html:80"
+        ]
+      },
+      {
+        "value": "thanh-tren",
+        "locations": [
+          "index.html:37",
+          "web/index.html:69"
+        ]
+      },
+      {
+        "value": "thu-den",
+        "locations": [
+          "web/js/mp.js:544"
+        ]
+      },
+      {
+        "value": "thu-noi",
+        "locations": [
+          "web/js/mp.js:545"
+        ]
+      },
+      {
+        "value": "thue-pct",
+        "locations": [
+          "js/ui.js:285"
+        ]
+      },
+      {
+        "value": "tl-g",
+        "locations": [
+          "js/ui.js:640"
+        ]
+      },
+      {
+        "value": "tl-h",
+        "locations": [
+          "js/ui.js:641"
+        ]
+      },
+      {
+        "value": "tl-n",
+        "locations": [
+          "js/ui.js:643"
+        ]
+      },
+      {
+        "value": "tl-p",
+        "locations": [
+          "js/ui.js:642"
+        ]
+      },
+      {
+        "value": "toast",
+        "locations": [
+          "index.html:65",
+          "web/index.html:96"
+        ]
+      },
+      {
+        "value": "tocdo-info",
+        "locations": [
+          "web/index.html:42"
+        ]
+      },
+      {
+        "value": "tt-net",
+        "locations": [
+          "web/index.html:74"
+        ]
+      },
+      {
+        "value": "tt-res",
+        "locations": [
+          "index.html:39",
+          "web/index.html:71"
+        ]
+      },
+      {
+        "value": "xtk-mk",
+        "locations": [
+          "web/js/mp.js:590"
+        ]
+      },
+      {
+        "value": "xtk-xn",
+        "locations": [
+          "web/js/mp.js:591"
+        ]
+      },
+      {
+        "value": "xuat-js",
+        "locations": [
+          "js/main.js:86"
+        ]
+      }
+    ],
+    "referencedIds": [
+      "ban-",
+      "ban-gia",
+      "bh-xn",
+      "cauhinh-tocdo",
+      "chan-tt",
+      "chat-ds-chung",
+      "chat-ds-lienminh",
+      "chat-noi-",
+      "chon-ht",
+      "ct-gia-",
+      "ct-tg-",
+      "dk-hienthi",
+      "dk-mk",
+      "dk-ten",
+      "dn-mk",
+      "dn-ten",
+      "f-g",
+      "f-giu",
+      "f-h",
+      "f-mission",
+      "f-p",
+      "f-pct",
+      "f-pct-v",
+      "fc-",
+      "file-nhap",
+      "fl-",
+      "form-cauhinh",
+      "form-dk",
+      "form-dn",
+      "ft-",
+      "galana-so",
+      "game",
+      "hd-tt",
+      "hop-thoai",
+      "ht-noi",
+      "ht-td",
+      "kd-batdau",
+      "kd-loi",
+      "kd-seed",
+      "kd-sv",
+      "kd-ten",
+      "kd-tieptuc",
+      "kd-ver",
+      "lm-tag",
+      "lm-ten",
+      "man-khoidong",
+      "menu",
+      "mk-cu",
+      "mk-moi",
+      "mo-cauhinh",
+      "mp-bc",
+      "mpa-",
+      "mpd-",
+      "mpf-",
+      "mpta-",
+      "mptd-",
+      "mua-",
+      "nh-gui",
+      "nh-rut",
+      "nhap-js",
+      "noidung",
+      "nut-dk",
+      "nut-dn",
+      "nut-dong-cauhinh",
+      "nut-luu-cauhinh",
+      "nut-menu",
+      "st-von",
+      "tab-dk",
+      "tab-dn",
+      "ten-ht",
+      "thanh-canh",
+      "thu-den",
+      "thu-noi",
+      "thue-pct",
+      "toast",
+      "tocdo-info",
+      "tt-net",
+      "tt-res",
+      "xtk-mk",
+      "xtk-xn",
+      "xuat-js"
+    ],
+    "directBindings": [
+      {
+        "id": "kd-batdau",
+        "event": "onclick",
+        "location": "js/main.js:176"
+      },
+      {
+        "id": "kd-ten",
+        "event": "keydown",
+        "location": "js/main.js:186"
+      },
+      {
+        "id": "mo-cauhinh",
+        "event": "onclick",
+        "location": "web/js/mp.js:718"
+      },
+      {
+        "id": "mo-cauhinh",
+        "event": "onclick",
+        "location": "web/js/mp.js:742"
+      },
+      {
+        "id": "nut-dk",
+        "event": "onclick",
+        "location": "web/js/mp.js:674"
+      },
+      {
+        "id": "nut-dn",
+        "event": "onclick",
+        "location": "web/js/mp.js:662"
+      },
+      {
+        "id": "nut-dong-cauhinh",
+        "event": "onclick",
+        "location": "web/js/mp.js:723"
+      },
+      {
+        "id": "nut-luu-cauhinh",
+        "event": "onclick",
+        "location": "web/js/mp.js:726"
+      },
+      {
+        "id": "nut-menu",
+        "event": "onclick",
+        "location": "js/main.js:183"
+      },
+      {
+        "id": "nut-menu",
+        "event": "onclick",
+        "location": "web/js/mp.js:693"
+      },
+      {
+        "id": "tab-dk",
+        "event": "onclick",
+        "location": "web/js/mp.js:657"
+      },
+      {
+        "id": "tab-dn",
+        "event": "onclick",
+        "location": "web/js/mp.js:652"
+      }
+    ],
+    "duplicateStaticIds": {
+      "solo": [],
+      "multiplayer": []
+    }
+  },
+  "classes": {
+    "cssDefined": [
+      "bang-cuon",
+      "bar",
+      "bc",
+      "bt",
+      "c",
+      "cam",
+      "canh",
+      "cap",
+      "chat-dong",
+      "chat-ds",
+      "chat-ghi",
+      "chat-gui",
+      "chat-nhap",
+      "chat-noi",
+      "chip",
+      "ct",
+      "d",
+      "dash-the-lon",
+      "day",
+      "dem-nho",
+      "dk",
+      "do",
+      "dot",
+      "gal-dh",
+      "gia",
+      "hanhnhanh",
+      "hd-luoi",
+      "hd-tau",
+      "hd-td",
+      "hoa",
+      "hop-thoai",
+      "ht-dau",
+      "ht-trong",
+      "hu",
+      "kd-form",
+      "kd-ghi",
+      "kd-hop",
+      "kd-logo",
+      "kd-nam",
+      "kd-sub",
+      "khoidong",
+      "khung",
+      "kq",
+      "lam",
+      "link-nut",
+      "loi",
+      "lon",
+      "luc",
+      "luoi",
+      "luoi2",
+      "mo",
+      "mo-ra",
+      "moi",
+      "mt",
+      "n",
+      "nav-ic",
+      "nd",
+      "nguoi",
+      "nho",
+      "noi",
+      "npc-bo",
+      "nut",
+      "ok",
+      "oke",
+      "on",
+      "panel",
+      "phu",
+      "pill-chiso",
+      "pl",
+      "r",
+      "sang",
+      "sang-glow",
+      "so",
+      "sz",
+      "t",
+      "tag-lm",
+      "tat",
+      "thang",
+      "thanh",
+      "the",
+      "thieu",
+      "thieu-dien",
+      "thua",
+      "tim",
+      "tn",
+      "toi",
+      "trong",
+      "tt-logo",
+      "tt-phu",
+      "tt-res",
+      "v",
+      "vang",
+      "xoa"
+    ],
+    "functionalContracts": [
+      "dem",
+      "mo-ra",
+      "oke",
+      "kd-form"
+    ],
+    "classAttributeTemplates": [
+      {
+        "value": "${(choCan > choCo ? 'do' : 'mo')} sz",
+        "locations": [
+          "js/ui.js:858"
+        ]
+      },
+      {
+        "value": "${(ds.foodShortfallCycle > 0 ? 'do' : 'luc')}",
+        "locations": [
+          "js/ui.js:288"
+        ]
+      },
+      {
+        "value": "${(q2.nv === 'attack' ? 'cam' : 'luc')}",
+        "locations": [
+          "js/ui.js:807"
+        ]
+      },
+      {
+        "value": "${(thieu ? 'thieu' : '')}",
+        "locations": [
+          "js/ui.js:56"
+        ]
+      },
+      {
+        "value": "${(U.man === m.id ? 'on' : '')}",
+        "locations": [
+          "js/ui.js:191"
+        ]
+      },
+      {
+        "value": "${cls}",
+        "locations": [
+          "js/ui.js:913"
+        ]
+      },
+      {
+        "value": "${lop}",
+        "locations": [
+          "js/ui.js:716"
+        ]
+      },
+      {
+        "value": "${lopNV}",
+        "locations": [
+          "js/ui.js:809"
+        ]
+      },
+      {
+        "value": "bang-cuon",
+        "locations": [
+          "js/ui.js:1015",
+          "js/ui.js:1031",
+          "js/ui.js:1103",
+          "js/ui.js:1116",
+          "js/ui.js:1181",
+          "js/ui.js:1400",
+          "js/ui.js:359",
+          "js/ui.js:406",
+          "js/ui.js:650",
+          "js/ui.js:748",
+          "js/ui.js:904",
+          "js/ui.js:996",
+          "web/js/mp.js:342",
+          "web/js/mp.js:351",
+          "web/js/mp.js:369",
+          "web/js/mp.js:383"
+        ]
+      },
+      {
+        "value": "bar",
+        "locations": [
+          "js/ui.js:255",
+          "js/ui.js:271",
+          "js/ui.js:284"
+        ]
+      },
+      {
+        "value": "bc",
+        "locations": [
+          "js/ui.js:1201",
+          "js/ui.js:1254",
+          "js/ui.js:1287"
+        ]
+      },
+      {
+        "value": "c",
+        "locations": [
+          "js/ui.js:1213",
+          "js/ui.js:1382",
+          "js/ui.js:1384",
+          "js/ui.js:1386",
+          "js/ui.js:1388",
+          "js/ui.js:1390",
+          "js/ui.js:1392"
+        ]
+      },
+      {
+        "value": "cam",
+        "locations": [
+          "js/ui.js:1179",
+          "js/ui.js:1418",
+          "js/ui.js:1423",
+          "js/ui.js:1426",
+          "js/ui.js:1428",
+          "js/ui.js:1431",
+          "js/ui.js:1435",
+          "js/ui.js:1440",
+          "js/ui.js:1443",
+          "js/ui.js:1447",
+          "js/ui.js:1450",
+          "js/ui.js:1453",
+          "js/ui.js:1457",
+          "js/ui.js:1460",
+          "js/ui.js:1463",
+          "js/ui.js:1496",
+          "js/ui.js:923",
+          "js/ui.js:973"
+        ]
+      },
+      {
+        "value": "canh",
+        "locations": [
+          "js/main.js:167",
+          "js/ui.js:199",
+          "js/ui.js:212",
+          "js/ui.js:221",
+          "js/ui.js:434",
+          "web/index.html:59"
+        ]
+      },
+      {
+        "value": "canh ${(q.status === 'retry' ? '' : 'ok')}",
+        "locations": [
+          "js/ui.js:514"
+        ]
+      },
+      {
+        "value": "canh bt",
+        "locations": [
+          "js/ui.js:202",
+          "js/ui.js:207",
+          "js/ui.js:418"
+        ]
+      },
+      {
+        "value": "canh ok",
+        "locations": [
+          "js/ui.js:225",
+          "js/ui.js:229"
+        ]
+      },
+      {
+        "value": "cap",
+        "locations": [
+          "js/ui.js:460",
+          "js/ui.js:529",
+          "js/ui.js:550"
+        ]
+      },
+      {
+        "value": "chat-dong",
+        "locations": [
+          "web/js/mp.js:202"
+        ]
+      },
+      {
+        "value": "chat-ds",
+        "locations": [
+          "web/js/mp.js:256",
+          "web/js/mp.js:263",
+          "web/js/mp.js:267"
+        ]
+      },
+      {
+        "value": "chat-gui",
+        "locations": [
+          "web/js/mp.js:257",
+          "web/js/mp.js:264"
+        ]
+      },
+      {
+        "value": "chat-nhap",
+        "locations": [
+          "web/js/mp.js:257",
+          "web/js/mp.js:264"
+        ]
+      },
+      {
+        "value": "chat-noi",
+        "locations": [
+          "web/js/mp.js:204"
+        ]
+      },
+      {
+        "value": "chip' + (clsThem ? ' ${clsThem : '')}",
+        "locations": [
+          "js/ui.js:110"
+        ]
+      },
+      {
+        "value": "ct",
+        "locations": [
+          "js/ui.js:486",
+          "js/ui.js:534",
+          "js/ui.js:571"
+        ]
+      },
+      {
+        "value": "d",
+        "locations": [
+          "js/ui.js:1315"
+        ]
+      },
+      {
+        "value": "dash-the-lon",
+        "locations": [
+          "js/ui.js:264",
+          "js/ui.js:268"
+        ]
+      },
+      {
+        "value": "dash-the-lon sang-glow",
+        "locations": [
+          "js/ui.js:266"
+        ]
+      },
+      {
+        "value": "dem sz",
+        "locations": [
+          "js/ui.js:47"
+        ]
+      },
+      {
+        "value": "dem-nho",
+        "locations": [
+          "js/ui.js:189",
+          "js/ui.js:190"
+        ]
+      },
+      {
+        "value": "dk",
+        "locations": [
+          "js/ui.js:484",
+          "js/ui.js:531",
+          "js/ui.js:569"
+        ]
+      },
+      {
+        "value": "do",
+        "locations": [
+          "js/ui.js:1240",
+          "js/ui.js:270",
+          "js/ui.js:306",
+          "js/ui.js:347",
+          "js/ui.js:646",
+          "js/ui.js:800",
+          "web/js/mp.js:186",
+          "web/js/mp.js:372",
+          "web/js/mp.js:388"
+        ]
+      },
+      {
+        "value": "dot",
+        "locations": [
+          "js/ui.js:111"
+        ]
+      },
+      {
+        "value": "gal-dh",
+        "locations": [
+          "js/ui.js:1060",
+          "js/ui.js:1170",
+          "js/ui.js:1684",
+          "js/ui.js:894",
+          "web/index.html:22",
+          "web/js/mp.js:321"
+        ]
+      },
+      {
+        "value": "gia",
+        "locations": [
+          "js/ui.js:485",
+          "js/ui.js:532",
+          "js/ui.js:570"
+        ]
+      },
+      {
+        "value": "hanhnhanh",
+        "locations": [
+          "js/ui.js:293"
+        ]
+      },
+      {
+        "value": "hd-luoi",
+        "locations": [
+          "js/ui.js:1746",
+          "js/ui.js:1748",
+          "js/ui.js:1755",
+          "js/ui.js:1757",
+          "js/ui.js:1759",
+          "js/ui.js:842",
+          "js/ui.js:859",
+          "js/ui.js:871"
+        ]
+      },
+      {
+        "value": "hd-tau",
+        "locations": [
+          "js/ui.js:1669",
+          "js/ui.js:1749",
+          "js/ui.js:1750",
+          "js/ui.js:1751",
+          "js/ui.js:1760",
+          "js/ui.js:1761",
+          "js/ui.js:1762",
+          "js/ui.js:848",
+          "js/ui.js:863",
+          "js/ui.js:874"
+        ]
+      },
+      {
+        "value": "hd-td",
+        "locations": [
+          "js/app.js:222",
+          "js/ui.js:639",
+          "js/ui.js:821"
+        ]
+      },
+      {
+        "value": "hop-thoai",
+        "locations": [
+          "index.html:59",
+          "web/index.html:90"
+        ]
+      },
+      {
+        "value": "ht-dau",
+        "locations": [
+          "index.html:61",
+          "web/index.html:92"
+        ]
+      },
+      {
+        "value": "ht-trong",
+        "locations": [
+          "index.html:60",
+          "web/index.html:91"
+        ]
+      },
+      {
+        "value": "hu",
+        "locations": [
+          "js/ui.js:1316",
+          "js/ui.js:376"
+        ]
+      },
+      {
+        "value": "hu sz",
+        "locations": [
+          "js/ui.js:1366",
+          "web/js/mp.js:176",
+          "web/js/mp.js:202",
+          "web/js/mp.js:307"
+        ]
+      },
+      {
+        "value": "kd-form",
+        "locations": [
+          "index.html:21",
+          "web/index.html:27",
+          "web/index.html:35",
+          "web/index.html:46",
+          "web/js/mp.js:575",
+          "web/js/mp.js:590"
+        ]
+      },
+      {
+        "value": "kd-ghi",
+        "locations": [
+          "index.html:29",
+          "web/index.html:60"
+        ]
+      },
+      {
+        "value": "kd-hop",
+        "locations": [
+          "index.html:17",
+          "web/index.html:17"
+        ]
+      },
+      {
+        "value": "kd-logo",
+        "locations": [
+          "index.html:18",
+          "web/index.html:18"
+        ]
+      },
+      {
+        "value": "kd-nam",
+        "locations": [
+          "index.html:20",
+          "web/index.html:20"
+        ]
+      },
+      {
+        "value": "kd-sub",
+        "locations": [
+          "index.html:19",
+          "web/index.html:19"
+        ]
+      },
+      {
+        "value": "khoidong",
+        "locations": [
+          "index.html:16",
+          "web/index.html:16"
+        ]
+      },
+      {
+        "value": "khung",
+        "locations": [
+          "index.html:49",
+          "web/index.html:82"
+        ]
+      },
+      {
+        "value": "kq ${(db.thang ? (d.ben === 'ta' ? 'thang' : 'thua') : (d.ben === 'ta' ? 'thua' : 'thang'))}",
+        "locations": [
+          "js/ui.js:1231"
+        ]
+      },
+      {
+        "value": "kq ${(lai > 0 ? 'thang' : 'thua')}",
+        "locations": [
+          "js/ui.js:1732"
+        ]
+      },
+      {
+        "value": "kq ${(taBan ? (soPha ? 'thang' : 'hoa') : (soPha ? 'thua' : 'thang'))}",
+        "locations": [
+          "js/ui.js:1291"
+        ]
+      },
+      {
+        "value": "kq ${(taThang ? 'thang' : (kq.kq === 'hoa' ? 'hoa' : 'thua'))}",
+        "locations": [
+          "js/ui.js:1204"
+        ]
+      },
+      {
+        "value": "kq ${(tyLe >= 80 ? 'thang' : (tyLe >= 30 ? 'hoa' : 'thua'))}",
+        "locations": [
+          "js/ui.js:1711"
+        ]
+      },
+      {
+        "value": "kq thua",
+        "locations": [
+          "js/ui.js:1729"
+        ]
+      },
+      {
+        "value": "link-nut",
+        "locations": [
+          "web/js/mp.js:706",
+          "web/js/mp.js:741"
+        ]
+      },
+      {
+        "value": "luc",
+        "locations": [
+          "js/ui.js:1019",
+          "js/ui.js:1186",
+          "js/ui.js:306",
+          "js/ui.js:758",
+          "js/ui.js:782",
+          "js/ui.js:920",
+          "js/ui.js:924",
+          "web/js/mp.js:187",
+          "web/js/mp.js:373",
+          "web/js/mp.js:386"
+        ]
+      },
+      {
+        "value": "luc sz",
+        "locations": [
+          "js/ui.js:942"
+        ]
+      },
+      {
+        "value": "luoi",
+        "locations": [
+          "js/ui.js:1220",
+          "js/ui.js:1234",
+          "js/ui.js:263",
+          "js/ui.js:275",
+          "js/ui.js:600"
+        ]
+      },
+      {
+        "value": "luoi2",
+        "locations": [
+          "js/ui.js:1336",
+          "js/ui.js:1416",
+          "js/ui.js:1482",
+          "js/ui.js:1714",
+          "js/ui.js:1744",
+          "js/ui.js:311",
+          "js/ui.js:412",
+          "js/ui.js:820",
+          "web/js/mp.js:254",
+          "web/js/mp.js:275"
+        ]
+      },
+      {
+        "value": "mo",
+        "locations": [
+          "index.html:24",
+          "js/main.js:118",
+          "js/main.js:84",
+          "js/ui.js:101",
+          "js/ui.js:1028",
+          "js/ui.js:1139",
+          "js/ui.js:1191",
+          "js/ui.js:1207",
+          "js/ui.js:1214",
+          "js/ui.js:1225",
+          "js/ui.js:1233",
+          "js/ui.js:1241",
+          "js/ui.js:1244",
+          "js/ui.js:1248",
+          "js/ui.js:1258",
+          "js/ui.js:1263",
+          "js/ui.js:1264",
+          "js/ui.js:1265",
+          "js/ui.js:1271",
+          "js/ui.js:1279",
+          "js/ui.js:1280",
+          "js/ui.js:1281",
+          "js/ui.js:1299",
+          "js/ui.js:1353",
+          "js/ui.js:1364",
+          "js/ui.js:1379",
+          "js/ui.js:1383",
+          "js/ui.js:1385",
+          "js/ui.js:1387",
+          "js/ui.js:1389",
+          "js/ui.js:1391",
+          "js/ui.js:1393",
+          "js/ui.js:1398",
+          "js/ui.js:1405",
+          "js/ui.js:1412",
+          "js/ui.js:1477",
+          "js/ui.js:1505",
+          "js/ui.js:1509",
+          "js/ui.js:1513",
+          "js/ui.js:1680",
+          "js/ui.js:1699",
+          "js/ui.js:1727",
+          "js/ui.js:1730",
+          "js/ui.js:1733",
+          "js/ui.js:1738",
+          "js/ui.js:280",
+          "js/ui.js:289",
+          "js/ui.js:313",
+          "js/ui.js:319",
+          "js/ui.js:327",
+          "js/ui.js:333",
+          "js/ui.js:341",
+          "js/ui.js:349",
+          "js/ui.js:357",
+          "js/ui.js:363",
+          "js/ui.js:374",
+          "js/ui.js:395",
+          "js/ui.js:397",
+          "js/ui.js:398",
+          "js/ui.js:400",
+          "js/ui.js:405",
+          "js/ui.js:440",
+          "js/ui.js:477",
+          "js/ui.js:498",
+          "js/ui.js:510",
+          "js/ui.js:582",
+          "js/ui.js:589",
+          "js/ui.js:609",
+          "js/ui.js:628",
+          "js/ui.js:634",
+          "js/ui.js:69",
+          "js/ui.js:693",
+          "js/ui.js:715",
+          "js/ui.js:746",
+          "js/ui.js:754",
+          "js/ui.js:757",
+          "js/ui.js:758",
+          "js/ui.js:770",
+          "js/ui.js:789",
+          "js/ui.js:799",
+          "js/ui.js:812",
+          "js/ui.js:830",
+          "js/ui.js:836",
+          "js/ui.js:852",
+          "js/ui.js:915",
+          "js/ui.js:918",
+          "js/ui.js:930",
+          "js/ui.js:971",
+          "web/index.html:36",
+          "web/index.html:38",
+          "web/index.html:40",
+          "web/index.html:42",
+          "web/js/mp.js:174",
+          "web/js/mp.js:180",
+          "web/js/mp.js:197",
+          "web/js/mp.js:198",
+          "web/js/mp.js:267",
+          "web/js/mp.js:300",
+          "web/js/mp.js:305",
+          "web/js/mp.js:324",
+          "web/js/mp.js:337",
+          "web/js/mp.js:340",
+          "web/js/mp.js:364",
+          "web/js/mp.js:367",
+          "web/js/mp.js:381",
+          "web/js/mp.js:387",
+          "web/js/mp.js:513",
+          "web/js/mp.js:530",
+          "web/js/mp.js:543"
+        ]
+      },
+      {
+        "value": "mo chat-ghi",
+        "locations": [
+          "web/js/mp.js:259",
+          "web/js/mp.js:269"
+        ]
+      },
+      {
+        "value": "mo sz",
+        "locations": [
+          "js/ui.js:1317",
+          "js/ui.js:1670",
+          "js/ui.js:486",
+          "js/ui.js:489",
+          "js/ui.js:536",
+          "js/ui.js:573",
+          "js/ui.js:848",
+          "js/ui.js:863",
+          "js/ui.js:874",
+          "js/ui.js:949",
+          "web/index.html:74"
+        ]
+      },
+      {
+        "value": "mt",
+        "locations": [
+          "js/ui.js:462",
+          "js/ui.js:530",
+          "js/ui.js:551"
+        ]
+      },
+      {
+        "value": "n",
+        "locations": [
+          "js/ui.js:112",
+          "js/ui.js:1319",
+          "js/ui.js:258",
+          "js/ui.js:264",
+          "js/ui.js:266",
+          "js/ui.js:268"
+        ]
+      },
+      {
+        "value": "nav-ic",
+        "locations": [
+          "js/ui.js:161"
+        ]
+      },
+      {
+        "value": "nd",
+        "locations": [
+          "js/ui.js:1323"
+        ]
+      },
+      {
+        "value": "noi",
+        "locations": [
+          "js/ui.js:1059",
+          "js/ui.js:1169",
+          "js/ui.js:1309",
+          "js/ui.js:1337",
+          "js/ui.js:1352",
+          "js/ui.js:1363",
+          "js/ui.js:1378",
+          "js/ui.js:1397",
+          "js/ui.js:1417",
+          "js/ui.js:1468",
+          "js/ui.js:1483",
+          "js/ui.js:1494",
+          "js/ui.js:1679",
+          "js/ui.js:1710",
+          "js/ui.js:1745",
+          "js/ui.js:1754",
+          "js/ui.js:312",
+          "js/ui.js:326",
+          "js/ui.js:340",
+          "js/ui.js:356",
+          "js/ui.js:373",
+          "js/ui.js:404",
+          "js/ui.js:413",
+          "js/ui.js:424",
+          "js/ui.js:439",
+          "js/ui.js:498",
+          "js/ui.js:509",
+          "js/ui.js:580",
+          "js/ui.js:588",
+          "js/ui.js:608",
+          "js/ui.js:627",
+          "js/ui.js:745",
+          "js/ui.js:819",
+          "js/ui.js:893",
+          "js/ui.js:984",
+          "web/js/mp.js:173",
+          "web/js/mp.js:255",
+          "web/js/mp.js:261",
+          "web/js/mp.js:276",
+          "web/js/mp.js:292",
+          "web/js/mp.js:304",
+          "web/js/mp.js:320",
+          "web/js/mp.js:328",
+          "web/js/mp.js:336",
+          "web/js/mp.js:363"
+        ]
+      },
+      {
+        "value": "noi bang-cuon",
+        "locations": [
+          "js/ui.js:386",
+          "js/ui.js:778",
+          "js/ui.js:795",
+          "web/js/mp.js:179"
+        ]
+      },
+      {
+        "value": "noi luoi",
+        "locations": [
+          "js/ui.js:301",
+          "js/ui.js:500",
+          "js/ui.js:522",
+          "js/ui.js:584",
+          "js/ui.js:616",
+          "js/ui.js:621"
+        ]
+      },
+      {
+        "value": "noi mo",
+        "locations": [
+          "js/ui.js:1312",
+          "js/ui.js:1518"
+        ]
+      },
+      {
+        "value": "nut",
+        "locations": [
+          "js/main.js:121",
+          "js/main.js:136",
+          "js/main.js:88",
+          "js/ui.js:294",
+          "js/ui.js:295",
+          "js/ui.js:296",
+          "js/ui.js:297",
+          "web/index.html:56"
+        ]
+      },
+      {
+        "value": "nut lon",
+        "locations": [
+          "index.html:26",
+          "js/ui.js:839",
+          "web/index.html:32",
+          "web/index.html:43"
+        ]
+      },
+      {
+        "value": "nut lon xoa",
+        "locations": [
+          "web/js/mp.js:592"
+        ]
+      },
+      {
+        "value": "nut nho",
+        "locations": [
+          "index.html:42",
+          "index.html:43",
+          "index.html:61",
+          "js/ui.js:1021",
+          "js/ui.js:1080",
+          "js/ui.js:1082",
+          "js/ui.js:1094",
+          "js/ui.js:1096",
+          "js/ui.js:1310",
+          "js/ui.js:1355",
+          "js/ui.js:1356",
+          "js/ui.js:1357",
+          "js/ui.js:1686",
+          "js/ui.js:1687",
+          "js/ui.js:1696",
+          "js/ui.js:286",
+          "js/ui.js:303",
+          "js/ui.js:765",
+          "js/ui.js:825",
+          "js/ui.js:850",
+          "js/ui.js:867",
+          "js/ui.js:878",
+          "js/ui.js:895",
+          "js/ui.js:897",
+          "js/ui.js:898",
+          "js/ui.js:900",
+          "js/ui.js:902",
+          "js/ui.js:938",
+          "js/ui.js:950",
+          "js/ui.js:952",
+          "js/ui.js:954",
+          "js/ui.js:956",
+          "js/ui.js:960",
+          "js/ui.js:961",
+          "js/ui.js:963",
+          "js/ui.js:966",
+          "js/ui.js:967",
+          "web/index.html:23",
+          "web/index.html:24",
+          "web/index.html:75",
+          "web/index.html:76",
+          "web/index.html:92",
+          "web/js/mp.js:287",
+          "web/js/mp.js:288",
+          "web/js/mp.js:355"
+        ]
+      },
+      {
+        "value": "nut nho ${(du && !thieuDK.length ? 'oke' : '')}",
+        "locations": [
+          "js/ui.js:572"
+        ]
+      },
+      {
+        "value": "nut nho ${(U.xhLoai === L.id ? 'oke' : '')}",
+        "locations": [
+          "js/ui.js:1173"
+        ]
+      },
+      {
+        "value": "nut nho oke",
+        "locations": [
+          "js/ui.js:1005",
+          "js/ui.js:1042",
+          "js/ui.js:1077",
+          "js/ui.js:1079",
+          "js/ui.js:1090",
+          "js/ui.js:1110",
+          "js/ui.js:1137",
+          "js/ui.js:901",
+          "web/js/mp.js:346"
+        ]
+      },
+      {
+        "value": "nut nho xoa",
+        "locations": [
+          "js/ui.js:1006",
+          "js/ui.js:1125",
+          "js/ui.js:1311",
+          "js/ui.js:1358",
+          "js/ui.js:304",
+          "js/ui.js:320",
+          "js/ui.js:334",
+          "js/ui.js:352",
+          "js/ui.js:518",
+          "js/ui.js:766",
+          "js/ui.js:940",
+          "js/ui.js:946",
+          "web/js/mp.js:289",
+          "web/js/mp.js:347",
+          "web/js/mp.js:356"
+        ]
+      },
+      {
+        "value": "nut nho${(tab === tb ? ' oke' : '')}",
+        "locations": [
+          "js/ui.js:1062"
+        ]
+      },
+      {
+        "value": "nut oke",
+        "locations": [
+          "js/app.js:225",
+          "js/app.js:303",
+          "js/main.js:120",
+          "js/main.js:87",
+          "js/ui.js:1685",
+          "js/ui.js:441",
+          "web/index.html:55",
+          "web/js/mp.js:258",
+          "web/js/mp.js:265",
+          "web/js/mp.js:323",
+          "web/js/mp.js:502",
+          "web/js/mp.js:531",
+          "web/js/mp.js:546",
+          "web/js/mp.js:577"
+        ]
+      },
+      {
+        "value": "nut phu",
+        "locations": [
+          "index.html:27"
+        ]
+      },
+      {
+        "value": "nut xoa",
+        "locations": [
+          "js/app.js:285",
+          "js/main.js:135",
+          "js/ui.js:1026",
+          "js/ui.js:644",
+          "web/js/mp.js:492",
+          "web/js/mp.js:514"
+        ]
+      },
+      {
+        "value": "panel",
+        "locations": [
+          "js/ui.js:1059",
+          "js/ui.js:1169",
+          "js/ui.js:1309",
+          "js/ui.js:1312",
+          "js/ui.js:1337",
+          "js/ui.js:1352",
+          "js/ui.js:1363",
+          "js/ui.js:1378",
+          "js/ui.js:1397",
+          "js/ui.js:1417",
+          "js/ui.js:1468",
+          "js/ui.js:1483",
+          "js/ui.js:1494",
+          "js/ui.js:1518",
+          "js/ui.js:1679",
+          "js/ui.js:1710",
+          "js/ui.js:1745",
+          "js/ui.js:1754",
+          "js/ui.js:301",
+          "js/ui.js:312",
+          "js/ui.js:326",
+          "js/ui.js:340",
+          "js/ui.js:356",
+          "js/ui.js:373",
+          "js/ui.js:386",
+          "js/ui.js:404",
+          "js/ui.js:413",
+          "js/ui.js:424",
+          "js/ui.js:439",
+          "js/ui.js:497",
+          "js/ui.js:500",
+          "js/ui.js:509",
+          "js/ui.js:522",
+          "js/ui.js:580",
+          "js/ui.js:584",
+          "js/ui.js:588",
+          "js/ui.js:608",
+          "js/ui.js:616",
+          "js/ui.js:620",
+          "js/ui.js:627",
+          "js/ui.js:745",
+          "js/ui.js:778",
+          "js/ui.js:795",
+          "js/ui.js:819",
+          "js/ui.js:893",
+          "js/ui.js:984",
+          "web/js/mp.js:173",
+          "web/js/mp.js:179",
+          "web/js/mp.js:255",
+          "web/js/mp.js:261",
+          "web/js/mp.js:276",
+          "web/js/mp.js:292",
+          "web/js/mp.js:304",
+          "web/js/mp.js:320",
+          "web/js/mp.js:328",
+          "web/js/mp.js:336",
+          "web/js/mp.js:363"
+        ]
+      },
+      {
+        "value": "phu",
+        "locations": [
+          "js/ui.js:265",
+          "js/ui.js:267",
+          "js/ui.js:269"
+        ]
+      },
+      {
+        "value": "pill-chiso",
+        "locations": [
+          "js/ui.js:258"
+        ]
+      },
+      {
+        "value": "pl",
+        "locations": [
+          "js/ui.js:934"
+        ]
+      },
+      {
+        "value": "r",
+        "locations": [
+          "js/ui.js:1004",
+          "js/ui.js:1015",
+          "js/ui.js:1021",
+          "js/ui.js:1031",
+          "js/ui.js:1042",
+          "js/ui.js:1103",
+          "js/ui.js:1109",
+          "js/ui.js:1110",
+          "js/ui.js:1117",
+          "js/ui.js:1125",
+          "js/ui.js:1181",
+          "js/ui.js:1182",
+          "js/ui.js:1210",
+          "js/ui.js:131",
+          "js/ui.js:1338",
+          "js/ui.js:1340",
+          "js/ui.js:136",
+          "js/ui.js:1400",
+          "js/ui.js:1401",
+          "js/ui.js:1402",
+          "js/ui.js:1716",
+          "js/ui.js:1721",
+          "js/ui.js:315",
+          "js/ui.js:320",
+          "js/ui.js:329",
+          "js/ui.js:334",
+          "js/ui.js:387",
+          "js/ui.js:406",
+          "js/ui.js:407",
+          "js/ui.js:556",
+          "js/ui.js:566",
+          "js/ui.js:592",
+          "js/ui.js:650",
+          "js/ui.js:764",
+          "js/ui.js:905",
+          "js/ui.js:915",
+          "js/ui.js:918",
+          "js/ui.js:996",
+          "js/ui.js:997",
+          "web/js/mp.js:182",
+          "web/js/mp.js:277",
+          "web/js/mp.js:278",
+          "web/js/mp.js:342",
+          "web/js/mp.js:345",
+          "web/js/mp.js:352",
+          "web/js/mp.js:354"
+        ]
+      },
+      {
+        "value": "r mo",
+        "locations": [
+          "js/ui.js:396",
+          "js/ui.js:399"
+        ]
+      },
+      {
+        "value": "r sz",
+        "locations": [
+          "js/ui.js:1003",
+          "js/ui.js:1020",
+          "js/ui.js:1041",
+          "js/ui.js:1067",
+          "js/ui.js:1070",
+          "js/ui.js:1108",
+          "js/ui.js:1123",
+          "js/ui.js:1124",
+          "js/ui.js:1185",
+          "js/ui.js:1187",
+          "js/ui.js:1188",
+          "js/ui.js:120",
+          "js/ui.js:1213",
+          "js/ui.js:1214",
+          "js/ui.js:125",
+          "js/ui.js:128",
+          "js/ui.js:1295",
+          "js/ui.js:1297",
+          "js/ui.js:1339",
+          "js/ui.js:1341",
+          "js/ui.js:1342",
+          "js/ui.js:1343",
+          "js/ui.js:1344",
+          "js/ui.js:1345",
+          "js/ui.js:1346",
+          "js/ui.js:1347",
+          "js/ui.js:1348",
+          "js/ui.js:1349",
+          "js/ui.js:1718",
+          "js/ui.js:1722",
+          "js/ui.js:318",
+          "js/ui.js:332",
+          "js/ui.js:391",
+          "js/ui.js:393",
+          "js/ui.js:395",
+          "js/ui.js:396",
+          "js/ui.js:397",
+          "js/ui.js:398",
+          "js/ui.js:399",
+          "js/ui.js:400",
+          "js/ui.js:416",
+          "js/ui.js:417",
+          "js/ui.js:425",
+          "js/ui.js:426",
+          "js/ui.js:427",
+          "js/ui.js:428",
+          "js/ui.js:429",
+          "js/ui.js:431",
+          "js/ui.js:433",
+          "js/ui.js:555",
+          "js/ui.js:556",
+          "js/ui.js:561",
+          "js/ui.js:562",
+          "js/ui.js:564",
+          "js/ui.js:565",
+          "js/ui.js:595",
+          "js/ui.js:596",
+          "js/ui.js:598",
+          "js/ui.js:631",
+          "js/ui.js:635",
+          "js/ui.js:637",
+          "js/ui.js:654",
+          "js/ui.js:724",
+          "js/ui.js:725",
+          "js/ui.js:727",
+          "js/ui.js:730",
+          "js/ui.js:731",
+          "js/ui.js:734",
+          "js/ui.js:921",
+          "js/ui.js:926",
+          "js/ui.js:932",
+          "web/js/mp.js:188",
+          "web/js/mp.js:279",
+          "web/js/mp.js:280",
+          "web/js/mp.js:281",
+          "web/js/mp.js:282",
+          "web/js/mp.js:283",
+          "web/js/mp.js:284",
+          "web/js/mp.js:285",
+          "web/js/mp.js:293",
+          "web/js/mp.js:294",
+          "web/js/mp.js:295",
+          "web/js/mp.js:296",
+          "web/js/mp.js:297",
+          "web/js/mp.js:298",
+          "web/js/mp.js:299",
+          "web/js/mp.js:344",
+          "web/js/mp.js:345",
+          "web/js/mp.js:354"
+        ]
+      },
+      {
+        "value": "r sz ${((p.res.deut || 0) < nl ? 'do' : 'luc')}",
+        "locations": [
+          "js/ui.js:728"
+        ]
+      },
+      {
+        "value": "r sz ${(G.choLinhCan(f.linh) > G.sucChoLinh(f.ships) ? 'do' : 'luc')}",
+        "locations": [
+          "js/ui.js:735"
+        ]
+      },
+      {
+        "value": "r sz ${(hang > suc ? 'do' : '')}",
+        "locations": [
+          "js/ui.js:729"
+        ]
+      },
+      {
+        "value": "r sz ${(rate < 0 ? 'do' : '')}",
+        "locations": [
+          "js/ui.js:392"
+        ]
+      },
+      {
+        "value": "r sz ${(t.chan ? 'luc' : '')}",
+        "locations": [
+          "js/ui.js:1296"
+        ]
+      },
+      {
+        "value": "r sz ${(tam ? '' : 'do')}",
+        "locations": [
+          "js/ui.js:633"
+        ]
+      },
+      {
+        "value": "r sz ${(v > 1 ? 'luc' : (v < 1 ? 'do' : 'mo'))}",
+        "locations": [
+          "js/ui.js:1409",
+          "js/ui.js:410"
+        ]
+      },
+      {
+        "value": "r sz ${lop}",
+        "locations": [
+          "js/ui.js:713",
+          "js/ui.js:714"
+        ]
+      },
+      {
+        "value": "r sz cam",
+        "locations": [
+          "js/ui.js:726"
+        ]
+      },
+      {
+        "value": "r sz do",
+        "locations": [
+          "js/ui.js:1002",
+          "js/ui.js:1717",
+          "js/ui.js:415",
+          "js/ui.js:430"
+        ]
+      },
+      {
+        "value": "r sz luc",
+        "locations": [
+          "js/ui.js:1002",
+          "js/ui.js:1068",
+          "js/ui.js:414"
+        ]
+      },
+      {
+        "value": "r sz mo",
+        "locations": [
+          "js/ui.js:1187",
+          "js/ui.js:599"
+        ]
+      },
+      {
+        "value": "r sz vang",
+        "locations": [
+          "js/ui.js:1723"
+        ]
+      },
+      {
+        "value": "so sz",
+        "locations": [
+          "js/ui.js:264",
+          "js/ui.js:266",
+          "js/ui.js:268"
+        ]
+      },
+      {
+        "value": "sz",
+        "locations": [
+          "js/ui.js:1257",
+          "js/ui.js:1261",
+          "js/ui.js:1484",
+          "js/ui.js:318",
+          "js/ui.js:332",
+          "js/ui.js:363",
+          "js/ui.js:364",
+          "js/ui.js:393",
+          "js/ui.js:653",
+          "js/ui.js:756",
+          "js/ui.js:761",
+          "js/ui.js:762",
+          "js/ui.js:784",
+          "js/ui.js:786",
+          "js/ui.js:787",
+          "js/ui.js:800",
+          "js/ui.js:809",
+          "js/ui.js:913",
+          "web/js/mp.js:185",
+          "web/js/mp.js:376",
+          "web/js/mp.js:390"
+        ]
+      },
+      {
+        "value": "sz ${lopNV}",
+        "locations": [
+          "js/ui.js:810"
+        ]
+      },
+      {
+        "value": "sz cam",
+        "locations": [
+          "js/ui.js:654"
+        ]
+      },
+      {
+        "value": "sz do",
+        "locations": [
+          "js/ui.js:801"
+        ]
+      },
+      {
+        "value": "tag-lm",
+        "locations": [
+          "js/ui.js:1041",
+          "js/ui.js:1186",
+          "js/ui.js:1255",
+          "js/ui.js:302",
+          "js/ui.js:783",
+          "js/ui.js:799",
+          "js/ui.js:808",
+          "js/ui.js:920",
+          "js/ui.js:926",
+          "js/ui.js:932",
+          "web/js/mp.js:203",
+          "web/js/mp.js:330",
+          "web/js/mp.js:375"
+        ]
+      },
+      {
+        "value": "thanh",
+        "locations": [
+          "js/ui.js:345"
+        ]
+      },
+      {
+        "value": "the${(thieuDK.length ? ' tat' : '')}",
+        "locations": [
+          "js/ui.js:459",
+          "js/ui.js:529",
+          "js/ui.js:549"
+        ]
+      },
+      {
+        "value": "tim",
+        "locations": [
+          "js/ui.js:533",
+          "js/ui.js:913",
+          "js/ui.js:915"
+        ]
+      },
+      {
+        "value": "tn${(m.doc ? '' : ' moi')}",
+        "locations": [
+          "js/ui.js:1315"
+        ]
+      },
+      {
+        "value": "toi",
+        "locations": [
+          "js/ui.js:1018",
+          "js/ui.js:1185"
+        ]
+      },
+      {
+        "value": "tt-logo",
+        "locations": [
+          "index.html:38",
+          "web/index.html:70"
+        ]
+      },
+      {
+        "value": "tt-phu",
+        "locations": [
+          "index.html:40",
+          "web/index.html:72"
+        ]
+      },
+      {
+        "value": "tt-res",
+        "locations": [
+          "index.html:39",
+          "web/index.html:71"
+        ]
+      },
+      {
+        "value": "v sz",
+        "locations": [
+          "js/ui.js:119",
+          "js/ui.js:124",
+          "js/ui.js:127",
+          "js/ui.js:130",
+          "js/ui.js:135"
+        ]
+      },
+      {
+        "value": "vang",
+        "locations": [
+          "js/ui.js:1019",
+          "js/ui.js:1257",
+          "js/ui.js:1511",
+          "js/ui.js:759",
+          "js/ui.js:925",
+          "js/ui.js:931",
+          "js/ui.js:974",
+          "js/ui.js:992",
+          "web/js/mp.js:187",
+          "web/js/mp.js:374",
+          "web/js/mp.js:389",
+          "web/js/mp.js:528"
+        ]
+      },
+      {
+        "value": "vang sz",
+        "locations": [
+          "js/ui.js:944"
+        ]
+      }
+    ],
+    "htmlLiteralUsed": [
+      "canh",
+      "gal-dh",
+      "hop-thoai",
+      "ht-dau",
+      "ht-trong",
+      "kd-form",
+      "kd-ghi",
+      "kd-hop",
+      "kd-logo",
+      "kd-nam",
+      "kd-sub",
+      "khoidong",
+      "khung",
+      "lon",
+      "mo",
+      "nho",
+      "nut",
+      "oke",
+      "phu",
+      "sz",
+      "tt-logo",
+      "tt-phu",
+      "tt-res"
+    ],
+    "classList": [
+      {
+        "value": "mo-ra",
+        "locations": [
+          "js/app.js:39",
+          "js/main.js:184",
+          "web/js/mp.js:623",
+          "web/js/mp.js:694"
+        ]
+      },
+      {
+        "value": "oke",
+        "locations": [
+          "js/app.js:337"
+        ]
+      }
+    ],
+    "detectedCssConsumers": [
+      "bang-cuon",
+      "bar",
+      "bc",
+      "bt",
+      "c",
+      "cam",
+      "canh",
+      "cap",
+      "chat-dong",
+      "chat-ds",
+      "chat-ghi",
+      "chat-gui",
+      "chat-nhap",
+      "chat-noi",
+      "chip",
+      "ct",
+      "d",
+      "dash-the-lon",
+      "day",
+      "dem-nho",
+      "dk",
+      "do",
+      "dot",
+      "gal-dh",
+      "gia",
+      "hanhnhanh",
+      "hd-luoi",
+      "hd-tau",
+      "hd-td",
+      "hoa",
+      "hop-thoai",
+      "ht-dau",
+      "ht-trong",
+      "hu",
+      "kd-form",
+      "kd-ghi",
+      "kd-hop",
+      "kd-logo",
+      "kd-nam",
+      "kd-sub",
+      "khoidong",
+      "khung",
+      "kq",
+      "lam",
+      "link-nut",
+      "loi",
+      "lon",
+      "luc",
+      "luoi",
+      "luoi2",
+      "mo",
+      "mo-ra",
+      "moi",
+      "mt",
+      "n",
+      "nav-ic",
+      "nd",
+      "nguoi",
+      "nho",
+      "noi",
+      "npc-bo",
+      "nut",
+      "ok",
+      "oke",
+      "on",
+      "panel",
+      "phu",
+      "pill-chiso",
+      "pl",
+      "r",
+      "sang",
+      "sang-glow",
+      "so",
+      "sz",
+      "t",
+      "tag-lm",
+      "tat",
+      "thang",
+      "thanh",
+      "the",
+      "thieu",
+      "thieu-dien",
+      "thua",
+      "tim",
+      "tn",
+      "toi",
+      "trong",
+      "tt-logo",
+      "tt-phu",
+      "tt-res",
+      "v",
+      "vang",
+      "xoa"
+    ],
+    "classListWithoutCssDefinition": [],
+    "cssDefinedWithoutDetectedConsumer": []
+  },
+  "css": {
+    "braceBalance": 1,
+    "customPropertiesDefined": [
+      "cam",
+      "cam2",
+      "chu",
+      "den",
+      "den2",
+      "do",
+      "font-chu",
+      "font-so",
+      "lam",
+      "luc",
+      "mo",
+      "panel",
+      "panel2",
+      "sang",
+      "tim",
+      "vang",
+      "vien",
+      "vien2"
+    ],
+    "customPropertiesReferenced": [
+      "cam",
+      "cam2",
+      "chu",
+      "den",
+      "do",
+      "duong",
+      "font-chu",
+      "font-so",
+      "lam",
+      "luc",
+      "mo",
+      "panel",
+      "panel2",
+      "sang",
+      "tim",
+      "vang",
+      "vien",
+      "vien2",
+      "xanh",
+      "xanh2"
+    ],
+    "undefinedCustomProperties": [
+      "duong",
+      "xanh",
+      "xanh2"
+    ],
+    "definedIds": [
+      "chan",
+      "chon-ht",
+      "form-cauhinh",
+      "game",
+      "ht-noi",
+      "menu",
+      "noidung",
+      "nut-menu",
+      "thanh-canh",
+      "thanh-tren",
+      "toast"
+    ]
+  },
+  "inlineStyleOccurrences": {
+    "index.html": 3,
+    "web/index.html": 7,
+    "js/ui.js": 92,
+    "js/app.js": 2,
+    "js/main.js": 5,
+    "web/js/mp.js": 15
+  },
+  "assertions": {
+    "destinationCountsMatch": true,
+    "allMenuItemsHaveRenderer": true,
+    "allMenuItemsHaveIcon": false,
+    "allStaticDataActionsHaveHandler": true,
+    "noDuplicateStaticHtmlIds": true,
+    "cssBracesBalanced": false,
+    "cssVariablesResolved": false
+  }
+}

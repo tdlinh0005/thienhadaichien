@@ -96,8 +96,8 @@ node tools/test-tai.js 60    # tải: 60 đế quốc, tua 24 giờ toàn server
                              #   tỷ lệ giải quyết trận và dung lượng database
 node tools/test-mp-ui.mjs    # giao diện multiplayer trên Chromium thật:
                              #   3 tài khoản, hạm tới/đóng quân/gọi về/phòng thủ đồng minh,
-                             #   migration local v3→v6 + save tương lai, dân số/thuế,
-                             #   đủ 16 màn, liên minh, chat và mobile
+                             #   migration local v3→v7 + save tương lai, dân số/thuế,
+                             #   đủ 17 màn multiplayer, liên minh, chat và mobile
 ```
 
 `npm test` chạy hai bộ đầu. Playwright chỉ cần cho bộ UI; có thể đặt

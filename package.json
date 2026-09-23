@@ -7,10 +7,12 @@
   "engines": { "node": ">=22.5" },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/smoke.js && node tools/test-server.js",
+    "test": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js",
+    "test:contracts": "node tools/test-ui-contracts.js",
     "test:luat": "node tools/smoke.js",
     "test:server": "node tools/test-server.js",
     "test:ui": "node tools/test-mp-ui.mjs",
+    "test:visual": "node tools/test-visual-gate.mjs",
     "build": "node tools/build.js && node tools/build.js --artifact"
   },
   "dependencies": {},

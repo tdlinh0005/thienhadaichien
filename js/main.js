@@ -83,8 +83,8 @@
       U.hop('Xuất bàn chơi',
         '<p class="mo">Sao chép toàn bộ đoạn dưới đây và lưu lại. Dán vào ô "Nạp bàn chơi" ở bất kỳ máy nào để chơi tiếp. ' +
         (COFILE ? 'Nút "Tải về file" cũng dùng được.' : '') + '</p>' +
-        '<textarea id="xuat-js" style="width:100%;height:180px" readonly></textarea>' +
-        '<div style="margin-top:8px"><button class="nut oke" data-act="xuat-copy">Sao chép</button>' +
+        '<label for="xuat-js">Nội dung bàn chơi</label><textarea id="xuat-js" style="width:100%;height:180px" readonly></textarea>' +
+        '<div class="cach-tren-xs"><button class="nut oke" data-act="xuat-copy">Sao chép</button>' +
         (COFILE ? ' <button class="nut" data-act="xuat-file">Tải về file</button>' : '') + '</div>');
       document.getElementById('xuat-js').value = js;
     },
@@ -116,8 +116,8 @@
     nhap: function () {
       U.hop('Nạp bàn chơi',
         '<p class="mo">Dán nội dung bàn chơi đã xuất vào đây rồi bấm Nạp. Bàn hiện tại sẽ bị ghi đè.</p>' +
-        '<textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":6,...}\'></textarea>' +
-        '<div style="margin-top:8px"><button class="nut oke" data-act="nhap-ok">Nạp</button>' +
+        '<label for="nhap-js">Nội dung bàn chơi</label><textarea id="nhap-js" style="width:100%;height:180px" placeholder=\'{"v":6,...}\'></textarea>' +
+        '<div class="cach-tren-xs"><button class="nut oke" data-act="nhap-ok">Nạp</button>' +
         (COFILE ? ' <button class="nut" data-act="nhap-file">Chọn file...</button>' : '') + '</div>');
     },
     'nhap-ok': function () {
@@ -164,7 +164,7 @@
   var cu = nap();
   if (LOI_NAP) {
     var kd = document.querySelector('.kd-form');
-    if (kd) kd.insertAdjacentHTML('beforeend', '<div class="canh" style="margin-top:10px">Không nạp được bàn cũ: ' +
+    if (kd) kd.insertAdjacentHTML('beforeend', '<div class="canh">Không nạp được bàn cũ: ' +
       U.esc(LOI_NAP) + '. Dữ liệu gốc vẫn được giữ nguyên.</div>');
   }
   if (cu) {
@@ -179,9 +179,6 @@
     if (cu && !confirm('Bàn chơi cũ sẽ bị ghi đè. Tiếp tục tạo bàn mới?')) return;
     batDau(G.moiGame(ten, seed));
     luu(true);
-  };
-  document.getElementById('nut-menu').onclick = function () {
-    document.getElementById('menu').classList.toggle('mo-ra');
   };
   document.getElementById('kd-ten').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') document.getElementById('kd-batdau').click();

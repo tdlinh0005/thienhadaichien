@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Mindmap review · Trung tâm Chỉ huy Hybrid</title>
+  <style>
+    /* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+    :root {
+      --paper: oklch(13% 0.018 255);
+      --paper-2: oklch(17% 0.020 255);
+      --paper-3: oklch(21% 0.022 255);
+      --surface-active: oklch(25% 0.026 255);
+      --ink: oklch(94% 0.012 255);
+      --ink-2: oklch(79% 0.018 255);
+      --muted: oklch(66% 0.020 255);
+      --rule: oklch(32% 0.025 255);
+      --rule-strong: oklch(49% 0.032 255);
+      --accent: oklch(75% 0.170 55);
+      --accent-ink: oklch(16% 0.025 55);
+      --info: oklch(76% 0.120 230);
+      --success: oklch(75% 0.140 150);
+      --warning: oklch(82% 0.150 85);
+      --danger: oklch(70% 0.190 28);
+      --info-surface: oklch(20% 0.040 230);
+      --success-surface: oklch(20% 0.040 150);
+      --warning-surface: oklch(21% 0.045 85);
+      --danger-surface: oklch(20% 0.050 28);
+      --font-display: "Chakra Petch", "Segoe UI", sans-serif;
+      --font-body: "Be Vietnam Pro", "Segoe UI", Tahoma, Arial, sans-serif;
+      --page-max: 100rem;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      color-scheme: dark;
+      scroll-behavior: smooth;
+      overflow-x: clip;
+    }
+
+    body {
+      margin: 0;
+      min-width: 20rem;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 14% 6%, oklch(24% 0.045 270 / .24), transparent 25rem),
+        linear-gradient(oklch(18% 0.020 255 / .34) 1px, transparent 1px),
+        linear-gradient(90deg, oklch(18% 0.020 255 / .34) 1px, transparent 1px),
+        var(--paper);
+      background-size: auto, 3rem 3rem, 3rem 3rem, auto;
+      font: 400 1rem/1.6 var(--font-body);
+      overflow-x: clip;
+    }
+
+    a { color: inherit; }
+
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      box-shadow: 0 0 0 2px var(--paper);
+    }
+
+    .skip-link {
+      position: fixed;
+      z-index: 20;
+      top: .75rem;
+      left: .75rem;
+      padding: .65rem .9rem;
+      color: var(--accent-ink);
+      background: var(--accent);
+      border-radius: .375rem;
+      transform: translateY(-180%);
+    }
+
+    .skip-link:focus { transform: translateY(0); }
+
+    .topbar {
+      position: sticky;
+      z-index: 10;
+      top: 0;
+      border-bottom: 1px solid var(--rule);
+      background: oklch(13% 0.018 255 / .96);
+    }
+
+    .topbar-inner {
+      width: min(calc(100% - 2rem), var(--page-max));
+      min-height: 3.5rem;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      min-width: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+
+    .brand-mark {
+      width: .55rem;
+      height: 1.75rem;
+      background: var(--accent);
+      clip-path: polygon(0 0, 100% 0, 100% 68%, 0 100%);
+      flex: none;
+    }
+
+    .brand small {
+      display: block;
+      color: var(--muted);
+      font: 600 .7rem/1.1 var(--font-body);
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .map-nav {
+      display: flex;
+      align-items: center;
+      gap: .25rem;
+    }
+
+    .map-nav a {
+      min-height: 2.75rem;
+      padding: .65rem .8rem;
+      display: inline-flex;
+      align-items: center;
+      color: var(--ink-2);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      font-size: .875rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .map-nav a:hover {
+      color: var(--ink);
+      border-bottom-color: var(--accent);
+    }
+
+    main {
+      width: min(calc(100% - 2rem), var(--page-max));
+      margin: 0 auto;
+      padding: 3rem 0 5rem;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(20rem, .85fr);
+      gap: clamp(2rem, 5vw, 6rem);
+      align-items: end;
+      padding: clamp(1rem, 4vw, 4rem) 0 4rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .eyebrow {
+      margin: 0 0 .75rem;
+      color: var(--accent);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, h4 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 700;
+      letter-spacing: -.025em;
+      line-height: 1.14;
+      text-wrap: balance;
+    }
+
+    h1 { font-size: clamp(2.4rem, 6vw, 5.8rem); max-width: 12ch; }
+    h2 { font-size: clamp(1.85rem, 3vw, 3rem); }
+    h3 { font-size: 1.15rem; }
+
+    .lede {
+      max-width: 62ch;
+      margin: 1.25rem 0 0;
+      color: var(--ink-2);
+      font-size: clamp(1rem, 1.4vw, 1.2rem);
+    }
+
+    .decision-card {
+      padding: 1.25rem;
+      background: var(--paper-2);
+      border: 1px solid var(--rule-strong);
+      border-radius: .5rem;
+    }
+
+    .decision-card > p:first-child {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .blend {
+      display: grid;
+      gap: .75rem;
+    }
+
+    .blend-row {
+      display: grid;
+      grid-template-columns: 3.25rem minmax(0, 1fr);
+      gap: .8rem;
+      align-items: center;
+    }
+
+    .blend-row strong {
+      color: var(--accent);
+      font: 700 1.15rem/1 var(--font-display);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .blend-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: .3rem;
+      color: var(--ink-2);
+      font-size: .8rem;
+    }
+
+    .track { height: .3rem; background: var(--paper-3); }
+    .track i { display: block; height: 100%; background: var(--accent); }
+    .blend-row:nth-child(2) .track i { background: var(--info); }
+    .blend-row:nth-child(3) .track i { background: var(--muted); }
+
+    .doc-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin-top: 1.25rem;
+    }
+
+    .doc-links a {
+      min-height: 2.75rem;
+      padding: .6rem .8rem;
+      display: inline-flex;
+      align-items: center;
+      color: var(--ink-2);
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-radius: .375rem;
+      text-decoration: none;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+
+    .doc-links a:hover { color: var(--ink); border-color: var(--rule-strong); }
+
+    .map-section {
+      padding: 4.5rem 0;
+      border-bottom: 1px solid var(--rule);
+      scroll-margin-top: 3.5rem;
+    }
+
+    .section-heading {
+      display: grid;
+      grid-template-columns: 4rem minmax(0, 1fr);
+      gap: 1.25rem;
+      align-items: start;
+      margin-bottom: 2rem;
+    }
+
+    .section-number {
+      color: var(--accent);
+      font: 700 2rem/1 var(--font-display);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .section-heading p {
+      max-width: 68ch;
+      margin: .7rem 0 0;
+      color: var(--muted);
+    }
+
+    .map-canvas {
+      padding: clamp(1rem, 2.5vw, 2rem);
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: .5rem;
+      overflow: hidden;
+    }
+
+    .root-node {
+      width: fit-content;
+      max-width: 32rem;
+      margin: 0 auto;
+      padding: .9rem 1.2rem;
+      color: var(--accent-ink);
+      background: var(--accent);
+      border-radius: .375rem;
+      text-align: center;
+      font: 700 1rem/1.25 var(--font-display);
+    }
+
+    .root-node small {
+      display: block;
+      margin-top: .25rem;
+      font: 600 .7rem/1.2 var(--font-body);
+      opacity: .8;
+    }
+
+    .tree-trunk {
+      width: 1px;
+      height: 2rem;
+      margin: 0 auto;
+      background: var(--rule-strong);
+    }
+
+    .branch-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    .branch-grid::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: var(--rule-strong);
+    }
+
+    .branch {
+      position: relative;
+      min-width: 0;
+      padding-top: 1.5rem;
+    }
+
+    .branch::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 1px;
+      height: 1.5rem;
+      background: var(--rule-strong);
+    }
+
+    .branch-head {
+      min-height: 4.9rem;
+      padding: .85rem;
+      background: var(--surface-active);
+      border-top: 3px solid var(--accent);
+      border-radius: .25rem .25rem 0 0;
+    }
+
+    .branch-kicker {
+      display: block;
+      margin-bottom: .25rem;
+      color: var(--muted);
+      font-size: .66rem;
+      font-weight: 700;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+    }
+
+    .branch-head h3 { font-size: 1rem; }
+
+    .branch ul {
+      min-height: 15.5rem;
+      margin: 0;
+      padding: .5rem 0;
+      list-style: none;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      border-top: 0;
+    }
+
+    .branch li {
+      padding: .62rem .7rem;
+      border-bottom: 1px solid var(--rule);
+      color: var(--ink-2);
+      font-size: .78rem;
+    }
+
+    .branch li:last-child { border-bottom: 0; }
+    .branch li strong { color: var(--ink); font-weight: 600; }
+
+    code {
+      color: var(--muted);
+      font: 600 .7rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .mode {
+      float: right;
+      margin-left: .3rem;
+      padding: .12rem .34rem;
+      color: var(--info);
+      background: var(--info-surface);
+      border: 1px solid var(--info);
+      border-radius: 999px;
+      font-size: .58rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .mode.solo { color: var(--warning); background: var(--warning-surface); border-color: var(--warning); }
+
+    .coverage {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .75rem;
+      margin-top: 1rem;
+    }
+
+    .coverage > div {
+      padding: 1rem;
+      background: var(--paper-3);
+      border-left: 3px solid var(--rule-strong);
+    }
+
+    .coverage strong {
+      display: block;
+      color: var(--ink);
+      font: 700 1.35rem/1.1 var(--font-display);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .coverage span { color: var(--muted); font-size: .75rem; }
+
+    .coverage .locked { border-left-color: var(--success); }
+
+    .flow-block + .flow-block { margin-top: 2rem; }
+
+    .flow-title {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+
+    .flow-title .signal {
+      width: .65rem;
+      height: .65rem;
+      flex: none;
+      background: var(--accent);
+      transform: rotate(45deg);
+    }
+
+    .flow-lane {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(8.5rem, 1fr));
+      gap: 1.25rem;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .flow-lane.combat { grid-template-columns: repeat(7, minmax(8rem, 1fr)); }
+
+    .flow-step {
+      position: relative;
+      min-height: 8.5rem;
+      padding: .85rem;
+      background: var(--paper-3);
+      border: 1px solid var(--rule-strong);
+      border-radius: .375rem;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      top: 50%;
+      right: -1.05rem;
+      color: var(--accent);
+      font: 700 1.1rem/1 var(--font-display);
+      transform: translateY(-50%);
+    }
+
+    .flow-step b {
+      display: block;
+      margin-bottom: .4rem;
+      color: var(--accent);
+      font: 700 .7rem/1 var(--font-display);
+      letter-spacing: .08em;
+    }
+
+    .flow-step strong {
+      display: block;
+      margin-bottom: .35rem;
+      font: 700 .9rem/1.25 var(--font-display);
+    }
+
+    .flow-step span {
+      display: block;
+      color: var(--muted);
+      font-size: .7rem;
+      line-height: 1.45;
+    }
+
+    .branching-note {
+      display: grid;
+      grid-template-columns: minmax(12rem, .65fr) repeat(4, minmax(0, 1fr));
+      gap: .75rem;
+      align-items: stretch;
+      margin-top: 1rem;
+    }
+
+    .branching-note > div {
+      padding: .85rem;
+      background: var(--paper-3);
+      border: 1px solid var(--rule);
+      color: var(--ink-2);
+      font-size: .75rem;
+    }
+
+    .branching-note .alert-root {
+      color: var(--danger);
+      background: var(--danger-surface);
+      border-color: var(--danger);
+      font-weight: 700;
+    }
+
+    .branching-note strong { display: block; color: var(--ink); }
+
+    .phase-line {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .phase {
+      position: relative;
+      min-height: 9rem;
+      padding: 1rem;
+      background: var(--paper-3);
+      border: 1px solid var(--rule-strong);
+      border-radius: .375rem;
+    }
+
+    .phase:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 2rem;
+      left: 100%;
+      width: 1.25rem;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    .phase-no {
+      display: block;
+      margin-bottom: .55rem;
+      color: var(--accent);
+      font: 700 .72rem/1 var(--font-display);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .phase p { margin: .5rem 0 0; color: var(--muted); font-size: .74rem; }
+
+    .gate {
+      border-color: var(--success);
+      background: var(--success-surface);
+    }
+
+    .gate .phase-no { color: var(--success); }
+
+    .parallel {
+      margin: .2rem 0 1.25rem;
+      padding: 1rem;
+      border: 1px dashed var(--rule-strong);
+    }
+
+    .parallel > p {
+      margin: 0 0 .75rem;
+      color: var(--muted);
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .parallel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: .75rem;
+    }
+
+    .parallel-grid div {
+      padding: .8rem;
+      background: var(--surface-active);
+      border-left: 3px solid var(--info);
+    }
+
+    .parallel-grid strong { display: block; font: 700 .9rem/1.3 var(--font-display); }
+    .parallel-grid span { color: var(--muted); font-size: .7rem; }
+
+    .review-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(18rem, .9fr);
+      gap: 1rem;
+    }
+
+    .review-list,
+    .scope-lock {
+      padding: 1.25rem;
+      background: var(--paper-2);
+      border: 1px solid var(--rule);
+      border-radius: .5rem;
+    }
+
+    .review-list ol { margin: 1rem 0 0; padding-left: 1.35rem; }
+    .review-list li { margin: .75rem 0; color: var(--ink-2); }
+    .review-list strong { color: var(--ink); }
+
+    .scope-lock {
+      border-color: var(--success);
+      background: var(--success-surface);
+    }
+
+    .scope-lock p { margin: .75rem 0 0; color: var(--ink-2); }
+
+    .approval-code {
+      display: block;
+      margin-top: 1rem;
+      padding: .9rem;
+      color: var(--accent);
+      background: var(--paper);
+      border: 1px solid var(--rule-strong);
+      border-radius: .375rem;
+      font: 700 .85rem/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    footer {
+      width: min(calc(100% - 2rem), var(--page-max));
+      margin: 0 auto;
+      padding: 1.5rem 0 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--muted);
+      font-size: .75rem;
+    }
+
+    @media (max-width: 78rem) {
+      .branch-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .branch-grid::before { display: none; }
+      .branch::before { display: none; }
+      .branch { padding-top: 0; }
+      .branch ul { min-height: 0; }
+      .flow-lane,
+      .flow-lane.combat { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .flow-step:not(:last-child)::after { display: none; }
+    }
+
+    @media (max-width: 60rem) {
+      .map-nav { display: none; }
+      .hero { grid-template-columns: 1fr; }
+      .decision-card { max-width: 42rem; }
+      .coverage { grid-template-columns: 1fr; }
+      .branching-note { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .branching-note .alert-root { grid-column: 1 / -1; }
+      .phase-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .phase:not(:last-child)::after { display: none; }
+      .review-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 42rem) {
+      main { padding-top: 1.5rem; }
+      .topbar-inner { min-height: 3.5rem; }
+      .brand small { display: none; }
+      .hero { padding: 1.5rem 0 3rem; }
+      h1 { font-size: clamp(2.2rem, 14vw, 3.6rem); }
+      .map-section { padding: 3.5rem 0; }
+      .section-heading { grid-template-columns: 2.4rem minmax(0, 1fr); gap: .6rem; }
+      .section-number { font-size: 1.35rem; }
+      .map-canvas { padding: .8rem; }
+      .branch-grid,
+      .flow-lane,
+      .flow-lane.combat,
+      .phase-line,
+      .parallel-grid,
+      .branching-note { grid-template-columns: 1fr; }
+      .tree-trunk { height: 1rem; }
+      .branch-head { min-height: 0; }
+      .flow-step { min-height: 0; }
+      .branching-note .alert-root { grid-column: auto; }
+      footer { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: .01ms !important; }
+    }
+
+    @media print {
+      .topbar { position: static; }
+      body { background: white; color: black; }
+      .map-section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#noi-dung">Bỏ qua điều hướng</a>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand" aria-label="Thiên Hà Đại Chiến">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>THĐC <small>Gate A · Design review</small></span>
+      </div>
+      <nav class="map-nav" aria-label="Ba mindmap">
+        <a href="#ia">01 · IA</a>
+        <a href="#luong">02 · Luồng</a>
+        <a href="#plan">03 · Plan</a>
+        <a href="#duyet">Duyệt</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="noi-dung">
+    <section class="hero" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow">Thiên Hà Đại Chiến · Redesign toàn hệ thống</p>
+        <h1 id="page-title">Trung tâm Chỉ huy Hybrid</h1>
+        <p class="lede">
+          Ba bản đồ để duyệt một quyết định: gom 15/17 màn vào năm không gian,
+          tối ưu phiên quản lý 2–5 phút và triển khai theo gate mà không thay luật game.
+        </p>
+      </div>
+
+      <aside class="decision-card" aria-label="Bản phối đã chọn">
+        <p>Bản phối đã chọn</p>
+        <div class="blend">
+          <div class="blend-row">
+            <strong>70%</strong>
+            <div><div class="blend-label"><span>Command Center</span><span>IA + ưu tiên</span></div><div class="track"><i style="width:70%"></i></div></div>
+          </div>
+          <div class="blend-row">
+            <strong>20%</strong>
+            <div><div class="blend-label"><span>Operations Console</span><span>Mật độ + quét</span></div><div class="track"><i style="width:20%"></i></div></div>
+          </div>
+          <div class="blend-row">
+            <strong>10%</strong>
+            <div><div class="blend-label"><span>Cinematic</span><span>Không khí tiết chế</span></div><div class="track"><i style="width:10%"></i></div></div>
+          </div>
+        </div>
+        <div class="doc-links" aria-label="Tài liệu liên quan">
+          <a href="../../../design.md">Design system</a>
+          <a href="../specs/2026-08-25-trung-tam-chi-huy-hybrid-design.md">UX/IA spec</a>
+          <a href="../plans/2026-08-25-trung-tam-chi-huy-hybrid.md">Implementation plan</a>
+        </div>
+      </aside>
+    </section>
+
+    <section class="map-section" id="ia" aria-labelledby="ia-title">
+      <header class="section-heading">
+        <div class="section-number" aria-hidden="true">01</div>
+        <div>
+          <h2 id="ia-title">IA mục tiêu · Năm không gian làm việc</h2>
+          <p>Mỗi màn hiện tại nằm đúng một nơi. Module Tổng Quan và shortcut ngữ cảnh không trở thành route mới.</p>
+        </div>
+      </header>
+
+      <div class="map-canvas" aria-label="Mindmap kiến trúc thông tin">
+        <div class="root-node">Thiên Hà Đại Chiến<small>một shell · hai mode · năm workspace</small></div>
+        <div class="tree-trunk" aria-hidden="true"></div>
+        <div class="branch-grid">
+          <article class="branch">
+            <header class="branch-head"><span class="branch-kicker">Workspace 01</span><h3>Chỉ huy</h3></header>
+            <ul>
+              <li><strong>Tổng Quan</strong> <code>tongquan</code></li>
+              <li>Cần xử lý <small>· module</small></li>
+              <li>Đang diễn ra <small>· module</small></li>
+              <li>Ma trận hành tinh <small>· chỉ đọc</small></li>
+              <li>Tin mới nhất <small>· module</small></li>
+            </ul>
+          </article>
+
+          <article class="branch">
+            <header class="branch-head"><span class="branch-kicker">Workspace 02</span><h3>Phát triển</h3></header>
+            <ul>
+              <li><strong>Tài Nguyên</strong> <code>tainguyen</code></li>
+              <li><strong>Công Trình</strong> <code>congtrinh</code></li>
+              <li><strong>Nghiên Cứu</strong> <code>nghiencuu</code></li>
+              <li><strong>Xưởng Đóng Tàu</strong> <code>xuong</code></li>
+              <li><strong>Phòng Thủ</strong> <code>phongthu</code></li>
+              <li><strong>Ngân Hàng & Thị Trường</strong> <code>taichinh</code></li>
+            </ul>
+          </article>
+
+          <article class="branch">
+            <header class="branch-head"><span class="branch-kicker">Workspace 03</span><h3>Tác chiến</h3></header>
+            <ul>
+              <li><strong>Thiên Hà</strong> <code>thienha</code></li>
+              <li><strong>Hạm Đội</strong> <code>hamdoi</code></li>
+              <li><strong>Máy Tính Trận</strong> <code>mophong</code></li>
+              <li><strong>Tin Nhắn</strong> <code>tinnhan</code></li>
+            </ul>
+          </article>
+
+          <article class="branch">
+            <header class="branch-head"><span class="branch-kicker">Workspace 04</span><h3>Liên minh</h3></header>
+            <ul>
+              <li><strong>Liên Minh</strong> <code>lienminh</code></li>
+              <li><strong>Bảng Xếp Hạng</strong> <code>xephang</code></li>
+              <li><strong>Bảng Tin Vũ Trụ</strong> <code>bangtin</code><span class="mode">MP</span></li>
+              <li><strong>Phòng Chat</strong> <code>chat</code><span class="mode">MP</span></li>
+            </ul>
+          </article>
+
+          <article class="branch">
+            <header class="branch-head"><span class="branch-kicker">Workspace 05</span><h3>Hệ thống</h3></header>
+            <ul>
+              <li><strong>Hướng Dẫn</strong> <code>huongdan</code></li>
+              <li><strong>Nhật Ký &amp; Lưu</strong> <code>nhatky</code><span class="mode solo">Solo</span></li>
+              <li><strong>Tài Khoản</strong> <code>taikhoan</code><span class="mode">MP</span></li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="coverage" aria-label="Kiểm tra độ phủ">
+          <div><strong>14</strong><span>destination dùng chung</span></div>
+          <div><strong>15 / 17</strong><span>solo / multiplayer</span></div>
+          <div class="locked"><strong>0</strong><span>màn mất hoặc route trùng</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="map-section" id="luong" aria-labelledby="flow-title">
+      <header class="section-heading">
+        <div class="section-number" aria-hidden="true">02</div>
+        <div>
+          <h2 id="flow-title">Luồng phiên ngắn và hành lang tác chiến</h2>
+          <p>Tình hình đứng trước KPI; evidence đặt cạnh action; mỗi bước xác nhận được kết quả trước khi đi tiếp.</p>
+        </div>
+      </header>
+
+      <div class="map-canvas">
+        <div class="flow-block">
+          <div class="flow-title"><span class="signal" aria-hidden="true"></span><h3>Phiên quản lý 2–5 phút</h3></div>
+          <ol class="flow-lane">
+            <li class="flow-step"><b>01</b><strong>Vào game</strong><span>Mở tại Chỉ huy, khôi phục đúng scope.</span></li>
+            <li class="flow-step"><b>02</b><strong>Quét tình hình</strong><span>Cảnh báo, tài nguyên, hàng đợi, hạm đội.</span></li>
+            <li class="flow-step"><b>03</b><strong>Chọn việc khẩn</strong><span>Hậu quả + đúng một hành động xử lý.</span></li>
+            <li class="flow-step"><b>04</b><strong>Đi tới màn</strong><span>Đổi hành tinh trước, destination sau.</span></li>
+            <li class="flow-step"><b>05</b><strong>Thực hiện</strong><span>Dùng action và validation hiện hữu.</span></li>
+            <li class="flow-step"><b>06</b><strong>Xác nhận</strong><span>Trạng thái đổi; chuyển scope hoặc thoát.</span></li>
+          </ol>
+
+          <div class="branching-note" aria-label="Nhánh xử lý cảnh báo">
+            <div class="alert-root">Có cảnh báo ưu tiên?</div>
+            <div><strong>Hạm địch tới</strong>Hạm Đội / Phòng Thủ</div>
+            <div><strong>Nợ bảo trì</strong>Ngân Hàng &amp; Thị Trường</div>
+            <div><strong>Thiếu điện / thức ăn</strong>Tài Nguyên / Công Trình</div>
+            <div><strong>Nghiên cứu retry</strong>Nghiên Cứu</div>
+          </div>
+        </div>
+
+        <div class="flow-block">
+          <div class="flow-title"><span class="signal" aria-hidden="true"></span><h3>Luồng chiến đấu chủ động</h3></div>
+          <ol class="flow-lane combat">
+            <li class="flow-step"><b>A</b><strong>Thiên Hà</strong><span>Chọn mục tiêu, thấy permission và luật bảo vệ.</span></li>
+            <li class="flow-step"><b>B</b><strong>Do thám</strong><span>Hạm Đội preload mục tiêu; kiểm ETA, nhiên liệu, slot.</span></li>
+            <li class="flow-step"><b>C</b><strong>Tin Nhắn</strong><span>Đọc báo cáo; CTA “Mô phỏng trận”.</span></li>
+            <li class="flow-step"><b>D</b><strong>Máy Tính Trận</strong><span>Nạp báo cáo + đội ta; đánh giá rủi ro.</span></li>
+            <li class="flow-step"><b>E</b><strong>Hạm Đội</strong><span>Preload form; người chơi tự xác nhận xuất kích.</span></li>
+            <li class="flow-step"><b>F</b><strong>Theo dõi</strong><span>ETA, gọi về, đổi mục tiêu theo luật hiện có.</span></li>
+            <li class="flow-step"><b>G</b><strong>Kết quả</strong><span>Chiến báo; trở lại Thiên Hà để thu hồi nếu cần.</span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <section class="map-section" id="plan" aria-labelledby="plan-title">
+      <header class="section-heading">
+        <div class="section-number" aria-hidden="true">03</div>
+        <div>
+          <h2 id="plan-title">Implementation · Phase, dependency và gate</h2>
+          <p>Không rewrite một lần. Khóa contract, dựng ba prototype, rồi mới nhân rộng qua các họ màn.</p>
+        </div>
+      </header>
+
+      <div class="map-canvas" aria-label="Mindmap implementation plan">
+        <div class="root-node">design.md + UX/IA spec<small>source of truth trước code</small></div>
+        <div class="tree-trunk" aria-hidden="true"></div>
+
+        <div class="phase-line">
+          <article class="phase"><span class="phase-no">P0 · Baseline</span><h3>Khóa contract</h3><p>Dirty diff, 15/17 màn, action/live/id, test và ảnh hiện trạng.</p></article>
+          <article class="phase"><span class="phase-no">P1 · Foundation</span><h3>Tokens + build</h3><p>Deep navy/amber, bỏ blanket glass, artifact nhận cùng token.</p></article>
+          <article class="phase"><span class="phase-no">P2 · Shell</span><h3>IA dùng chung</h3><p>Registry capability, rail/subnav/mobile, semantic navigation.</p></article>
+          <article class="phase"><span class="phase-no">P3 · Command</span><h3>Situation + Tổng Quan</h3><p>Alert model, task-first, ma trận hành tinh chỉ đọc.</p></article>
+        </div>
+
+        <div class="phase-line">
+          <article class="phase gate"><span class="phase-no">Gate B</span><h3>Duyệt 3 prototype</h3><p>Tổng Quan · Thiên Hà · Tài Nguyên ở desktop và mobile.</p></article>
+          <article class="phase"><span class="phase-no">P4 · Scale</span><h3>Page families</h3><p>Data, catalogue, workflow, communication, long document.</p></article>
+          <article class="phase"><span class="phase-no">P5 · Corridor</span><h3>Luồng tác chiến</h3><p>Báo cáo → mô phỏng → preload xuất kích; không auto-send.</p></article>
+          <article class="phase"><span class="phase-no">P6 · Quality</span><h3>Responsive + A11y</h3><p>Auth, keyboard, focus, state, seven viewport, restraint.</p></article>
+        </div>
+
+        <div class="parallel">
+          <p>P4 · Ba domain sau khi P2 + P3 ổn định</p>
+          <div class="parallel-grid">
+            <div><strong>A · Phát triển</strong><span>Tài nguyên · công trình · nghiên cứu · xưởng · thủ · tài chính</span></div>
+            <div><strong>B · Tác chiến</strong><span>Thiên Hà · hạm đội · mô phỏng · tin nhắn · xếp hạng</span></div>
+            <div><strong>C · Liên minh/Hệ thống</strong><span>Liên minh · MP-only · solo log · tài khoản · hướng dẫn</span></div>
+          </div>
+        </div>
+
+        <div class="phase-line">
+          <article class="phase gate"><span class="phase-no">Gate C</span><h3>Review chức năng</h3><p>Đủ 15/17, không đổi luật, không bulk action, không ngõ cụt.</p></article>
+          <article class="phase"><span class="phase-no">P7 · Verify</span><h3>Test + visual QA</h3><p>Build, smoke/server/UI, accessibility, responsive, screenshot.</p></article>
+          <article class="phase gate"><span class="phase-no">Gate D</span><h3>Release-ready</h3><p>Diff sạch theo scope; visual review được duyệt.</p></article>
+          <article class="phase"><span class="phase-no">Handoff</span><h3>Merge có kiểm soát</h3><p>Không ghi đè dirty worktree; không chạm server bởi redesign.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="map-section" id="duyet" aria-labelledby="review-title">
+      <header class="section-heading">
+        <div class="section-number" aria-hidden="true">✓</div>
+        <div>
+          <h2 id="review-title">Gate A · Nội dung cần anh duyệt</h2>
+          <p>Đây là điểm dừng trước implementation. Mọi thứ bên dưới đều có thể đổi trong tài liệu mà chưa gây chi phí migration code.</p>
+        </div>
+      </header>
+
+      <div class="review-grid">
+        <article class="review-list">
+          <h3>Bốn quyết định</h3>
+          <ol>
+            <li><strong>IA:</strong> năm workspace và vị trí 15/17 màn như Mindmap 01.</li>
+            <li><strong>Tổng Quan:</strong> task-first; ma trận nhiều hành tinh chỉ đọc ở v1.</li>
+            <li><strong>Tác chiến:</strong> giữ chuỗi Thiên Hà → Do thám → Tin Nhắn → Mô phỏng → Hạm Đội.</li>
+            <li><strong>Rollout:</strong> duyệt ba prototype trước khi nhân rộng toàn hệ thống.</li>
+          </ol>
+        </article>
+
+        <aside class="scope-lock">
+          <h3>Phạm vi được khóa</h3>
+          <p>UI-first · không engine/server/API/schema · không batch action · không dependency mới.</p>
+          <code class="approval-code">Phản hồi đề xuất: “Duyệt Gate A, bắt đầu Phase 0.”</code>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Thiên Hà Đại Chiến · Trung tâm Chỉ huy Hybrid</span>
+    <span>Design review · 2026-08-25</span>
+  </footer>
+</body>
+</html>

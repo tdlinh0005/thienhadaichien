@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -19,9 +20,9 @@
     <div class="kd-sub">Webgame chiến thuật vũ trụ &middot; bản phục dựng <span id="kd-ver"></span></div>
     <div class="kd-nam">Nhiều năm sau <b>Thông Điệp Akabrac 2184</b> &middot; Vùng biên Ngân Hà</div>
     <div class="kd-form">
-      <label>Tên chỉ huy</label>
+      <label for="kd-ten">Tên chỉ huy</label>
       <input id="kd-ten" maxlength="18" placeholder="VD: Quốc Bình" autocomplete="off">
-      <label>Hạt giống vũ trụ <span class="mo">(để trống = ngẫu nhiên)</span></label>
+      <label for="kd-seed">Hạt giống vũ trụ <span class="mo">(để trống = ngẫu nhiên)</span></label>
       <input id="kd-seed" maxlength="24" placeholder="THDC-2184" autocomplete="off">
       <button id="kd-batdau" class="nut lon">BẮT ĐẦU CHIẾN DỊCH</button>
       <button id="kd-tieptuc" class="nut phu" style="display:none">TIẾP TỤC BÀN CŨ</button>
@@ -35,20 +36,30 @@
 
 <div id="game" style="display:none">
   <header id="thanh-tren">
-    <div class="tt-logo" data-act="man" data-man="tongquan">THIÊN HÀ ĐẠI CHIẾN</div>
-    <div id="tt-res" class="tt-res"></div>
+    <button type="button" class="tt-logo" data-act="man" data-man="tongquan">THIÊN HÀ ĐẠI CHIẾN</button>
+    <div id="tt-res" class="tt-res" role="region" aria-label="Tài nguyên hành tinh" tabindex="-1"></div>
     <div class="tt-phu">
-      <select id="chon-ht" title="Chọn hành tinh"></select>
+      <select id="chon-ht" title="Chọn hành tinh" aria-label="Chọn hành tinh"></select>
+      <button type="button" class="nut nho nut-res" id="nut-res" data-act="toggle-res" aria-expanded="false" aria-controls="tt-res">Tài nguyên</button>
+      <button type="button" class="nut nho" data-act="mo-menu-nhanh">Đi tới…</button>
       <button class="nut nho" data-act="luu">Lưu</button>
-      <button class="nut nho" id="nut-menu">☰</button>
+      <button class="nut nho" id="nut-menu" data-act="toggle-menu" aria-expanded="false" aria-controls="menu" aria-label="Mở điều hướng">☰</button>
     </div>
   </header>
 
-  <div id="thanh-canh"></div>
+  <div id="thanh-canh" role="region" aria-label="Tình hình chiến dịch" tabindex="-1">
+    <div id="tinh-hinh-noi-dung"></div>
+    <div id="tinh-hinh-khan" class="sr-only" role="alert" aria-live="assertive" aria-atomic="true"></div>
+    <div id="tinh-hinh-thuong" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
 
   <div class="khung">
-    <nav id="menu"></nav>
-    <main id="noidung"></main>
+    <nav id="workspace" aria-label="Không gian làm việc"></nav>
+    <nav id="menu" aria-label="Mục điều hướng"></nav>
+    <div class="page-frame">
+      <header id="dau-man"></header>
+      <main id="noidung" tabindex="-1"></main>
+    </div>
   </div>
 
   <footer id="chan">
@@ -56,13 +67,13 @@
   </footer>
 </div>
 
-<div id="hop-thoai" class="hop-thoai" style="display:none">
+<div id="hop-thoai" class="hop-thoai" style="display:none" role="dialog" aria-modal="true" aria-labelledby="ht-td">
   <div class="ht-trong">
-    <div class="ht-dau"><span id="ht-td"></span><button class="nut nho" data-act="dong-ht">✕</button></div>
+    <div class="ht-dau"><span id="ht-td"></span><button class="nut nho" data-act="dong-ht" aria-label="Đóng hộp thoại">✕</button></div>
     <div id="ht-noi"></div>
   </div>
 </div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="false"></div>
 
 <script src="js/data.js"></script>
 <script src="js/util.js"></script>
