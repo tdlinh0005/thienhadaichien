@@ -139,15 +139,27 @@ var boDon = setInterval(function () {
 function tat() {
   clearInterval(boDem); clearInterval(boDon);
   try { server.close(); } catch (e) { }
-  var thoat = false;
-  try { kho.dong(); thoat = true; } catch (e) {
-    console.error('[tat] kho.dong() thất bại:', e);
-  }
-  if (thoat) process.exit(0);
-  else process.exit(1);
+  /* chờ nhịp tick đang chạy hoàn tất (tối đa 5 giây) trước khi đóng database,
+     tránh đóng đột ngột giữa chừng một transaction ghi hàng chục đế quốc. */
+  var cho = 0;
+  (function choNhip() {
+    if (!dangNhip || cho >= 50) {
+      var thoat = false;
+      try { kho.dong(); thoat = true; } catch (e) {
+        console.error('[tat] kho.dong() thất bại:', e);
+      }
+      process.exit(thoat ? 0 : 1);
+    } else { cho++; setTimeout(choNhip, 100); }
+  })();
 }
 process.on('SIGINT', tat);
 process.on('SIGTERM', tat);
+process.on('uncaughtException', function (e) {
+  console.error('[uncaughtException]', e && e.stack || e);
+});
+process.on('unhandledRejection', function (e) {
+  console.error('[unhandledRejection]', e && (e.stack || e.message) || e);
+});
 
 server.listen(CONG, function () {
   console.log('╔══════════════════════════════════════════════════════╗');

@@ -12,7 +12,7 @@ U.sigCu = '';
 
 U.esc = function (s) {
   return String(s === undefined || s === null ? '' : s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 U.st = function () { return window.ST; };
 U.datPi = function (pi, st) {

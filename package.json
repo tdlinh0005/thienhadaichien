@@ -13,6 +13,8 @@
     "test:server": "node tools/test-server.js",
     "test:ui": "node tools/test-mp-ui.mjs",
     "test:visual": "node tools/test-visual-gate.mjs",
+    "test:tai": "node tools/test-tai.js",
+    "test:all": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js && node tools/test-tai.js",
     "build": "node tools/build.js && node tools/build.js --artifact"
   },
   "dependencies": {},

@@ -6,6 +6,7 @@ var sqlite = require('node:sqlite');
 
 var SCHEMA = [
   "PRAGMA journal_mode=WAL",
+  "PRAGMA synchronous=NORMAL",
   "PRAGMA foreign_keys=ON",
   "PRAGMA busy_timeout=4000",
 

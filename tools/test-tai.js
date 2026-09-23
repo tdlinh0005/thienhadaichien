@@ -65,9 +65,10 @@ try {
   log('tua 24 giờ cho ' + SO_TK + ' đế quốc mất ' + msTua + 'ms (' + Math.round(msTua / SO_TK) + 'ms/đế quốc)');
   ktra(msTua < 20000, 'tua 24 giờ toàn server dưới 20 giây');
   var mau = tg.nap(ids[0]).st;
-  ktra(mau.v === 6 && mau.moHinhCT === 'so-luong-v1' &&
-    mau.moHinhNhip === 'bao-tri-dan-su-v1' && mau.moHinhQuyDao === 'giu-quy-dao-v1',
-    'mọi state tải chạy trên contract v6 đầy đủ marker');
+  ktra(mau.v === 7 && mau.moHinhCT === 'so-luong-v1' &&
+    mau.moHinhNhip === 'bao-tri-dan-su-v1' && mau.moHinhQuyDao === 'giu-quy-dao-v1' &&
+    mau.moHinhKT === G.KINH_TE_V1.marker,
+    'mọi state tải chạy trên contract v7 đầy đủ marker');
   ktra(mau.baoTri && mau.baoTri.cycle >= 4,
     'chu kỳ bảo trì đã chạy trong lúc tua (' + (mau.baoTri ? mau.baoTri.cycle : 0) + ')');
 

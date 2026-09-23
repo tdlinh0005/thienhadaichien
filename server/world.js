@@ -489,13 +489,17 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
   try {
     /* Khoá ĐỐI XỨNG: tick state của ai thì chủ state đó phải nằm trên chuStack,
      * vì mọi hook luật (danhNguoi/doThamNguoi/luu phản bội…) tra chuHienTai()
-     * để biết "đang xử lý của ai". Tick theo thứ tự id tăng để tránh khoá chéo. */
+     * để biết "đang xử lý của ai". Tick theo thứ tự id tăng để tránh khoá chéo.
+     * chuStack push/pop CỤC BỘ quanh từng lệnh G.tick (như danhNguoi): tick của
+     * ai thì đỉnh chuStack phải là chủ state đó, không phải id còn lại. */
     var capTk = [tkA, hang.tk].sort(function (x, y) { return x - y; });
-    for (var k = 0; k < capTk.length; k++) { this.dangTick.add(capTk[k]); this.chuStack.push(capTk[k]); }
+    for (var k = 0; k < capTk.length; k++) this.dangTick.add(capTk[k]);
     var gio = this.mocHoacGio();
     for (k = 0; k < capTk.length; k++) {
       var dK = capTk[k] === tkA ? a : b;
-      G.tick(dK.st, gio);
+      this.chuStack.push(capTk[k]);
+      try { G.tick(dK.st, gio); }
+      finally { this.chuStack.pop(); }
     }
     /* tìm đơn tương ứng trong st.choDon của người bán */
     var donBan = null, i;
@@ -535,15 +539,12 @@ TheGioi.prototype.choMua = function (tkA, choId, so) {
       (hang.loai === 'tudo' ? '; hàng về sau 6 giờ.' : '.'));
     this.luu(tkA, a.st);
     this.luu(hang.tk, b.st);
-    for (var k2 = 0; k2 < capTk.length; k2++) { this.chuStack.pop(); this.dangTick.delete(capTk[k2]); }
+    for (var k2 = 0; k2 < capTk.length; k2++) this.dangTick.delete(capTk[k2]);
     this.ketThuc();
     return null;
   } catch (e) {
     var capTkLui = [tkA, hang.tk].sort(function (x, y) { return x - y; });
-    for (var k3 = capTkLui.length - 1; k3 >= 0; k3--) {
-      if (this.chuStack[this.chuStack.length - 1] === capTkLui[k3]) this.chuStack.pop();
-      this.dangTick.delete(capTkLui[k3]);
-    }
+    for (var k3 = capTkLui.length - 1; k3 >= 0; k3--) this.dangTick.delete(capTkLui[k3]);
     try { this.ketThuc(false); } catch (e2) { }
     throw e;
   }
@@ -1761,9 +1762,23 @@ TheGioi.prototype.nhip = function (toiDa) {
   var now = Math.floor(Date.now() / 1000);
   var ds = this.kho.q.dqDenHan.all(now, toiDa || 60);
   var n = 0;
-  for (var i = 0; i < ds.length; i++) {
-    try { if (this.tick(ds[i].tk, now)) n++; }
-    catch (e) { console.error('[nhip] lỗi khi tua đế quốc', ds[i].tk, e); }
+  /* Batch transaction: mỗi lô KICH_LO đế quốc COMMIT đúng 1 lần thay vì từng
+     đế quốc một lượt — giảm mạnh thời gian khoá event loop mỗi nhịp. Lỗi một
+     đế quốc chỉ rollback LÔ ĐÓ (state các đế quốc khác trong lô chưa ghi,
+     lastTick cũ nên sẽ được tua lại ở nhịp sau — không mất dữ liệu). */
+  var KICH_LO = 20;
+  for (var dau = 0; dau < ds.length; dau += KICH_LO) {
+    var cuoi = Math.min(ds.length, dau + KICH_LO);
+    this.batDau();
+    for (var i = dau; i < cuoi; i++) {
+      try { if (this.tick(ds[i].tk, now)) n++; }
+      catch (e) {
+        console.error('[nhip] lỗi khi tua đế quốc', ds[i].tk, e);
+        this.ketThuc(false);   // rollback lô hiện tại
+        this.batDau();         // mở lô mới cho phần còn lại
+      }
+    }
+    this.ketThuc();
   }
   return n;
 };

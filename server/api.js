@@ -143,10 +143,19 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
   /* ---- công khai ---- */
   if (duong === '/api/thongtin') return json(res, 200, self.thongTin());
 
-  /* [v7] đổi tốc độ server (admin) */
+  /* [v7] đổi tốc độ server (admin) — phải là phiên của tài khoản có quyền admin,
+     hoặc gửi kèm đúng ADMIN_KEY trong env (dùng cho vận hành không qua tài khoản). */
   if (duong === '/api/admin/tocdo' && req.method === 'POST') {
-    var b = await docBody(req);
-    var r = self.doiTocDo(b.tocDo);
+    var bAdmin = await docBody(req);
+    var adminKey = process.env.ADMIN_KEY;
+    var duocPhep = false;
+    if (adminKey && bangNhau(chuoi(bAdmin.adminKey, 200), adminKey)) duocPhep = true;
+    else {
+      var pAdmin = self.phien(req);
+      if (pAdmin && pAdmin.tkRow && pAdmin.tkRow.quyen === 'admin') duocPhep = true;
+    }
+    if (!duocPhep) return json(res, 403, { loi: 'Chỉ quản trị viên mới được đổi tốc độ server.' });
+    var r = self.doiTocDo(bAdmin.tocDo);
     if (r.loi) return json(res, 400, r);
     return json(res, 200, r);
   }
