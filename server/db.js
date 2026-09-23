@@ -149,11 +149,49 @@ var SCHEMA = [
   "CREATE INDEX IF NOT EXISTS tran_khi ON tran(khi DESC)"
 ];
 
+var SCHEMA_NANG_CAP = [
+  `CREATE TABLE IF NOT EXISTS lm_phieu (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     lm TEXT NOT NULL REFERENCES lm(ten) ON DELETE CASCADE,
+     loai TEXT NOT NULL CHECK(loai IN ('tuyenchien','duyet','tuchoi','duoi','bachu')),
+     doiTuong INTEGER,
+     hetHan INTEGER NOT NULL,
+     ketQua TEXT,
+     khi INTEGER NOT NULL
+   )`,
+  "CREATE INDEX IF NOT EXISTS lm_phieu_lm ON lm_phieu(lm,ketQua,hetHan)",
+  `CREATE TABLE IF NOT EXISTS lm_phieu_chi_tiet (
+     phieuId INTEGER NOT NULL REFERENCES lm_phieu(id) ON DELETE CASCADE,
+     tkBau INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     giaTri INTEGER NOT NULL CHECK(giaTri IN (0,1)),
+     PRIMARY KEY (phieuId,tkBau)
+   )`,
+  /* [v7] thị trường chéo đế quốc: đơn bán KL/TA/NL/TP */
+  `CREATE TABLE IF NOT EXISTS cho (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     loai TEXT NOT NULL CHECK(loai IN ('sieuthi','tudo')),
+     tk INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
+     res TEXT NOT NULL,
+     so INTEGER NOT NULL,
+     gia INTEGER NOT NULL,
+     khi INTEGER NOT NULL
+   )`,
+  "CREATE INDEX IF NOT EXISTS cho_loai_khi ON cho(loai,khi)"
+];
+function cotCo(db, bang, cot) {
+  return db.prepare('PRAGMA table_info(' + bang + ')').all().some(function (c) { return c.name === cot; });
+}
+
 function moDB(duong) {
   duong = duong || process.env.THDC_DB || path.join(__dirname, 'data', 'thdc.db');
   if (duong !== ':memory:') fs.mkdirSync(path.dirname(duong), { recursive: true });
   var db = new sqlite.DatabaseSync(duong);
   SCHEMA.forEach(function (s) { db.exec(s); });
+  SCHEMA_NANG_CAP.forEach(function (s) { db.exec(s); });
+  if (!cotCo(db, 'lm', 'chinhThe'))
+    db.exec("ALTER TABLE lm ADD COLUMN chinhThe TEXT NOT NULL DEFAULT 'docTai'");
+  if (!cotCo(db, 'lm', 'bacCuAt'))
+    db.exec('ALTER TABLE lm ADD COLUMN bacCuAt INTEGER');
   /* Tự sửa database của các bản cũ: trước khi có bộ máy quản trị, chủ liên
      minh có thể rời/xoá tài khoản mà lm.chu không đổi. Chuyển quyền cho thành
      viên mạnh nhất còn lại rồi xoá các liên minh thực sự không còn ai. */
@@ -298,6 +336,29 @@ function Kho(duong, options) {
     lmKeNhi: d.prepare('SELECT tk FROM dq WHERE lm=? AND tk<>? ORDER BY diem DESC,tk LIMIT 1'),
     lmXoa: d.prepare('DELETE FROM lm WHERE ten=?'),
     lmXinGet: d.prepare('SELECT * FROM lm_xin WHERE lm=? AND tk=?'),
+    /* [v7] phiếu chính thể */
+    phieuThem: d.prepare("INSERT INTO lm_phieu(lm,loai,doiTuong,hetHan,ketQua,khi) VALUES(?,?,?,?,NULL,?)"),
+    phieuGet: d.prepare('SELECT * FROM lm_phieu WHERE id=?'),
+    phieuMoCua: d.prepare("SELECT * FROM lm_phieu WHERE lm=? AND ketQua IS NULL AND hetHan>? ORDER BY id DESC"),
+    phieuDangMoLoai: d.prepare("SELECT * FROM lm_phieu WHERE lm=? AND loai=? AND ketQua IS NULL AND hetHan>?"),
+    phieuKetQua: d.prepare('UPDATE lm_phieu SET ketQua=? WHERE id=?'),
+    phieuBau: d.prepare('INSERT INTO lm_phieu_chi_tiet(phieuId,tkBau,giaTri) VALUES(?,?,?)'),
+    phieuDem: d.prepare('SELECT giaTri,COUNT(*) n FROM lm_phieu_chi_tiet WHERE phieuId=? GROUP BY giaTri'),
+    phieuChiTiet: d.prepare('SELECT * FROM lm_phieu_chi_tiet WHERE phieuId=?'),
+    phieuDS: d.prepare('SELECT * FROM lm_phieu WHERE lm=? ORDER BY id DESC LIMIT 20'),
+    lmDoiChinhThe: d.prepare('UPDATE lm SET chinhThe=? WHERE ten=?'),
+    lmDatBacCu: d.prepare('UPDATE lm SET bacCuAt=? WHERE ten=?'),
+    lmThanhVienDiem: d.prepare(`SELECT dq.tk, dq.diem, tk.hienthi FROM dq
+                                JOIN tk ON tk.id=dq.tk WHERE dq.lm=?
+                                ORDER BY dq.diem DESC, dq.tk ASC`),
+    /* [v7] thị trường chéo đế quốc */
+    choThem: d.prepare('INSERT INTO cho(loai,tk,res,so,gia,khi) VALUES(?,?,?,?,?,?)'),
+    choGet: d.prepare('SELECT * FROM cho WHERE id=?'),
+    choCua: d.prepare('SELECT * FROM cho WHERE tk=? ORDER BY id DESC'),
+    choMoLoai: d.prepare(`SELECT c.*, tk.hienthi FROM cho c JOIN tk ON tk.id=c.tk
+                          WHERE c.loai=? AND c.so>0 ORDER BY c.khi DESC LIMIT 60`),
+    choTru: d.prepare('UPDATE cho SET so=so-? WHERE id=?'),
+    choXoaId: d.prepare('DELETE FROM cho WHERE id=?'),
     lmXinThem: d.prepare('INSERT INTO lm_xin(lm,tk,khi) VALUES(?,?,?)'),
     lmXinXoa: d.prepare('DELETE FROM lm_xin WHERE lm=? AND tk=?'),
     lmXinXoaCua: d.prepare('DELETE FROM lm_xin WHERE tk=?'),

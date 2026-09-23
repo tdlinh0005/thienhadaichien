@@ -2,6 +2,7 @@
 "use strict";
 
 const http = require("node:http");
+const zlib = require("node:zlib");
 const fs = require("node:fs");
 const path = require("node:path");
 const {taoClock} = require("./clock.js");
@@ -473,11 +474,46 @@ function taoUngDung(options) {
     if (!filename) return sendText(res, 404, "Không có file.");
     fs.readFile(filename, function (error, data) {
       if (error) return sendText(res, 404, "Không có file.");
-      res.writeHead(200, {
-        "Content-Type": mimeTypes[path.extname(filename).toLowerCase()] || "application/octet-stream",
-        "Cache-Control": "no-cache",
-        "X-Content-Type-Options": "nosniff"
-      });
+      const kieu = mimeTypes[path.extname(filename).toLowerCase()] || "application/octet-stream";
+      /* cache: HTML luôn revalidate; tài nguyên khác (js/css/ảnh) dùng 1 giờ.
+         ETag theo kích thước + mtime cho revalidate rẻ (304 không gửi thân). */
+      const laHtml = kieu.indexOf("text/html") === 0;
+      let mtime = 0;
+      try { mtime = Math.floor(fs.statSync(filename).mtimeMs || 0); } catch (e) { void e; }
+      const etag = '"' + data.length + "-" + mtime + '"';
+      if (req.headers["if-none-match"] === etag) {
+        res.writeHead(304, { ETag: etag, "Cache-Control": laHtml ? "no-cache" : "public, max-age=3600" });
+        return res.end();
+      }
+      const dau = {
+        "Content-Type": kieu,
+        "Cache-Control": laHtml ? "no-cache" : "public, max-age=3600",
+        ETag: etag,
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'",
+        "X-Frame-Options": "DENY",
+        "Referrer-Policy": "no-referrer"
+      };
+      /* gzip mọi loại văn bản > 1KB khi client nhận — ~450KB JS còn ~120KB */
+      const vanBan = /^(text\/|application\/(json|javascript|manifest))/.test(kieu);
+      const chapNhan = String(req.headers["accept-encoding"] || "");
+      if (vanBan && data.length > 1024 && chapNhan.indexOf("gzip") >= 0) {
+        zlib.gzip(data, function (gzipError, nen) {
+          if (gzipError) {
+            dau["Content-Length"] = data.length;
+            res.writeHead(200, dau);
+            return res.end(req.method === "HEAD" ? undefined : data);
+          }
+          dau["Content-Encoding"] = "gzip";
+          dau["Vary"] = "Accept-Encoding";
+          dau["Content-Length"] = nen.length;
+          res.writeHead(200, dau);
+          return res.end(req.method === "HEAD" ? undefined : nen);
+        });
+        return;
+      }
+      dau["Content-Length"] = data.length;
+      res.writeHead(200, dau);
       res.end(req.method === "HEAD" ? undefined : data);
     });
   }

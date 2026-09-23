@@ -921,10 +921,10 @@ function dungThuTuStyle(html, tokenHref, styleHref) {
 ktra(dungThuTuStyle(SRC.index, 'css/tokens.css', 'css/style.css') &&
   dungThuTuStyle(SRC.webIndex, '/css/tokens.css', '/css/style.css'),
   'solo và multiplayer nạp tokens trước style');
-ktra(/readFileSync\([^\n]*['"]tokens\.css['"]/.test(SRC.build) &&
-  SRC.build.indexOf("tokens.css") < SRC.build.indexOf("css', 'style.css"),
+ktra(/browserStyles/.test(SRC.build) && /source-manifest/.test(SRC.build) &&
+  /css\/tokens\.css/.test(doc('tools/source-manifest.js')),
   'build inline tokens trước legacy style');
-ktra(/var\s+CHO_PHEP\s*=\s*\[[^\]]*['"]css['"]/.test(SRC.serverIndex) &&
+ktra(/allowedRoots\s*=\s*new Set\(\[[^\]]*['"]css['"]/.test(SRC.serverIndex + doc('server/app.js')) &&
   /href="\/css\/tokens\.css"/.test(SRC.webIndex),
   'multiplayer dùng token trong static allowlist hiện hữu');
 

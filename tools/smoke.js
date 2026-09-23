@@ -24,9 +24,9 @@ pc.qS = [{ id: 'fighterL', n: 7, tEach: 11, tLeft: 9, cost1: { metal: 3000, crys
 var costCu = JSON.stringify(pc.qB.map(function (x) { return x.cost; }));
 var qSCu = JSON.stringify(pc.qS);
 G.nangCapState(cu, cu.now);
-ktra(cu.v === 6 && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
+ktra(cu.v === G.STATE_VERSION && cu.moHinhKT === G.KINH_TE_V1.marker && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
   cu.moHinhQuyDao === 'giu-quy-dao-v1',
-  'dispatcher nâng tuần tự v3 -> v4 -> v5 -> v6 và gắn đủ model marker');
+  'dispatcher nâng tuần tự v3 -> v7 và gắn đủ model marker');
 ktra(pc.b.metalMine === G.slTuCap(G.B('metalMine'), 4) && pc.b.shipyard === 3,
   'level cũ đổi thành số lượng theo tổng vốn lũy kế');
 ktra(pc.qB.every(function (x) { return x.n > 0 && x.lv === undefined; }), 'qB sau dispatcher chỉ lưu n, không còn lv');
@@ -131,11 +131,11 @@ var taiSanV5Giu = JSON.stringify({ planets: v5Giu.planets, ncQueue: v5Giu.ncQueu
   debris: v5Giu.debris, queues: v5Giu.planets.map(function (x) { return [x.qB, x.qS]; }) });
 G.nangCapState(v5Giu, kichHoatQD);
 var legacyGiu = v5Giu.fleets[0];
-ktra(v5Giu.v === 6 && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
+ktra(v5Giu.v === G.STATE_VERSION && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
   legacyGiu.pha === 'giu' && legacyGiu.giuRules === G.QUY_DAO_V1.legacyRules &&
   legacyGiu.giuDen_t === kichHoatQD + 12 * 3600 &&
   legacyGiu.tiepNL_t === kichHoatQD + G.QUY_DAO_V1.segmentSeconds,
-  'v5 -> v6 đổi đúng hạm đã đậu và cấp một đoạn ân hạn không hồi tố');
+  'v5 -> v6+ đổi đúng hạm đã đậu và cấp một đoạn ân hạn không hồi tố');
 ktra(v5Giu.fleets[1].pha === 'di' && !v5Giu.fleets[1].dangGiu &&
   v5Giu.fleets[2].pha === 've' && !v5Giu.fleets[2].dangGiu &&
   v5Giu.fleets.slice(1).every(function (f5) { return f5.giuLuc === undefined && f5.tiepNL_t === undefined; }),

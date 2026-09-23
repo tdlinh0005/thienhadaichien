@@ -10,20 +10,22 @@ function sha256File(file) {
     .digest("hex");
 }
 
-const browserStyles = ["css/style.css"];
+const browserStyles = ["css/tokens.css", "css/style.css"];
 const browserScripts = [
   "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js", "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
-  "js/ui/ve.js", "js/ui/dotphan.js", "js/app.js", "js/main.js"
+  "js/thitruong.js", "js/fleet.js", "js/actions.js",
+  "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
+  "js/ui/ve.js", "js/ui/khung2.js", "js/ui/dotphan.js", "js/app.js", "js/main.js"
 ];
 const mpScripts = [
   "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js", "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
-  "js/ui/ve.js", "js/ui/dotphan.js", "js/app.js", "web/js/mp.js"
+  "js/thitruong.js", "js/fleet.js", "js/actions.js",
+  "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
+  "js/ui/ve.js", "js/ui/khung2.js", "js/ui/dotphan.js", "js/app.js", "web/js/mp.js"
 ];
 const rulesScripts = [
   "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js"
+  "js/thitruong.js", "js/fleet.js", "js/actions.js"
 ];
 const scriptFiles = [...new Set([...browserScripts, ...mpScripts, ...rulesScripts])];
 

@@ -24,7 +24,8 @@ module.exports = [
         TextDecoder: 'readonly', atob: 'readonly', btoa: 'readonly',
         structuredClone: 'readonly', queueMicrotask: 'readonly',
         require: 'readonly', module: 'writable', exports: 'writable',
-        __dirname: 'readonly', __filename: 'readonly'
+        __dirname: 'readonly', __filename: 'readonly', setImmediate: 'readonly',
+        clearImmediate: 'readonly'
       }
     },
     rules: {

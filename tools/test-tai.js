@@ -57,7 +57,7 @@ function startLoad(kho, seconds) {
     world: world, reducer: reducer, advanceService: advance, clock: clock,
     timers: clockTimers, logger: logger(), pollMs: 1000, leaseMs: 15000,
     retryBaseMs: 1000, retryMaxMs: 300000, maxAttempts: 8,
-    maxBacklogAgeMs: 3600000, reconcileIntervalMs: 300000, manualDrain: false
+    maxBacklogAgeMs: 30 * 24 * 3600000, reconcileIntervalMs: 300000, manualDrain: false
   });
   return {clock: clock, timers: clockTimers, store: store, world: world, writer: writer};
 }

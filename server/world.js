@@ -898,8 +898,8 @@ TheGioi.prototype.luu = function (tk, st, options) {
     if (!this.ctx.states.has(tk)) this.ctx.states.set(tk, { row: this.kho.q.dqGet.get(tk), st: st });
     return diem;
   }
-  var self = this;
-  this.kho.giaoDich(function () { self._ghiNhieu([{ tk: tk, st: st }], now); });
+  var self4 = this;
+  this.kho.giaoDich(function () { self4._ghiNhieu([{ tk: tk, st: st }], now); });
   return diem;
 };
 
@@ -2019,7 +2019,9 @@ TheGioi.prototype.lmTao = function (tk, ten, tag, chinhThe) {
   }
   var now = this.gameNow(), kho = this.kho;
   kho.q.lmThem.run(day, tag, tk, now, null);
-  kho.q.lmDoiChinhThe.run(chinhThe, day);
+  /* [v7] cột chinhThe có thể không tồn tại trên DB schema mới của scheduler */
+  var cotChinhThe = kho.db.prepare('PRAGMA table_info(lm)').all().some(function (c) { return c.name === 'chinhThe'; });
+  if (cotChinhThe) kho.q.lmDoiChinhThe.run(chinhThe, day);
   /* chính thể có phiếu: mở kỳ bầu chủ đầu tiên sau KY_BAU_CHU */
   if (chinhThe !== 'docTai') kho.q.lmDatBacCu.run(now + KY_BAU_CHU, day);
   /* Dùng chính chuỗi canonical vừa tạo; tuyệt đối không dựng lại từ body API
@@ -2776,7 +2778,12 @@ var RULES_HOOK_METHODS = Object.freeze([
   'guiThu', 'tuyenChien', 'chienCua', 'chuyenGalana', 'lmDS', 'lmTao',
   'lmThanhVien', 'lmXin', 'lmDuyet', 'lmDuoi', 'lmChuyenChu', 'lmRa',
   'nhip', 'resolvePvpAt', 'resolveTransportAt', 'resolveSpyAt',
-  'resolveHoldAt', 'resolveMissileAt'
+  'resolveHoldAt', 'resolveMissileAt',
+  /* [v7] nền kinh tế/chợ/phéo của bản fork */
+  'boPhieu', 'choChay', 'choDS', 'choDangBan', 'choHuy', 'choMua',
+  'coPhieu', 'daiBieu', 'duocBauKhong', 'kiemTraPhieu', 'lmDuoiVoiQuyen',
+  'lmDuyetVoiQuyen', 'mocHoacGio', 'phieuCua', 'taoPhieu', 'thucThiPhieu',
+  'tuyenChienLMVoiQuyen'
 ]);
 
 function sameNames(left, right) {
