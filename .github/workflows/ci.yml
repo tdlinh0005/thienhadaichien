@@ -1,3 +1,5 @@
+# Workflow CI chạy trên GitHub Actions (không cần secrets).
+# Lưu ý: token PAT dùng để push cần scope `workflow` để tạo/cập nhật file này.
 name: CI
 
 on:
