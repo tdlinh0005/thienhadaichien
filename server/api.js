@@ -17,7 +17,17 @@ var NHIP_XAC_THUC = parseInt(process.env.THDC_GIOI_HAN_DN || '8', 10); // đăng
 var TIN_PROXY = process.env.THDC_PROXY === '1';
 
 /* ------------------------------------------------------------ mật khẩu */
-function bam(mk, muoi) { return crypto.scryptSync(String(mk), muoi, 64, { N: 16384, r: 8, p: 1 }).toString('hex'); }
+/* scrypt BẤT ĐỒNG BỘ: scryptSync (N=16384) khoá event loop ~50–100ms/lần,
+ * chặn toàn bộ server khi có nhiều đăng ký/đổi mật khẩu cùng lúc. Threadpool
+ * của libuv chạy song song, event loop không bị chặn. Mọi nơi gọi đều nằm
+ * trong handler async nên chỉ cần await. */
+function bam(mk, muoi) {
+  return new Promise(function (hanoi, loi) {
+    crypto.scrypt(String(mk), muoi, 64, { N: 16384, r: 8, p: 1 }, function (err, khoa) {
+      if (err) loi(err); else hanoi(khoa.toString('hex'));
+    });
+  });
+}
 function bangNhau(a, b) {
   var x = Buffer.from(String(a)), y = Buffer.from(String(b));
   if (x.length !== y.length) return false;
@@ -173,7 +183,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     if (self.kho.q.tkTheoTen.get(khoa)) return json(res, 409, { loi: 'Tên đăng nhập đã có người dùng.' });
     var muoi = crypto.randomBytes(16).toString('hex');
     var now = Math.floor(Date.now() / 1000);
-    self.kho.q.tkThem.run(khoa, hienthi, bam(mk, muoi), muoi, now, now);
+    self.kho.q.tkThem.run(khoa, hienthi, await bam(mk, muoi), muoi, now, now);
     var tk = self.kho.q.tkTheoTen.get(khoa);
     var kq = self.tg.taoDeQuoc(tk.id, hienthi);
     if (kq.loi) return json(res, 500, { loi: kq.loi });
@@ -187,7 +197,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     var b2 = await docBody(req);
     var ten2 = chuoi(b2.ten, 24).trim().toLowerCase();
     var tk2 = self.kho.q.tkTheoTen.get(ten2);
-    if (!tk2 || !bangNhau(bam(chuoi(b2.mk, 200), tk2.muoi), tk2.mk))
+    if (!tk2 || !bangNhau(await bam(chuoi(b2.mk, 200), tk2.muoi), tk2.mk))
       return json(res, 401, { loi: 'Sai tên đăng nhập hoặc mật khẩu.' });
     var now2 = Math.floor(Date.now() / 1000);
     var token2 = crypto.randomBytes(24).toString('hex');
@@ -416,7 +426,7 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
 
   if (duong === '/api/xoatk' && req.method === 'POST') {
     var b8 = await docBodyDaXacThuc();
-    if (!bangNhau(bam(chuoi(b8.mk, 200), p.tkRow.muoi), p.tkRow.mk))
+    if (!bangNhau(await bam(chuoi(b8.mk, 200), p.tkRow.muoi), p.tkRow.mk))
       return json(res, 401, { loi: 'Mật khẩu không đúng.' });
     if (chuoi(b8.xacnhan, 40) !== 'XOA')
       return json(res, 400, { loi: 'Cần gõ đúng chữ XOA để xác nhận.' });
@@ -427,12 +437,12 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
 
   if (duong === '/api/doimk' && req.method === 'POST') {
     var b7 = await docBodyDaXacThuc();
-    if (!bangNhau(bam(chuoi(b7.cu, 200), p.tkRow.muoi), p.tkRow.mk))
+    if (!bangNhau(await bam(chuoi(b7.cu, 200), p.tkRow.muoi), p.tkRow.mk))
       return json(res, 401, { loi: 'Mật khẩu hiện tại không đúng.' });
     var moi = chuoi(b7.moi, 200);
     if (moi.length < 6) return json(res, 400, { loi: 'Mật khẩu mới phải từ 6 ký tự.' });
     var muoi7 = crypto.randomBytes(16).toString('hex');
-    self.kho.q.tkDoiMK.run(bam(moi, muoi7), muoi7, p.tk);
+    self.kho.q.tkDoiMK.run(await bam(moi, muoi7), muoi7, p.tk);
     /* đổi mật khẩu = đá mọi phiên khác ra, chỉ giữ lại phiên đang thao tác */
     self.kho.q.phienXoaKhac.run(p.tk, p.token);
     return json(res, 200, { ok: true, thuHoiPhien: true });

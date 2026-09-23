@@ -1040,14 +1040,25 @@ TheGioi.prototype.danhNguoi = function (st, f, o, veNha) {
       st.stats.doBo = (st.stats.doBo || 0) + 1;
     }
 
-    /* cướp */
+    /* cướp — CÙNG NGỮ NGHĨA 2 LƯỢT với bản solo (js/fleet.js): lượt quỹ đạo
+       lấy tối đa CUOP_TOI_DA kho, đổ bộ thắng vét thêm CUOP_DO_BO của PHẦN CÒN
+       LẠI (không cộng định mức) — tổng tối đa ~67.5% thay vì 85%. */
     var cuop = { metal: 0, crystal: 0, deut: 0, food: 0 };
     if (kq.kq === 'thang') {
-      var tyLe = (doBo && doBo.thang) ? Math.min(0.85, G.C.CUOP_TOI_DA + G.C.CUOP_DO_BO) : G.C.CUOP_TOI_DA;
-      cuop = G.chiaHang(dp.res, G.khoangHang(f.ships) - G.tongRes(f.cargo), tyLe);
+      var choTrong = function () { return G.khoangHang(f.ships) - G.tongRes(f.cargo); };
+      cuop = G.chiaHang(dp.res, choTrong(), G.C.CUOP_TOI_DA);
       for (var rk in cuop) {
         dp.res[rk] -= cuop[rk];
         f.cargo[rk] = (f.cargo[rk] || 0) + cuop[rk];
+      }
+      if (doBo && doBo.thang) {
+        var themCuop = G.chiaHang(dp.res, choTrong(), G.C.CUOP_DO_BO);
+        for (var rk2 in themCuop) {
+          if (!themCuop[rk2]) continue;
+          dp.res[rk2] -= themCuop[rk2];
+          f.cargo[rk2] = (f.cargo[rk2] || 0) + themCuop[rk2];
+          cuop[rk2] = (cuop[rk2] || 0) + themCuop[rk2];
+        }
       }
       st.stats.thang++; st.stats.cuop += G.tongRes(cuop);
       d.st.stats.thua++;

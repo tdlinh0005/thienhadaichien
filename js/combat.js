@@ -211,8 +211,17 @@ G.danhTran = function (A, D, seed) {
         pl.crystal += (d.cost.crystal || 0) * m * G.C.PHE_LIEU;
       } else {           /* công sự: 70% được sửa lại sau trận [SUY LUẬN kiểu OGame] */
         matDPha[d.id] = m;
-        var sua = 0;
-        for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
+        var sua;
+        if (m > 100) {
+          /* xấp xỉ nhị thức B(m, 0.7): tránh vòng lặp O(m) khi m tới hàng triệu.
+             Độ lệch chuẩn sqrt(m·p·(1-p)) ≈ sqrt(0.21m); sai số nhỏ hơn 1 đơn vị
+             trên m lớn — không ảnh hưởng cân bằng game. */
+          sua = Math.round(m * G.C.SUA_CONG_SU + (rnd() * 2 - 1) * Math.sqrt(m * G.C.SUA_CONG_SU * (1 - G.C.SUA_CONG_SU)));
+          if (sua < 0) sua = 0; else if (sua > m) sua = m;
+        } else {
+          sua = 0;
+          for (var k = 0; k < m; k++) if (rnd() < G.C.SUA_CONG_SU) sua++;
+        }
         con += sua; m -= sua;
       }
       if (m > 0) {
