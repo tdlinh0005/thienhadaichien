@@ -20,7 +20,9 @@ var G = window.G = window.G || {};
  * bán, hồi dần theo giờ (tỉ lệ/giờ) lên trần. Multiplayer bỏ qua. */
 G.CHO_NPC = {
   TRAN: { metal: 2000000, crystal: 1000000, deut: 400000, food: 1500000 },
-  HOI_GIO: 0.02          // mỗi giờ hồi 2% trần
+  HOI_GIO: 0.02,         // mỗi giờ hồi 2% trần
+  MUA_GIO: 0.08,         // NPC mua mỗi giờ tối đa 8% số lượng mỗi đơn bán [TÁI DỰNG]
+  MUA_CHE: 0.2           // NPC chỉ mua khi giá ≤ 120% giá gốc [TÁI DỨNG]
 };
 
 function donKeTiep(st) {
@@ -161,4 +163,36 @@ G.tickCho = function (st, t) {
       }
     }
   }
+  /* NPC NGƯỜI MUA (solo): quét các đơn bán của người chơi, mua dần đơn giá
+   * hợp lý — README hướng dẫn "bán Kim Loại lấy Galana trả bảo trì" nhưng
+   * trước đây không ai mua, tài nguyên bị giam vĩnh viễn trong đơn. Luật:
+   *   - mỗi tick thị trường, mỗi đơn NPC mua tối đa MUA_GIO tỉ lệ số lượng;
+   *   - chỉ mua khi giá ≤ (1 + MUA_CHE) × giá gốc — định giá quá cao thì
+   *     đơn vẫn nằm, người chơi phải cân nhắc giá;
+   *   - tiền vào đơn (daBan/thuNhap sau thuế) như một lượt mua thật; người
+   *     chơi thu qua tickThuNhap đã có sẵn. */
+  var muaGio = G.CHO_NPC.MUA_GIO || 0;
+  if (muaGio > 0) {
+    for (i = 0; i < st.choDon.length; i++) {
+      var donN = st.choDon[i];
+      if (!donN.soConLai || donN.soConLai <= 0) continue;
+      if (donN.loai !== 'sieuthi' && donN.loai !== 'tudo') continue;
+      if (donN.gia > G.giaGoc(donN.res) * (1 + (G.CHO_NPC.MUA_CHE || 0))) continue;
+      var mua = Math.min(donN.soConLai, Math.max(1, Math.round(donN.soConLai * muaGio * gioTick(st, t))));
+      if (mua <= 0) continue;
+      var thueN = donN.loai === 'sieuthi' ? G.KINH_TE_V1.thueSieuThi : G.KINH_TE_V1.thueTuDo;
+      var glN = Math.ceil(mua * donN.gia);
+      var thucNhan = Math.floor(glN * (1 - thueN));
+      st.galana += thucNhan;                         // NPC là nguồn Galana mới ở solo
+      donN.soConLai -= mua;
+      donN.daBan = (donN.daBan || 0) + mua;
+      donN.thuNhap = (donN.thuNhap || 0) + thucNhan;
+    }
+  }
 };
+
+/* Số giờ trôi từ lần tick thị trường trước (đơn giản hoá: dùng lastTick). */
+function gioTick(st, t) {
+  var tr = t - Number(st.lastTick || t);
+  return isFinite(tr) && tr > 0 ? Math.min(tr / 3600, 24) : 1;
+}

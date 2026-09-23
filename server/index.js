@@ -36,6 +36,8 @@ else {
 }
 
 /* ------------------------------------------------------------ file tĩnh */
+var zlib = require('zlib');
+
 var LOAI = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -45,7 +47,7 @@ var LOAI = {
 /* chỉ mở đúng những thư mục cần thiết */
 var CHO_PHEP = ['web', 'js', 'css', 'docs', 'dist'];
 
-function traFile(res, tep) {
+function traFile(req, res, tep) {
   try {
     if (typeof tep !== 'string' || tep.indexOf('\0') >= 0) throw new Error('đường dẫn không hợp lệ');
   } catch (e) {
@@ -57,14 +59,40 @@ function traFile(res, tep) {
       if (e.code === 'ENOENT') { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
       console.error('[file]', e); res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Lỗi đọc file.');
     }
-    res.writeHead(200, {
-      'Content-Type': LOAI[path.extname(tep).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
+    var kieu = LOAI[path.extname(tep).toLowerCase()] || 'application/octet-stream';
+    /* cache: HTML luôn revalidate; tài nguyên khác (js/css/ảnh) dùng 1 giờ.
+       ETag theo kích thước + mtime cho revalidate rẻ (304 không gửi thân). */
+    var laHtml = kieu.indexOf('text/html') === 0;
+    var etag = '"' + d.length + '-' + Math.floor((fs.statSync(tep).mtimeMs || 0)) + '"';
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, 'Cache-Control': laHtml ? 'no-cache' : 'public, max-age=3600' });
+      return res.end();
+    }
+    var dau = {
+      'Content-Type': kieu,
+      'Cache-Control': laHtml ? 'no-cache' : 'public, max-age=3600',
+      ETag: etag,
       'X-Content-Type-Options': 'nosniff',
       'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self'",
       'X-Frame-Options': 'DENY',
       'Referrer-Policy': 'no-referrer'
-    });
+    };
+    /* gzip mọi loại văn bản > 1KB khi client nhận — ~450KB JS còn ~120KB */
+    var vanBan = /^(text\/|application\/(json|javascript|manifest))/.test(kieu);
+    var chapNhan = String(req.headers['accept-encoding'] || '');
+    if (vanBan && d.length > 1024 && chapNhan.indexOf('gzip') >= 0) {
+      zlib.gzip(d, function (e2, nen) {
+        if (e2) { dau['Content-Length'] = d.length; res.writeHead(200, dau); return res.end(d); }
+        dau['Content-Encoding'] = 'gzip';
+        dau['Content-Length'] = nen.length;
+        dau.Vary = 'Accept-Encoding';
+        res.writeHead(200, dau);
+        res.end(nen);
+      });
+      return;
+    }
+    dau['Content-Length'] = d.length;
+    res.writeHead(200, dau);
     res.end(d);
   });
 }
@@ -111,7 +139,7 @@ var server = http.createServer(function (req, res) {
   }
   var tep = tinhTep(duong);
   if (!tep) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Không có file.'); }
-  traFile(res, tep);
+  traFile(req, res, tep);
 });
 
 /* -------------------------------------------------------------- scheduler */

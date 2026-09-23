@@ -144,6 +144,19 @@ API.prototype.goiState = function (p) {
 };
 
 /* ---------------------------------------------------------- các đường dẫn */
+/* Chờ đế quốc thoát khỏi tick đang chạy của nhịp scheduler (tối đa ~3s).
+ * tick() đồng bộ nên giữa hai lần poll event loop luôn rảnh — không chặn. */
+function choNhipTick(tg, tk) {
+  return new Promise(function (xong) {
+    var lan = 0;
+    (function kiem() {
+      if (!tg.dangTick.has(tk) || lan >= 30) return xong();
+      lan++;
+      setTimeout(kiem, 100);
+    })();
+  });
+}
+
 API.prototype.xuLy = async function (req, res, duong, truyVan) {
   var self = this;
   var ip = TIN_PROXY
@@ -244,6 +257,10 @@ API.prototype.xuLy = async function (req, res, duong, truyVan) {
     /* Multiplayer phải qua đơn xin + chủ duyệt; không cho gọi thẳng luật dùng
        chung để lách bộ máy điều hành liên minh. */
     if (ten3 === 'lmvao') return json(res, 400, { loi: 'Hãy gửi đơn xin gia nhập và chờ chủ liên minh duyệt.' });
+    /* Đế quốc đang được tua ở nhịp scheduler thì CHỜ thay vì trả 503 ngay:
+       poll tối đa ~3 giây (30 × 100ms) — tick một đế quốc thường xong trong
+       vài chục ms nên hầu hết request chỉ chờ một lần poll. */
+    await choNhipTick(self.tg, p.tk);
     var kq3 = ten3 === 'lmra' ? self.tg.lmRa(p.tk) : self.tg.hanhDong(p.tk, ten3, b3.dl || {});
     if (!kq3.st) return json(res, 503, { loi: kq3.loi || 'Server đang xử lý, thử lại.' });
     /* lỗi luật chơi (không đủ tài nguyên, chưa đủ điều kiện...) không phải lỗi
