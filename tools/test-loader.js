@@ -12,7 +12,9 @@ const expectedRulesScripts = [
   "js/util.js",
   "js/galaxy.js",
   "js/combat.js",
+  "js/migration.js",
   "js/engine.js",
+  "js/thitruong.js",
   "js/fleet.js",
   "js/actions.js"
 ];
@@ -131,7 +133,7 @@ function childC() {
     assert.ok(failure);
     assert.equal(failure.code, "FLEET_FIXTURE");
     assert.match(failure.message, /js\/fleet\.js/);
-    assert.deepEqual(firstSeen, manifest.rulesScripts.slice(0, 6));
+    assert.deepEqual(firstSeen, manifest.rulesScripts.slice(0, 8));
     assert.equal(Object.hasOwn(failedTarget, "window"), false);
     assert.equal(Object.hasOwn(global, "window"), false);
 

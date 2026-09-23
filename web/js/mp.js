@@ -208,7 +208,7 @@
   }
 
   /* -------------------------------------------------- menu & màn riêng - */
-  U.MAN = U.taoMAN('mp');
+  U.MAN = typeof U.taoMAN === 'function' ? U.taoMAN('mp') : (U.MAN || []);
 
   U.m_bangtin = function () {
     var bt = (MP.bt && MP.bt.bt) || [], tr = (MP.bt && MP.bt.tran) || [];

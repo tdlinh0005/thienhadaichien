@@ -460,21 +460,36 @@ document.addEventListener('change', function (e) {
 
 /* ---------- nhịp đập chung: 1 giây một lần ---------- */
 APP.batDauNhip = function () {
+  var dangTiepTucTick = false;
+  function xuLyTick(redraw) {
+    if (!window.ST || dangTiepTucTick) return;
+    var out = G.tick(window.ST, G.giay());
+    if (G.laTickPartial(out)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+    if (G.tickOutcomeNeedsDeferral(out)) {
+      dangTiepTucTick = true;
+      setTimeout(function tiepTuc() {
+        var next = G.tick(window.ST, G.giay());
+        if (G.laTickPartial(next)) throw new Error('TICK_SENTINEL_FROM_TICK_INVALID');
+        if (G.tickOutcomeNeedsDeferral(next)) {
+          setTimeout(tiepTuc, 0);
+          return;
+        }
+        dangTiepTucTick = false;
+        if (redraw) redraw();
+      }, 0);
+      return;
+    }
+    if (redraw) redraw();
+  }
   setInterval(function () {
     if (!window.ST) return;
-    try {
-      G.tick(window.ST, G.giay());
-      U.live();
-    } catch (e) { console.error('[nhip]', e); U.toast('Lỗi tick: ' + (e && e.message || e), 'loi'); }
-    try { if (APP.moiGiay) APP.moiGiay(); } catch (e) { console.error('[moiGiay]', e); }
+    xuLyTick(null);
+    U.live();
+    if (APP.moiGiay) APP.moiGiay();
   }, 1000);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && window.ST) {
-      try {
-        G.tick(window.ST, G.giay());
-        U.ve();
-      } catch (e) { console.error('[nhip-visible]', e); }
-      if (APP.hienLai) try { APP.hienLai(); } catch (e) { console.error('[hienLai]', e); }
+      xuLyTick(function () { U.ve(); if (APP.hienLai) APP.hienLai(); });
     }
   });
 };

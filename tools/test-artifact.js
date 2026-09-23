@@ -224,18 +224,22 @@ const swappedSoloShell = soloShell.replace(
 assert.doesNotThrow(() => checkStaticShells(soloShell, mpShell, manifest));
 assert.throws(() => checkStaticShells(swappedSoloShell, mpShell, manifest));
 
-assert.deepEqual(sourceManifest.browserStyles, ["css/style.css"]);
+assert.deepEqual(sourceManifest.browserStyles, ["css/tokens.css", "css/style.css"]);
 assert.deepEqual(sourceManifest.browserScripts, [
-  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js", "js/ui.js", "js/app.js", "js/main.js"
+  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
+  "js/thitruong.js", "js/fleet.js", "js/actions.js",
+  "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
+  "js/ui/ve.js", "js/ui/khung2.js", "js/ui/dotphan.js", "js/app.js", "js/main.js"
 ]);
 assert.deepEqual(sourceManifest.mpScripts, [
-  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js", "js/ui.js", "js/app.js", "web/js/mp.js"
+  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
+  "js/thitruong.js", "js/fleet.js", "js/actions.js",
+  "js/ui/core.js", "js/ui/khung.js", "js/ui/man.js",
+  "js/ui/ve.js", "js/ui/khung2.js", "js/ui/dotphan.js", "js/app.js", "web/js/mp.js"
 ]);
 assert.deepEqual(sourceManifest.rulesScripts, [
-  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/engine.js",
-  "js/fleet.js", "js/actions.js"
+  "js/data.js", "js/util.js", "js/galaxy.js", "js/combat.js", "js/migration.js", "js/engine.js",
+  "js/thitruong.js", "js/fleet.js", "js/actions.js"
 ]);
 assert.deepEqual(sourceManifest.artifactOutputs, manifest.artifactOutputs);
 

@@ -9,20 +9,23 @@
   },
   "scripts": {
     "start": "node server/index.js",
-    "test": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js",
-    "test:contracts": "node tools/test-ui-contracts.js",
+    "test": "npm run test:core && npm run test:server && npm run test:scheduler",
     "test:luat": "node tools/smoke.js",
+    "test:core": "node tools/smoke.js",
     "test:server": "node tools/test-server.js",
+    "test:scheduler": "node --test tools/test-scheduler.js",
+    "test:load": "node tools/test-tai.js 60",
     "test:ui": "node tools/test-mp-ui.mjs",
-    "test:visual": "node tools/test-visual-gate.mjs",
-    "test:tai": "node tools/test-tai.js",
-    "test:all": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js && node tools/test-tai.js",
+    "check:syntax": "node tools/check-syntax.js",
+    "lint": "node tools/lint.js",
+    "check:version": "node tools/check-version.js",
     "build": "node tools/build.js && node tools/build.js --artifact",
-    "lint": "eslint js/ server/ tools/ web/js/"
+    "check:artifact": "node tools/check-artifact.js",
+    "test:all": "npm run check:syntax && npm run lint && npm run check:version && npm run build && npm run check:artifact && npm run test:core && npm run test:server && npm run test:scheduler && npm run test:load && npm run test:ui"
   },
-  "dependencies": {},
-  "license": "UNLICENSED",
   "devDependencies": {
-    "eslint": "^9.0.0"
-  }
+    "playwright": "1.62.1"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {}
 }
