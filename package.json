@@ -4,7 +4,9 @@
   "description": "Bản phục dựng webgame chiến thuật vũ trụ Thiên Hà Đại Chiến do nhóm Việt phát triển từ 2004 — chơi offline hoặc nhiều người qua Node + SQLite.",
   "private": true,
   "type": "commonjs",
-  "engines": { "node": ">=22.5" },
+  "engines": {
+    "node": ">=22.5"
+  },
   "scripts": {
     "start": "node server/index.js",
     "test": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js",
@@ -15,8 +17,12 @@
     "test:visual": "node tools/test-visual-gate.mjs",
     "test:tai": "node tools/test-tai.js",
     "test:all": "node tools/test-ui-contracts.js && node tools/smoke.js && node tools/test-server.js && node tools/test-tai.js",
-    "build": "node tools/build.js && node tools/build.js --artifact"
+    "build": "node tools/build.js && node tools/build.js --artifact",
+    "lint": "eslint js/ server/ tools/ web/js/"
   },
   "dependencies": {},
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
 }

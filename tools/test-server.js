@@ -12,7 +12,7 @@ var Luat = require(path.join(__dirname, '..', 'server', 'rules.js')).G;
 var CONG = 8199 + (process.pid % 300);
 var DB = path.join(os.tmpdir(), 'thdc-test-' + process.pid + '.db');
 var GOC = path.join(__dirname, '..');
-var URL = 'http://127.0.0.1:' + CONG;
+var GOI_URL = 'http://127.0.0.1:' + CONG;
 
 var loi = 0, ok = 0;
 function ktra(dk, ten) { if (dk) ok++; else { loi++; console.log('  ✗ ' + ten); } }
@@ -35,7 +35,7 @@ async function goi(duong, dl, token, pt) {
   var opt = { method: pt || (dl ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json' } };
   if (token) opt.headers['x-thdc-token'] = token;
   if (dl) opt.body = JSON.stringify(dl);
-  var r = await fetch(URL + duong, opt);
+  var r = await fetch(GOI_URL + duong, opt);
   var o = await r.json().catch(function () { return {}; });
   o.__ma = r.status;
   return o;
@@ -46,7 +46,7 @@ async function goi(duong, dl, token, pt) {
 function moPostCham(duong, token) {
   var req;
   var kq = new Promise(function (ok, thatBai) {
-    req = http.request(URL + duong, {
+    req = http.request(GOI_URL + duong, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-thdc-token': token }
     }, function (res) {
@@ -1294,7 +1294,7 @@ function truyVan(sql, ...args) {
     });
     await goi('/api/state', null, a.token); await goi('/api/state', null, b.token);
     await goi('/api/state', null, c.token);
-    var dbChienCA = moDB();
+    dbChienCA = moDB();
     var chienCATonTai = dbChienCA.prepare('SELECT id FROM chien WHERE tkA=? AND tkD=?').get(idC, idA);
     if (!chienCATonTai) dbChienCA.prepare('INSERT INTO chien(lmA,tkA,tkD,khi) VALUES(NULL,?,?,?)').run(
       idC, idA, Math.floor(Date.now() / 1000) - 90000);
@@ -1623,7 +1623,7 @@ function truyVan(sql, ...args) {
     /* không né được giới hạn đăng nhập bằng header IP giả */
     var choLot = 0;
     for (var ipg = 0; ipg < 25; ipg++) {
-      var rIP = await fetch(URL + '/api/dangnhap', {
+      var rIP = await fetch(GOI_URL + '/api/dangnhap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.0.' + ipg },
         body: JSON.stringify({ ten: 'quocbinh', mk: 'doantam' })
@@ -1697,7 +1697,7 @@ function truyVan(sql, ...args) {
       stdio: ['ignore', 'pipe', 'pipe']
     });
     var raSV2 = ''; sv2.stdout.on('data', d => raSV2 += d); sv2.stderr.on('data', d => raSV2 += d);
-    var URL0 = URL; URL = 'http://127.0.0.1:' + (CONG + 1);
+    var URL0 = GOI_URL; GOI_URL = 'http://127.0.0.1:' + (CONG + 1);
     var san2 = false;
     for (var j = 0; j < 60 && !san2; j++) { await nghi(150); try { var t2 = await goi('/api/thongtin'); san2 = !!t2.seed; } catch (e) { } }
     ktra(san2, 'server khởi động lại được từ database cũ');
@@ -1746,7 +1746,7 @@ function truyVan(sql, ...args) {
       ktra(truyVan("SELECT * FROM chat WHERE noi='TIN_CU_HET_HAN'").length === 0,
         'nhịp dọn chat đầu tiên sau khởi động xoá dữ liệu đã quá hạn');
     }
-    URL = URL0;
+    GOI_URL = URL0;
     sv2.kill('SIGTERM');
     await nghi(300);
     if (raSV2.indexOf('Error') >= 0 || raSV2.indexOf('lỗi') >= 0) log('log server 2: ' + raSV2.slice(-400));

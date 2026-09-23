@@ -441,12 +441,12 @@ G.hamToiDich = function (st, f) {
   }
 
   if (f.mission === 'recycle') {
-    var pl = G.pheLieu(st, o.key);
+    var plTL = G.pheLieu(st, o.key);
     var suc = G.khoangHang(f.ships), lay = { metal: 0, crystal: 0 };
     var conCho = suc;
-    lay.metal = Math.min(pl.metal, conCho); conCho -= lay.metal;
-    lay.crystal = Math.min(pl.crystal, conCho);
-    pl.metal -= lay.metal; pl.crystal -= lay.crystal;
+    lay.metal = Math.min(plTL.metal, conCho); conCho -= lay.metal;
+    lay.crystal = Math.min(plTL.crystal, conCho);
+    plTL.metal -= lay.metal; plTL.crystal -= lay.crystal;
     f.cargo.metal = (f.cargo.metal || 0) + Math.floor(lay.metal);
     f.cargo.crystal = (f.cargo.crystal || 0) + Math.floor(lay.crystal);
     G.tin(st, 'ham', 'Thu hồi phế liệu ' + G.tdStr(f.den),
