@@ -2,11 +2,12 @@
  * Không phụ thuộc gói ngoài nào. File dữ liệu: server/data/thdc.db          */
 'use strict';
 var fs = require('fs'), path = require('path');
+var assertSupportedNode = require('./runtime-version.js').assertSupportedNode;
+assertSupportedNode(process.versions.node);
 var sqlite = require('node:sqlite');
 
 var SCHEMA = [
   "PRAGMA journal_mode=WAL",
-  "PRAGMA synchronous=NORMAL",
   "PRAGMA foreign_keys=ON",
   "PRAGMA busy_timeout=4000",
 
@@ -148,52 +149,11 @@ var SCHEMA = [
   "CREATE INDEX IF NOT EXISTS tran_khi ON tran(khi DESC)"
 ];
 
-/* [v7] Ba chính thể [XÁC NHẬN tên Độc tài/Dân chủ/Cộng hoà từ GVN; cơ chế phiếu
-   là TÁI DỰNG]. ALTER TABLE phải chạy có điều kiện vì SQLite không hỗ trợ
-   ADD COLUMN IF NOT EXISTS. */
-var SCHEMA_NANG_CAP = [
-  `CREATE TABLE IF NOT EXISTS lm_phieu (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     lm TEXT NOT NULL REFERENCES lm(ten) ON DELETE CASCADE,
-     loai TEXT NOT NULL CHECK(loai IN ('tuyenchien','duyet','tuchoi','duoi','bachu')),
-     doiTuong INTEGER,
-     hetHan INTEGER NOT NULL,
-     ketQua TEXT,
-     khi INTEGER NOT NULL
-   )`,
-  "CREATE INDEX IF NOT EXISTS lm_phieu_lm ON lm_phieu(lm,ketQua,hetHan)",
-  `CREATE TABLE IF NOT EXISTS lm_phieu_chi_tiet (
-     phieuId INTEGER NOT NULL REFERENCES lm_phieu(id) ON DELETE CASCADE,
-     tkBau INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
-     giaTri INTEGER NOT NULL CHECK(giaTri IN (0,1)),
-     PRIMARY KEY (phieuId,tkBau)
-   )`,
-  /* [v7] thị trường chéo đế quốc: đơn bán KL/TA/NL/TP */
-  `CREATE TABLE IF NOT EXISTS cho (
-     id INTEGER PRIMARY KEY AUTOINCREMENT,
-     loai TEXT NOT NULL CHECK(loai IN ('sieuthi','tudo')),
-     tk INTEGER NOT NULL REFERENCES tk(id) ON DELETE CASCADE,
-     res TEXT NOT NULL,
-     so INTEGER NOT NULL,
-     gia INTEGER NOT NULL,
-     khi INTEGER NOT NULL
-   )`,
-  "CREATE INDEX IF NOT EXISTS cho_loai_khi ON cho(loai,khi)"
-];
-function cotCo(db, bang, cot) {
-  return db.prepare('PRAGMA table_info(' + bang + ')').all().some(function (c) { return c.name === cot; });
-}
-
 function moDB(duong) {
   duong = duong || process.env.THDC_DB || path.join(__dirname, 'data', 'thdc.db');
   if (duong !== ':memory:') fs.mkdirSync(path.dirname(duong), { recursive: true });
   var db = new sqlite.DatabaseSync(duong);
   SCHEMA.forEach(function (s) { db.exec(s); });
-  SCHEMA_NANG_CAP.forEach(function (s) { db.exec(s); });
-  if (!cotCo(db, 'lm', 'chinhThe'))
-    db.exec("ALTER TABLE lm ADD COLUMN chinhThe TEXT NOT NULL DEFAULT 'docTai'");
-  if (!cotCo(db, 'lm', 'bacCuAt'))
-    db.exec('ALTER TABLE lm ADD COLUMN bacCuAt INTEGER');
   /* Tự sửa database của các bản cũ: trước khi có bộ máy quản trị, chủ liên
      minh có thể rời/xoá tài khoản mà lm.chu không đổi. Chuyển quyền cho thành
      viên mạnh nhất còn lại rồi xoá các liên minh thực sự không còn ai. */
@@ -211,9 +171,21 @@ function moDB(duong) {
 }
 
 /* ---------- lớp truy vấn ---------- */
-function Kho(duong) {
+function Kho(duong, options) {
+  options = options || {};
+  if (duong === ':memory:' && options.allowMemoryDb !== true)
+    throw new Error('allowMemoryDb is test-only');
   this.db = moDB(duong);
   this.duong = duong;
+  this.clock = options.clock;
+  this.logger = options.logger;
+  this.onTransaction = typeof options.onTransaction === 'function' ? options.onTransaction : null;
+  this.onIdleWait = typeof options.onIdleWait === 'function' ? options.onIdleWait : null;
+  this.idleWaiters = [];
+  this.transactionDepth = 0;
+  this.transactionRollbackOnly = false;
+  this.transactionFailure = null;
+  this._schedulerFinalizers = null;
   var d = this.db;
   this.q = {
     cauhinhGet: d.prepare('SELECT v FROM cauhinh WHERE k=?'),
@@ -236,8 +208,14 @@ function Kho(duong) {
     phienDonRac: d.prepare('DELETE FROM phien WHERE hetHan<?'),
 
     dqGet: d.prepare('SELECT * FROM dq WHERE tk=?'),
-    dqThem: d.prepare('INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'),
-    dqLuu: d.prepare('UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'),
+    dqThem: d.prepare(
+      'INSERT INTO dq(tk,state,diem,diemCT,diemNC,diemHam,diemThu,lastTick,' +
+      'keTiep,lm,soHT,capNhat) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)'
+    ),
+    dqLuu: d.prepare(
+      'UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,lastTick=?,' +
+      'keTiep=?,lm=?,soHT=?,capNhat=? WHERE tk=?'
+    ),
     dqLuuState: d.prepare('UPDATE dq SET state=?,capNhat=? WHERE tk=?'),
     dqDenHan: d.prepare('SELECT tk FROM dq WHERE keTiep<=? ORDER BY keTiep,tk LIMIT ?'),
     dqXepHang: d.prepare(`SELECT dq.tk, dq.diem, dq.diemCT, dq.diemNC, dq.diemHam, dq.diemThu,
@@ -249,8 +227,14 @@ function Kho(duong) {
     dqTongLM: d.prepare('SELECT lm, COUNT(*) sl, SUM(diem) diem FROM dq WHERE lm IS NOT NULL GROUP BY lm'),
 
     htXoaCua: d.prepare('DELETE FROM ht WHERE tk=?'),
-    htThem: d.prepare('INSERT INTO ht(td,tk,ten,pi,thuDo) VALUES(?,?,?,?,?) ON CONFLICT(td) DO UPDATE SET tk=excluded.tk,ten=excluded.ten,pi=excluded.pi,thuDo=excluded.thuDo'),
-    htGet: d.prepare('SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht JOIN tk ON tk.id=ht.tk JOIN dq ON dq.tk=ht.tk WHERE ht.td=?'),
+    htThem: d.prepare(
+      'INSERT INTO ht(td,tk,ten,pi,thuDo) VALUES(?,?,?,?,?) ON CONFLICT(td) DO UPDATE SET ' +
+      'tk=excluded.tk,ten=excluded.ten,pi=excluded.pi,thuDo=excluded.thuDo'
+    ),
+    htGet: d.prepare(
+      'SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht JOIN tk ON tk.id=ht.tk ' +
+      'JOIN dq ON dq.tk=ht.tk WHERE ht.td=?'
+    ),
     htTrongHe: d.prepare(`SELECT ht.*, tk.hienthi, tk.vaoCuoi, dq.diem, dq.lm FROM ht
                           JOIN tk ON tk.id=ht.tk JOIN dq ON dq.tk=ht.tk WHERE ht.td LIKE ?`),
     htDem: d.prepare('SELECT COUNT(*) n FROM ht'),
@@ -292,10 +276,16 @@ function Kho(duong) {
                          AND (g.tkA=g.tkD OR (a.lm IS NOT NULL AND a.lm=d0.lm))
                        ORDER BY g.td,g.tkA,g.fid`),
     npcGet: d.prepare('SELECT data FROM npc WHERE key=?'),
-    npcSet: d.prepare('INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,t=excluded.t'),
+    npcSet: d.prepare(
+      'INSERT INTO npc(key,data,t) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET ' +
+      'data=excluded.data,t=excluded.t'
+    ),
 
     plGet: d.prepare('SELECT kl,tt FROM pl WHERE td=?'),
-    plSet: d.prepare('INSERT INTO pl(td,kl,tt) VALUES(?,?,?) ON CONFLICT(td) DO UPDATE SET kl=excluded.kl,tt=excluded.tt'),
+    plSet: d.prepare(
+      'INSERT INTO pl(td,kl,tt) VALUES(?,?,?) ON CONFLICT(td) DO UPDATE SET ' +
+      'kl=excluded.kl,tt=excluded.tt'
+    ),
     plTrongHe: d.prepare('SELECT td,kl,tt FROM pl WHERE td LIKE ? AND (kl>0 OR tt>0)'),
 
     lmDS: d.prepare(`SELECT lm.*, (SELECT COUNT(*) FROM dq WHERE dq.lm=lm.ten) sl,
@@ -307,29 +297,6 @@ function Kho(duong) {
     lmDoiChu: d.prepare('UPDATE lm SET chu=? WHERE ten=?'),
     lmKeNhi: d.prepare('SELECT tk FROM dq WHERE lm=? AND tk<>? ORDER BY diem DESC,tk LIMIT 1'),
     lmXoa: d.prepare('DELETE FROM lm WHERE ten=?'),
-    /* [v7] phiếu chính thể */
-    phieuThem: d.prepare("INSERT INTO lm_phieu(lm,loai,doiTuong,hetHan,ketQua,khi) VALUES(?,?,?,?,NULL,?)"),
-    phieuGet: d.prepare('SELECT * FROM lm_phieu WHERE id=?'),
-    phieuMoCua: d.prepare("SELECT * FROM lm_phieu WHERE lm=? AND ketQua IS NULL AND hetHan>? ORDER BY id DESC"),
-    phieuDangMoLoai: d.prepare("SELECT * FROM lm_phieu WHERE lm=? AND loai=? AND ketQua IS NULL AND hetHan>?"),
-    phieuKetQua: d.prepare('UPDATE lm_phieu SET ketQua=? WHERE id=?'),
-    phieuBau: d.prepare('INSERT INTO lm_phieu_chi_tiet(phieuId,tkBau,giaTri) VALUES(?,?,?)'),
-    phieuDem: d.prepare('SELECT giaTri,COUNT(*) n FROM lm_phieu_chi_tiet WHERE phieuId=? GROUP BY giaTri'),
-    phieuChiTiet: d.prepare('SELECT * FROM lm_phieu_chi_tiet WHERE phieuId=?'),
-    phieuDS: d.prepare('SELECT * FROM lm_phieu WHERE lm=? ORDER BY id DESC LIMIT 20'),
-    lmDoiChinhThe: d.prepare('UPDATE lm SET chinhThe=? WHERE ten=?'),
-    lmDatBacCu: d.prepare('UPDATE lm SET bacCuAt=? WHERE ten=?'),
-    lmThanhVienDiem: d.prepare(`SELECT dq.tk, dq.diem, tk.hienthi FROM dq
-                                JOIN tk ON tk.id=dq.tk WHERE dq.lm=?
-                                ORDER BY dq.diem DESC, dq.tk ASC`),
-    /* [v7] thị trường chéo đế quốc */
-    choThem: d.prepare('INSERT INTO cho(loai,tk,res,so,gia,khi) VALUES(?,?,?,?,?,?)'),
-    choGet: d.prepare('SELECT * FROM cho WHERE id=?'),
-    choCua: d.prepare('SELECT * FROM cho WHERE tk=? ORDER BY id DESC'),
-    choMoLoai: d.prepare(`SELECT c.*, tk.hienthi FROM cho c JOIN tk ON tk.id=c.tk
-                          WHERE c.loai=? AND c.so>0 ORDER BY c.khi DESC LIMIT 60`),
-    choTru: d.prepare('UPDATE cho SET so=so-? WHERE id=?'),
-    choXoaId: d.prepare('DELETE FROM cho WHERE id=?'),
     lmXinGet: d.prepare('SELECT * FROM lm_xin WHERE lm=? AND tk=?'),
     lmXinThem: d.prepare('INSERT INTO lm_xin(lm,tk,khi) VALUES(?,?,?)'),
     lmXinXoa: d.prepare('DELETE FROM lm_xin WHERE lm=? AND tk=?'),
@@ -357,8 +324,14 @@ function Kho(duong) {
     btDS: d.prepare('SELECT * FROM bangtin ORDER BY khi DESC, id DESC LIMIT ?'),
 
     chatThem: d.prepare('INSERT INTO chat(khi,tk,ten,lm,kenh,noi) VALUES(?,?,?,?,?,?)'),
-    chatChung: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='chung' AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
-    chatLM: d.prepare("SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='lienminh' AND lm=? AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"),
+    chatChung: d.prepare(
+      "SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='chung' AND khi>=? " +
+      "ORDER BY khi DESC,id DESC LIMIT ?"
+    ),
+    chatLM: d.prepare(
+      "SELECT id,khi,ten,lm,kenh,noi FROM chat WHERE kenh='lienminh' AND lm=? " +
+      "AND khi>=? ORDER BY khi DESC,id DESC LIMIT ?"
+    ),
     chatLMXoa: d.prepare("DELETE FROM chat WHERE kenh='lienminh' AND lm=?"),
     chatDonRac: d.prepare('DELETE FROM chat WHERE khi<?'),
 
@@ -372,10 +345,98 @@ Kho.prototype.cauhinh = function (k, v) {
   this.q.cauhinhSet.run(k, String(v));
   return v;
 };
-Kho.prototype.giaoDich = function (f) {
-  this.db.exec('BEGIN');
-  try { var kq = f(); this.db.exec('COMMIT'); return kq; }
-  catch (e) { try { this.db.exec('ROLLBACK'); } catch (e2) { console.error('[db] ROLLBACK cũng thất bại', e2); } throw e; }
+Kho.prototype._baoRanh = function () {
+  if (this.transactionDepth !== 0) return;
+  this.idleWaiters.splice(0).forEach(function (resolve) { resolve(); });
+};
+Kho.prototype.choRanh = function () {
+  var self = this;
+  if (self.onIdleWait) self.onIdleWait(self.transactionDepth);
+  if (self.transactionDepth === 0) return Promise.resolve();
+  return new Promise(function (resolve) { self.idleWaiters.push(resolve); });
+};
+Kho.prototype.trongGiaoDich = function (f, options) {
+  options = options || {};
+  var self = this;
+  function chayDongBo() {
+    var result = f();
+    if (result && typeof result.then === 'function') {
+      var asyncError = new TypeError('UNIT_OF_WORK_ASYNC');
+      asyncError.code = 'UNIT_OF_WORK_ASYNC';
+      throw asyncError;
+    }
+    return result;
+  }
+  if (this.transactionDepth > 0) {
+    this.transactionDepth++;
+    try { return chayDongBo(); }
+    catch (error) {
+      if (!this.transactionRollbackOnly) {
+        this.transactionRollbackOnly = true;
+        this.transactionFailure = error;
+      }
+      throw error;
+    }
+    finally { this.transactionDepth--; }
+  }
+
+  var immediate = options.immediate === true;
+  this.transactionRollbackOnly = false;
+  this.transactionFailure = null;
+  this._schedulerFinalizers = [];
+  this.db.exec(immediate ? 'BEGIN IMMEDIATE' : 'BEGIN');
+  this.transactionDepth = 1;
+  try {
+    var result;
+    try {
+      if (this.onTransaction) this.onTransaction(immediate ? 'begin-immediate' : 'begin');
+      result = chayDongBo();
+      if (this.transactionRollbackOnly) throw this.transactionFailure;
+      for (var i = 0; i < this._schedulerFinalizers.length; i++) {
+        this._schedulerFinalizers[i]();
+        if (this.transactionRollbackOnly) throw this.transactionFailure;
+      }
+      this.db.exec('COMMIT');
+    } catch (error) {
+      var failure = this.transactionRollbackOnly ? this.transactionFailure : error;
+      try { this.db.exec('ROLLBACK'); } catch (rollbackError) { void rollbackError; }
+      this.transactionDepth = 0;
+      if (this.onTransaction) {
+        try { this.onTransaction('rollback'); } catch (rollbackObserverError) { void rollbackObserverError; }
+      }
+      throw failure;
+    }
+    this.transactionDepth = 0;
+    if (this.onTransaction) this.onTransaction('commit');
+    return result;
+  } finally {
+    self.transactionDepth = 0;
+    self.transactionRollbackOnly = false;
+    self.transactionFailure = null;
+    self._schedulerFinalizers = null;
+    self._baoRanh();
+  }
+};
+Kho.prototype.giaoDich = Kho.prototype.trongGiaoDich;
+Kho.prototype.dangKySchedulerFinalizer = function (fn) {
+  if (typeof fn !== 'function') throw new Error('SCHEDULER_FINALIZER_INVALID');
+  if (this.transactionDepth === 0 || !this._schedulerFinalizers) {
+    throw new Error('SCHEDULER_FINALIZER_TRANSACTION_REQUIRED');
+  }
+  if (this._schedulerFinalizers.indexOf(fn) < 0) this._schedulerFinalizers.push(fn);
+};
+Kho.prototype.schedulerStatements = function () {
+  if (this._schedulerStatements) return this._schedulerStatements;
+  var columns = this.db.prepare('PRAGMA table_info(dq)').all().map(function (row) {
+    return row.name;
+  });
+  if (columns.indexOf('revision') < 0) throw new Error('SCHEDULER_SCHEMA_REQUIRED');
+  this._schedulerStatements = {dqLuu: this.db.prepare(
+    'UPDATE dq SET state=?,diem=?,diemCT=?,diemNC=?,diemHam=?,diemThu=?,' +
+    'lastTick=?,keTiep=?,lm=?,soHT=?,capNhat=?,revision=revision+1 WHERE tk=? ' +
+    'RETURNING revision'
+  )};
+  return this._schedulerStatements;
 };
 Kho.prototype.dong = function () { try { this.db.close(); } catch (e) { } };
 

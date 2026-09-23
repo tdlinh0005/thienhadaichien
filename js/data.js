@@ -9,7 +9,13 @@
 
 var G = window.G = window.G || {};
 
-G.VERSION = '1.35b-r2';          // state v6: nhịp dân sự + hạm đội giữ quỹ đạo thật
+G.PHIEN_BAN_LICH_SU = '1.35b-r2';
+Object.defineProperty(G, 'VERSION', {
+  value: G.PHIEN_BAN_LICH_SU,
+  enumerable: true,
+  configurable: false,
+  writable: false
+});
 G.NAM_AKABRAC = 2184;
 G.BOI_CANH = 'Nhiều năm sau Thông Điệp Akabrac năm 2184';
 
@@ -33,11 +39,13 @@ G.LOAI_HT = [
     oDat: 1.00, kl: 1.00, tt: 1.00, dt: 1.00, lt: 1.15, dien: 1.00, thuDat: 1.00,
     dan: 1.00, ungHoBp: 0, temp: [20, 60] },
   { id: 'runggia', ten: 'Rừng Già', mau: '#8fd14f',
-    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. Thực Phẩm dồi dào, đất rộng.',
+    mota: 'Hành tinh cổ vài tỉ năm, không một nền văn minh nào, chỉ có rừng cây và muông thú. ' +
+      'Thực Phẩm dồi dào, đất rộng.',
     oDat: 1.12, kl: 0.90, tt: 0.95, dt: 0.90, lt: 1.55, dien: 0.95, thuDat: 1.00,
     dan: 1.15, ungHoBp: 500, temp: [10, 45] },
   { id: 'nuoc', ten: 'Nước – Đầm Lầy', mau: '#57c8ff',
-    mota: '90% bề mặt là biển, còn lại là đầm lầy. Khó kiến thiết (ít ô đất) nhưng KHÓ TẤN CÔNG và rất nhiều nhiên liệu.',
+    mota: '90% bề mặt là biển, còn lại là đầm lầy. Khó kiến thiết (ít ô đất) nhưng ' +
+      'KHÓ TẤN CÔNG và rất nhiều nhiên liệu.',
     oDat: 0.75, kl: 0.85, tt: 0.90, dt: 1.60, lt: 1.10, dien: 0.90, thuDat: 1.25,
     dan: 1.08, ungHoBp: 0, temp: [5, 40] },
   { id: 'samac', ten: 'Sa Mạc', mau: '#ffb45e',
@@ -167,9 +175,11 @@ G.BUILDINGS = [
  * chu kỳ 6 giờ, không khấu trừ toàn bộ ngay khi xếp đề tài.               */
 G.RESEARCH = [
   { id: 'mining', ten: 'Kỹ Thuật Khai Thác Mỏ', cost: { metal: 600, crystal: 200 }, factor: 2,
-    mota: 'KT-KTM tăng sản lượng trên mỗi mỏ. Hệ số cụ thể là [TÁI DỰNG] neo theo mốc người chơi.', req: { b: { lab: 1 } } },
+    mota: 'KT-KTM tăng sản lượng trên mỗi mỏ. Hệ số cụ thể là [TÁI DỰNG] neo theo mốc người chơi.',
+    req: { b: { lab: 1 } } },
   { id: 'workshop', ten: 'Kỹ Thuật Nhà Xưởng', cost: { metal: 800, crystal: 400, deut: 200 }, factor: 2,
-    mota: 'KT-NX tăng công suất của Nhà Máy Sản Xuất. Hệ số cụ thể là [TÁI DỰNG].', req: { b: { lab: 1, shipyard: 1 } } },
+    mota: 'KT-NX tăng công suất của Nhà Máy Sản Xuất. Hệ số cụ thể là [TÁI DỰNG].',
+    req: { b: { lab: 1, shipyard: 1 } } },
   { id: 'energy', ten: 'Công Nghệ Năng Lượng', cost: { crystal: 800, deut: 400 }, factor: 2,
     mota: 'Nền tảng cho mọi vũ khí năng lượng và lò nhiệt hạch.', req: { b: { lab: 1 } } },
   { id: 'laser', ten: 'Công Nghệ Laser', cost: { metal: 200, crystal: 100 }, factor: 2,
@@ -177,9 +187,11 @@ G.RESEARCH = [
   { id: 'ion', ten: 'Công Nghệ Ion', cost: { metal: 1000, crystal: 300, deut: 100 }, factor: 2,
     mota: 'Dòng hạt mang điện xé rào chắn.', req: { b: { lab: 4 }, r: { laser: 5, energy: 4 } } },
   { id: 'hyperspace', ten: 'Công Nghệ Siêu Hấp', cost: { metal: 0, crystal: 4000, deut: 2000 }, factor: 2,
-    mota: 'Gấp không gian lại. Điều kiện cho tàu lớn và cổng không gian.', req: { b: { lab: 7 }, r: { energy: 5, shield: 5 } } },
+    mota: 'Gấp không gian lại. Điều kiện cho tàu lớn và cổng không gian.',
+    req: { b: { lab: 7 }, r: { energy: 5, shield: 5 } } },
   { id: 'plasma', ten: 'Công Nghệ Plasma', cost: { metal: 2000, crystal: 4000, deut: 1000 }, factor: 2,
-    mota: 'Bắn khối vật chất siêu nhiệt — sức công phá cao nhất.', req: { b: { lab: 4 }, r: { energy: 8, laser: 10, ion: 5 } } },
+    mota: 'Bắn khối vật chất siêu nhiệt — sức công phá cao nhất.',
+    req: { b: { lab: 4 }, r: { energy: 8, laser: 10, ion: 5 } } },
   { id: 'combustion', ten: 'Động Cơ Đốt', cost: { metal: 400, deut: 600 }, factor: 2,
     mota: 'Mỗi cấp +10% tốc độ cho tàu dùng động cơ đốt.', req: { b: { lab: 1 }, r: { energy: 1 } } },
   { id: 'impulse', ten: 'Động Cơ Xung', cost: { metal: 2000, crystal: 4000, deut: 600 }, factor: 2,
@@ -216,7 +228,8 @@ G.SHIPS = [
   { id: 'fighterL', ten: 'Máy Bay Chiến Đấu', cost: { metal: 3000, crystal: 1000 },
     atk: 50, shield: 10, hull: 4000, speed: 12500, cargo: 50, fuel: 20, crew: 2, dc: 'combustion',
     req: { b: { shipyard: 1 }, r: { combustion: 1 } },
-    mota: 'MBCD — xương sống của mọi hạm đội quỹ đạo trong bản gốc, đếm bằng hàng triệu chiếc. Rẻ, nhanh, chết cũng nhanh.' },
+    mota: 'MBCD — xương sống của mọi hạm đội quỹ đạo trong bản gốc, đếm bằng hàng triệu chiếc. ' +
+      'Rẻ, nhanh, chết cũng nhanh.' },
   { id: 'fighterH', ten: 'Máy Bay Tiêm Kích', cost: { metal: 6000, crystal: 4000 },
     atk: 150, shield: 25, hull: 10000, speed: 10000, cargo: 100, fuel: 75, crew: 4, dc: 'impulse',
     req: { b: { shipyard: 3 }, r: { armor: 2, impulse: 2 } },
@@ -238,11 +251,13 @@ G.SHIPS = [
     req: { b: { shipyard: 8 }, r: { impulse: 6, plasma: 5 } },
     mota: 'Boom — chuyên trị công sự: cày phẳng pháo và khiên trên mặt đất.' },
   { id: 'destroyer', ten: 'Đại Chiến Hạm', cost: { metal: 60000, crystal: 50000, deut: 15000 },
-    atk: 2000, shield: 500, hull: 110000, speed: 5000, cargo: 2000, fuel: 1000, crew: 50, choLinh: 2000, dc: 'hyperdrive',
+    atk: 2000, shield: 500, hull: 110000, speed: 5000, cargo: 2000, fuel: 1000,
+    crew: 50, choLinh: 2000, dc: 'hyperdrive',
     req: { b: { shipyard: 9 }, r: { hyperdrive: 6, plasma: 5 } },
     mota: 'DCH — tàu lớn nhất còn bay được, vừa đánh vừa CHỞ QUÂN ĐỔ BỘ xuống hành tinh sau khi quỹ đạo vỡ.' },
   { id: 'fortress', ten: 'Pháo Đài Di Động', cost: { metal: 5000000, crystal: 4000000, deut: 1000000 },
-    atk: 200000, shield: 50000, hull: 9000000, speed: 100, cargo: 1000000, fuel: 1, crew: 500, choLinh: 120000, dc: 'hyperdrive',
+    atk: 200000, shield: 50000, hull: 9000000, speed: 100, cargo: 1000000,
+    fuel: 1, crew: 500, choLinh: 120000, dc: 'hyperdrive',
     req: { b: { shipyard: 12 }, r: { graviton: 1, hyperspace: 6, hyperdrive: 7 } },
     mota: 'Một hành tinh nhân tạo có động cơ. Bay chậm như rùa nhưng bất tử.' },
   { id: 'hoaTien', ten: 'Hoả Tiễn', cost: { metal: 400, crystal: 100 },
@@ -358,7 +373,8 @@ G.MISSIONS = [
   { id: 'colonize', ten: 'Thực Dân',    mota: 'Dựng hành tinh mới ở một ô đất trống.' },
   { id: 'recycle',  ten: 'Thu Hồi',     mota: 'Vét bãi phế liệu trên quỹ đạo mục tiêu.' },
   { id: 'hold',     ten: 'Giữ Chỗ',     mota: 'Đậu ở hành tinh đồng minh/của mình một khoảng thời gian rồi về.' },
-  { id: 'thamhiem', ten: 'Thám Hiểm',   mota: 'Bay ra vùng không gian sâu (ô 16) tìm vận may — hoặc tìm thấy thứ không nên gặp.' }
+  { id: 'thamhiem', ten: 'Thám Hiểm',
+    mota: 'Bay ra vùng không gian sâu (ô 16) tìm vận may — hoặc tìm thấy thứ không nên gặp.' }
 ];
 
 /* --- Hằng số cân bằng [SUY LUẬN] --------------------------------------- */

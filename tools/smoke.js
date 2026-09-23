@@ -1,11 +1,5 @@
 /* Kiểm thử nhanh phần lõi (chạy: node tools/smoke.js) — không cần trình duyệt. */
-global.window = global;
-var fs = require('fs'), path = require('path');
-var goc = path.join(__dirname, '..', 'js');
-['data', 'util', 'galaxy', 'combat', 'migration', 'engine', 'thitruong', 'fleet', 'actions', 'ui/core', 'ui/khung', 'ui/man', 'ui/ve', 'ui/dotphan'].forEach(function (f) {
-  eval(fs.readFileSync(path.join(goc, f + '.js'), 'utf8'));
-});
-var G = window.G;
+var G = require('../server/rules.js').G;
 
 var loi = 0, ok = 0;
 function ktra(dk, ten) { if (dk) { ok++; } else { loi++; console.log('  ✗ ' + ten); } }
@@ -30,24 +24,31 @@ pc.qS = [{ id: 'fighterL', n: 7, tEach: 11, tLeft: 9, cost1: { metal: 3000, crys
 var costCu = JSON.stringify(pc.qB.map(function (x) { return x.cost; }));
 var qSCu = JSON.stringify(pc.qS);
 G.nangCapState(cu, cu.now);
-ktra(cu.v === 7 && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
-  cu.moHinhQuyDao === 'giu-quy-dao-v1' && cu.moHinhKT === 'kinh-te-that-v1',
-  'dispatcher nâng tuần tự v3 -> … -> v7 và gắn đủ model marker');
+ktra(cu.v === 6 && cu.moHinhCT === 'so-luong-v1' && cu.moHinhNhip === 'bao-tri-dan-su-v1' &&
+  cu.moHinhQuyDao === 'giu-quy-dao-v1',
+  'dispatcher nâng tuần tự v3 -> v4 -> v5 -> v6 và gắn đủ model marker');
 ktra(pc.b.metalMine === G.slTuCap(G.B('metalMine'), 4) && pc.b.shipyard === 3,
   'level cũ đổi thành số lượng theo tổng vốn lũy kế');
 ktra(pc.qB.every(function (x) { return x.n > 0 && x.lv === undefined; }), 'qB sau dispatcher chỉ lưu n, không còn lv');
 ktra(pc.qB[0].n === G.slTuCap(G.B('metalMine'), 5) - G.slTuCap(G.B('metalMine'), 4) &&
   pc.qB[1].n === G.slTuCap(G.B('metalMine'), 6) - G.slTuCap(G.B('metalMine'), 5) && pc.qB[2].n === 4,
   'mỗi mục queue giữ đúng phần vốn gia tăng của level cũ');
-ktra(JSON.stringify(pc.qB.map(function (x) { return x.cost; })) === costCu, 'migration giữ nguyên cost đã thanh toán/hoàn');
+ktra(
+  JSON.stringify(pc.qB.map(function (x) { return x.cost; })) === costCu,
+  'migration giữ nguyên cost đã thanh toán/hoàn'
+);
 ktra(JSON.stringify(pc.qS) === qSCu, 'dispatcher giữ nguyên hàng đợi đóng tàu');
 ktra(cu.baoTri && cu.baoTri.activatedAt === cu.now &&
   cu.baoTri.nextAt === cu.baoTri.activatedAt + G.C.CHU_KY_BAO_TRI && pc.danSu,
   'dispatcher khởi tạo nhịp v5 và dân sự tại đúng snapshot');
 var motLan = JSON.stringify(cu); G.nangCapState(cu);
-ktra(JSON.stringify(cu) === motLan, 'migration idempotent byte-for-byte');
+ktra(JSON.stringify(cu) === motLan, 'migration v6 idempotent byte-for-byte');
 var tuChoiTuongLai = false;
-try { G.nangCapState({ v: G.STATE_VERSION + 1 }); } catch (errMig) { tuChoiTuongLai = /mới hơn engine/.test(errMig.message); }
+try {
+  G.nangCapState({ v: G.STATE_VERSION + 1 });
+} catch (errMig) {
+  tuChoiTuongLai = /mới hơn engine/.test(errMig.message);
+}
 ktra(tuChoiTuongLai, 'migration từ chối state tương lai thay vì âm thầm hạ cấp');
 
 /* v4 đã là số lượng: tuyệt đối không được chạy lại phép level -> quantity,
@@ -130,7 +131,7 @@ var taiSanV5Giu = JSON.stringify({ planets: v5Giu.planets, ncQueue: v5Giu.ncQueu
   debris: v5Giu.debris, queues: v5Giu.planets.map(function (x) { return [x.qB, x.qS]; }) });
 G.nangCapState(v5Giu, kichHoatQD);
 var legacyGiu = v5Giu.fleets[0];
-ktra(v5Giu.v === 7 && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
+ktra(v5Giu.v === 6 && v5Giu.moHinhQuyDao === G.QUY_DAO_V1.marker &&
   legacyGiu.pha === 'giu' && legacyGiu.giuRules === G.QUY_DAO_V1.legacyRules &&
   legacyGiu.giuDen_t === kichHoatQD + 12 * 3600 &&
   legacyGiu.tiepNL_t === kichHoatQD + G.QUY_DAO_V1.segmentSeconds,
@@ -143,7 +144,7 @@ ktra(JSON.stringify({ planets: v5Giu.planets, ncQueue: v5Giu.ncQueue,
   debris: v5Giu.debris, queues: v5Giu.planets.map(function (x) { return [x.qB, x.qS]; }) }) === taiSanV5Giu,
   'v5 -> v6 bảo toàn hành tinh, tài nguyên và mọi hàng đợi');
 var v5GiuMotLan = JSON.stringify(v5Giu); G.nangCapState(v5Giu, kichHoatQD + 999999);
-ktra(JSON.stringify(v5Giu) === v5GiuMotLan, 'v5 -> v7 idempotent byte-for-byte');
+ktra(JSON.stringify(v5Giu) === v5GiuMotLan, 'v5 -> v6 idempotent byte-for-byte');
 var cargoAnHan = legacyGiu.cargo.deut;
 G.tick(v5Giu, legacyGiu.tiepNL_t - 1);
 ktra(legacyGiu.cargo.deut === cargoAnHan && legacyGiu.pha === 'giu',
@@ -608,12 +609,18 @@ var keHoach = [['metalMine', 10], ['crystalMine', 9], ['deutSyn', 7], ['farm', 8
   ['robot', 4], ['shipyard', 6], ['lab', 6], ['fleetHQ', 1], ['maintDepot', 2], ['intel', 1], ['missileSilo', 2]];
 for (var i = 0; i < keHoach.length; i++) xayDen(keHoach[i][0], keHoach[i][1]);
 
-ktra((p.b.metalMine || 0) >= G.slTuCap(G.B('metalMine'), 5), 'mỏ kim loại xây được theo số lượng (' + p.b.metalMine + ')');
+ktra(
+  (p.b.metalMine || 0) >= G.slTuCap(G.B('metalMine'), 5),
+  'mỏ kim loại xây được theo số lượng (' + p.b.metalMine + ')'
+);
 ktra((p.b.shipyard || 0) >= 1, 'có xưởng đóng tàu');
 var s = G.sanLuong(st, p);
 ktra(s.r.metal > 0, 'sản lượng kim loại dương');
-console.log('  · sản lượng/giờ: KL ' + Math.round(s.r.metal) + ' TA ' + Math.round(s.r.crystal) +
-  ' NL ' + Math.round(s.r.deut) + ' TP ' + Math.round(s.r.food) + ' | điện ' + Math.round(s.dienCo) + '/' + Math.round(s.dienDung));
+console.log(
+  '  · sản lượng/giờ: KL ' + Math.round(s.r.metal) + ' TA ' + Math.round(s.r.crystal) +
+  ' NL ' + Math.round(s.r.deut) + ' TP ' + Math.round(s.r.food) + ' | điện ' +
+  Math.round(s.dienCo) + '/' + Math.round(s.dienDung)
+);
 
 /* ---- 3. nghiên cứu (vốn trả góp theo chu kỳ) ---- */
 var e2 = G.xepNC(st, p, 'energy');
@@ -755,17 +762,26 @@ if (bo) {
 /* ---- 10c. NPC tấn công ngược lại người chơi ---- */
 /* vượt mốc bảo vệ người chơi mới để NPC được phép đánh */
 p.def.plasma = (p.def.plasma || 0) + 80;
-ktra(G.diem(st).tong > G.C.BAO_VE_MOI_DIEM, 'đã vượt mốc bảo vệ người chơi mới (' + Math.round(G.diem(st).tong) + ' điểm)');
+ktra(
+  G.diem(st).tong > G.C.BAO_VE_MOI_DIEM,
+  'đã vượt mốc bảo vệ người chơi mới (' + Math.round(G.diem(st).tong) + ' điểm)'
+);
 var thu = 0;
 while (st.toi.length === 0 && thu++ < 8) { st.nextRaid = st.now + 5; now += 10; G.tick(st, now); }
 ktra(st.toi.length >= 1, 'NPC phát động đợt tấn công (sau ' + thu + ' lần hẹn)');
 var raidCanXuLy = st.toi.map(function (w) { return { id: w.id, den: w.den_t }; });
-var denRaid = st.now; for (var rdx = 0; rdx < raidCanXuLy.length; rdx++) denRaid = Math.max(denRaid, raidCanXuLy[rdx].den);
+var denRaid = st.now;
+for (var rdx = 0; rdx < raidCanXuLy.length; rdx++) {
+  denRaid = Math.max(denRaid, raidCanXuLy[rdx].den);
+}
 now = Math.max(now + 1, denRaid + 1); G.tick(st, now);
 ktra(raidCanXuLy.every(function (r0) {
   return !st.toi.some(function (w0) { return w0.id === r0.id; });
 }), 'đợt tấn công của NPC đã được xử lý');
-ktra(st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }), 'có báo cáo trận phòng thủ');
+ktra(
+  st.msgs.some(function (m) { return m.loai === 'tran' && m.data && m.data.ben === 'dich'; }),
+  'có báo cáo trận phòng thủ'
+);
 
 /* ---- 10d. tên lửa liên hành tinh ---- */
 ncDen('impulse', 5);
@@ -845,7 +861,10 @@ if (st.planets.length >= 2) {
   ktra(!eBo, 'bỏ hoang được thuộc địa' + (eBo ? ': ' + eBo : ''));
   ktra(st.planets.length === soTruoc - 1, 'danh sách hành tinh giảm đúng 1');
   ktra(!st.planets.some(function (x) { return G.tdKey(x.c) === G.tdKey(htBo.c); }), 'hành tinh đã biến khỏi đế quốc');
-  ktra(st.fleets.every(function (f) { return f.pi >= 0 && f.pi < st.planets.length; }), 'chỉ số hành tinh của hạm đội vẫn hợp lệ');
+  ktra(
+    st.fleets.every(function (f) { return f.pi >= 0 && f.pi < st.planets.length; }),
+    'chỉ số hành tinh của hạm đội vẫn hợp lệ'
+  );
   now += 12 * 3600; G.tick(st, now);
   ktra(st.fleets.length === 0, 'hạm đội cũ vẫn về được sau khi bỏ hoang (không kẹt)');
   var oCu = G.oHanhTinh(st, htBo.c);
@@ -884,7 +903,10 @@ nk.forEach(function (m) {
 });
 console.log('  · kết quả ' + nk.length + ' chuyến thám hiểm: ' + JSON.stringify(loaiKQ));
 ktra(Object.keys(loaiKQ).length >= 3, 'thám hiểm cho nhiều loại kết quả khác nhau');
-ktra(st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0, 'không còn đoàn nào kẹt ngoài đó');
+ktra(
+  st.fleets.filter(function (f) { return f.mission === 'thamhiem'; }).length === 0,
+  'không còn đoàn nào kẹt ngoài đó'
+);
 void matHet; void ketQua;
 
 /* ---- 10g. 5 loại hành tinh (tư liệu gốc) ---- */
@@ -977,7 +999,11 @@ ktra(Date.now() - tDB < 5000, 'đóng hàng trăm nghìn quân không làm treo 
 ktra((p.linh.robot || 0) === 120000, 'có 120.000 Robot (' + (p.linh.robot || 0) + ')');
 ktra((p.linh.tank || 0) === 15000, 'có 15.000 Tank');
 ktra(G.sucChoLinh({ destroyer: 200 }) === 200 * G.S('destroyer').choLinh, 'Đại Chiến Hạm chở được quân');
-ktra(!!G.guiHam(st, 0, { cruiser: 1 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'attack', {}, 100, 1, { robot: 100000 }),
+ktra(
+  !!G.guiHam(
+    st, 0, { cruiser: 1 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1),
+    'attack', {}, 100, 1, { robot: 100000 }
+  ),
   'chặn khi hạm đội không đủ chỗ chở quân');
 ktra(!!G.guiHam(st, 0, { destroyer: 50 }, G.toaDo(p.c.g, p.c.h, (p.c.p % 15) + 1), 'spy', {}, 100, 1, { robot: 100 }),
   'chỉ Tấn Công / Triển Khai / Vận Chuyển mới chở được quân');
@@ -1060,7 +1086,10 @@ for (var q = 0; q < st.planets.length; q++) {
 }
 ktra(st.galana >= 0, 'Galana không âm (' + Math.round(st.galana) + ')');
 var js = JSON.stringify(st);
-ktra(js.length > 100 && JSON.parse(js).planets.length === st.planets.length, 'state lưu/nạp được JSON (' + Math.round(js.length / 1024) + ' KB)');
+ktra(
+  js.length > 100 && JSON.parse(js).planets.length === st.planets.length,
+  'state lưu/nạp được JSON (' + Math.round(js.length / 1024) + ' KB)'
+);
 
 /* ---- 13. bảng xếp hạng ---- */
 var xh = G.xepHang(st);
@@ -1075,169 +1104,6 @@ var kq3 = G.danhTran(
   { ten: 'A', tech: {}, ships: { fighterL: 3 } },
   { ten: 'D', tech: { weapon: 8 }, ships: {}, def: { plasma: 20, orbitalStation: 10 } }, 999);
 ktra(kq3.kq === 'thua', 'hạm đội yếu bị nghiền');
-
-/* ---- 15. v7: hằng số kinh tế & địa hình ---- */
-ktra(G.STATE_VERSION === 7, 'engine là state v7');
-ktra(G.KINH_TE_V1 && G.KINH_TE_V1.giaGoc.metal === 1 && G.KINH_TE_V1.giaGoc.crystal === 2 &&
-  G.KINH_TE_V1.giaGoc.deut === 4 && G.KINH_TE_V1.giaGoc.food === 1,
-  'giá gốc tư liệu KL=1 TA=2 NL=4 TP=1');
-ktra(G.KINH_TE_V1.thueSieuThi === 0.10 && G.KINH_TE_V1.thueTuDo === 0.05 &&
-  G.KINH_TE_V1.giaoHangGiay === 6 * 3600, 'thuế 10%/5% và giao hàng 6h');
-ktra(G.KINH_TE_V1.laiMinNgay < G.KINH_TE_V1.laiMaxNgay && G.KINH_TE_V1.laiMaxNgay <= 0.02,
-  'dải lãi ngân hàng nằm trong [0.07%…2%]/ngày');
-ktra(G.hsDiaHinh('battleship', 'onhoa') === 1, 'TCH ngoài bảng nhận hệ số 1');
-ktra(G.hsDiaHinh('fighterL', 'banghai') === 0.75 && G.hsDiaHinh('fighterL', 'nuoc') === 1.15,
-  'máy bay yếu Băng, mạnh Nước');
-ktra(G.hsDiaHinh('tank', 'samac') === 1.5 && G.hsDiaHinh('robot', 'runggia') === 1.4 &&
-  G.hsDiaHinh('hoaTien', 'samac') === 1.25 && G.hsDiaHinh('hoaTien', 'runggia') === 0.7,
-  'Tank vô địch Sa Mạc, Robot mạnh Rừng, hoả tiễn mạnh Sa Mạc/yếu Rừng');
-
-/* ---- 16. v7: migration v6 -> v7 ---- */
-var s6 = G.moiGame('Save V6', 'THDC-MIGRATE-V6');
-s6.v = 6; delete s6.nganHang; delete s6.dauTuST; delete s6.uranium; delete s6.luongGD; delete s6.moHinhKT;
-G.nangCapState(s6);
-ktra(s6.v === 7 && s6.moHinhKT === 'kinh-te-that-v1', 'dispatcher v6 -> v7 gắn marker kinh tế');
-ktra(s6.nganHang.soDu === 0 && s6.nganHang.laiLuc === 0 && s6.dauTuST.von === 0 &&
-  s6.uranium === 0 && s6.luongGD.muc === 0 && s6.luongGD.phanBoi === false,
-  'v7 gắn default kinh tế an toàn');
-var motLan7 = JSON.stringify(s6); G.nangCapState(s6);
-ktra(JSON.stringify(s6) === motLan7, 'migration v7 idempotent');
-
-/* ---- 17. v7: lãi ngân hàng suy giảm theo số dư ---- */
-ktra(Math.abs(G.laiNganHangNgay(G.KINH_TE_V1.laiK) - 0.01) < 1e-9, 'laiK cho ~1%/ngày');
-ktra(Math.abs(G.laiNganHangNgay(0) - 0.02) < 1e-12, 'số dư 0 nhận trần 2%/ngày');
-ktra(G.laiNganHangNgay(1e15) > G.KINH_TE_V1.laiMinNgay * 0.999 && G.laiNganHangNgay(1e15) < 0.001,
-  'số dư khổng lồ tiến về sàn 0,07%/ngày');
-var sn = G.moiGame('Ngân hàng', 'THDC-NH');
-sn.galana = 0; sn.nganHang.soDu = G.KINH_TE_V1.laiK;
-sn.baoTri.nextAt = sn.now + 100 * 24 * 3600;   // không để checkpoint phá giấc test
-G.tick(sn, sn.now + 3600);
-ktra(sn.nganHang.laiLuc > 0 &&
-  Math.abs(sn.nganHang.laiLuc - G.KINH_TE_V1.laiK * G.laiNganHangNgay(G.KINH_TE_V1.laiK) / 24) < 2,
-  'một giờ tích đúng lãi/giờ');
-
-/* ---- 18. v7: hành động ngân hàng & đầu tư & uranium ---- */
-var tk2 = G.moiGame('Tài chính', 'THDC-TC');
-tk2.galana = 500;
-ktra(G.chay(tk2, 'guiNH', { so: 100 }) === null && tk2.galana === 400 &&
-  tk2.nganHang.soDu === 100, 'gửi ngân hàng trừ Galana đúng');
-ktra(typeof G.chay(tk2, 'guiNH', { so: -5 }) === 'string' &&
-  typeof G.chay(tk2, 'rutNH', { so: 1e15 }) === 'string', 'gửi/rút chặn số xấu và vượt số dư');
-ktra(G.chay(tk2, 'rutNH', { so: 40 }) === null && tk2.galana === 440 &&
-  tk2.nganHang.soDu === 60, 'rút ngân hàng hoàn Galana đúng');
-ktra(G.chay(tk2, 'dauTuST', { so: 50 }) === null && tk2.galana === 390 &&
-  tk2.dauTuST.von === 50 && tk2.dauTuST.ketThucAt > 0,
-  'đầu tư siêu thị khoá vốn có kỳ hạn');
-ktra(typeof G.chay(tk2, 'dauTuST', { so: 10 }) === 'string',
-  'không đầu tư đè khi đang có vốn khoá');
-ktra(typeof G.chay(tk2, 'tangTocXay', { pi: 0 }) === 'string', 'tăng tốc cần lô đang xây');
-tk2.planets[0].qB.push({ id: 'metalMine', n: 5, cost: { metal: 300 }, tg: 36000, xong: tk2.now + 36000 });
-tk2.uranium = 45;
-ktra(G.chay(tk2, 'tangTocXay', { pi: 0 }) === null && tk2.planets[0].b.metalMine >= 5 &&
-  tk2.planets[0].qB.length === 0 && tk2.uranium === 35, 'tăng tốc xây tiêu 10 Uranium hoàn lô ngay');
-ktra(G.chay(tk2, 'muaDiemNC', { diem: 1 }) === null && tk2.techPts >= 1 && tk2.uranium <= 15,
-  'mua điểm Kỹ Thuật bằng Uranium');
-
-/* ---- 19. v7: thị trường siêu thị/tự do/NPC solo ---- */
-var tm = G.moiGame('Thị Trường', 'THDC-TT');
-tm.planets[0].res.metal = 100000; tm.galana = 100000;
-ktra(G.chay(tm, 'dangBan', { pi: 0, loai: 'sieuthi', res: 'metal', so: 40000 }) === null &&
-  tm.planets[0].res.metal === 60000 && tm.choDon.length === 1 &&
-  tm.choDon[0].gia === G.KINH_TE_V1.giaGoc.metal,
-  'đăng bán siêu thị trừ hàng ngay và ép giá gốc');
-/* giá tự đặt bị ép về giá gốc — đơn thứ hai vẫn giá gốc, không phải 99 */
-ktra(G.chay(tm, 'dangBan', { pi: 0, loai: 'sieuthi', res: 'metal', so: 10, gia: 99 }) === null &&
-  tm.choDon[1].gia === G.KINH_TE_V1.giaGoc.metal,
-  'siêu thị ép mọi đơn về giá gốc');
-ktra(typeof G.muaDon(tm, 0, tm.choDon[0], 100) === 'string',
-  'không tự mua đơn của chính mình');
-var npcDon = G.npcCho(tm).filter(function (d) { return d.res === 'deut'; })[0];
-ktra(npcDon && npcDon.soConLai > 0 && npcDon.gia === G.KINH_TE_V1.giaGoc.deut,
-  'NPC solo bán Nhiên Liệu đúng giá gốc');
-var glTruocNPC = tm.galana, deutTruocNPC = tm.planets[0].res.deut || 0;
-ktra(G.chay(tm, 'muaDon', { pi: 0, donId: npcDon.id, so: 1000 }) === null &&
-  tm.planets[0].res.deut === deutTruocNPC + 1000 &&
-  Math.round(tm.galana) === Math.round(glTruocNPC - 1000 * npcDon.gia),
-  'mua đơn NPC giao ngay trừ đúng giá');
-tm.planets[0].giaoHang = [{ res: 'metal', so: 500, xongAt: tm.now - 1 }];
-G.tickCho(tm, tm.now + 1);
-ktra((tm.planets[0].res.metal || 0) >= 500 && tm.planets[0].giaoHang.length === 0,
-  'hàng Tự Do tới hạn nhập kho');
-ktra(typeof G.chay(tm, 'ban', { pi: 0, res: 'metal', n: 1 }) === 'string' &&
-  typeof G.chay(tm, 'mua', { pi: 0, res: 'metal', n: 1 }) === 'string',
-  'chợ cũ đã đóng thành alias hướng dẫn');
-
-/* ---- 20. v7: địa hình tác động trận MẶT ĐẤT, quỹ đạo trung hoà ---- */
-function tranBo(loaiHT, seed) {
-  /* 200 robot công 100 tank thủ: cùng tech, chỉ khác loại hành tinh */
-  return G.danhTran(
-    { ten: 'Công', tech: {}, ships: {}, bo: { robot: 200 } },
-    { ten: 'Thủ', tech: {}, ships: {}, def: {}, bo: { tank: 60 }, thuDat: 1, loaiHT: loaiHT }, seed);
-}
-var saMac = tranBo('samac', 777), onHoa = tranBo('onhoa', 777), rung = tranBo('runggia', 777);
-ktra(saMac.matA.robot > onHoa.matA.robot && saMac.matD.tank < onHoa.matD.tank,
-  'Tank thủ Sa Mạc mạnh nhất: diệt Robot công nhiều hơn và mất ít hơn Ôn Hoà');
-ktra(rung.matA.robot < onHoa.matA.robot && rung.matD.tank > onHoa.matD.tank,
-  'Tank thủ Rừng yếu nhất: diệt ít Robot và mất nặng hơn Ôn Hoà');
-/* tàu quỹ đạo không chịu địa hình: cùng hạm đánh cùng phòng thủ quỹ đạo */
-function tranHam(loaiHT, seed) {
-  return G.danhTran(
-    { ten: 'A', tech: {}, ships: { fighterL: 300 } },
-    { ten: 'D', tech: {}, ships: { cruiser: 150 }, def: {}, thuDat: 1, loaiHT: loaiHT }, seed);
-}
-var hamSM = tranHam('samac', 555), hamOH = tranHam('onhoa', 555);
-ktra(JSON.stringify(hamSM.matA) === JSON.stringify(hamOH.matA) &&
-  JSON.stringify(hamSM.matD) === JSON.stringify(hamOH.matD),
-  'trận thuần quỹ đạo cho kết quả như nhau mọi loại hành tinh');
-/* máy bay trong trận ĐỔ BỘ ở Băng (×0.75) yếu hơn ở Ôn Hoà (×1.1):
- * giáp tàu bị nhân hệ số nên cùng đội hình mất nặng hơn */
-var mayBayBang = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: true, bo: {} },
-  { ten: 'D', tech: {}, ships: { cruiser: 20 }, def: { missileLauncher: 10 }, bo: {}, thuDat: 1, loaiHT: 'banghai' }, 333);
-var mayBayOn = G.danhTran({ ten: 'A', tech: {}, ships: { fighterL: 400 }, doBo: true, bo: {} },
-  { ten: 'D', tech: {}, ships: { cruiser: 20 }, def: { missileLauncher: 10 }, bo: {}, thuDat: 1, loaiHT: 'onhoa' }, 333);
-ktra((mayBayBang.matA.fighterL || 0) > (mayBayOn.matA.fighterL || 0),
-  'Máy Bay đổ bộ Băng mất nặng hơn Ôn Hoà (' + (mayBayBang.matA.fighterL || 0) + ' vs ' + (mayBayOn.matA.fighterL || 0) + ')');
-
-/* ---- 20b. v7: đầu tư siêu thị ĐÁO HẠN hoàn vốn + lợi nhuận ---- */
-var dt2 = G.moiGame('Đầu tư', 'THDC-DT');
-dt2.galana = 1000000;
-G.chay(dt2, 'dauTuST', { so: 1000000 });
-var ketThuc = dt2.dauTuST.ketThucAt;
-ktra(ketThuc > dt2.now && G.sukienKe(dt2) <= ketThuc,
-  'đáo hạn đầu tư nằm trong lịch sự kiện');
-G.tick(dt2, ketThuc + 1);
-ktra(dt2.dauTuST.von === 0 && dt2.galana >= 1000000 + Math.ceil(1000000 * 0.05) - 1,
-  'đáo hạn hoàn vốn gốc + 5% lợi nhuận về Galana');
-
-/* ---- 21. v7: lương gián điệp — thiếu Nhiên Liệu qua checkpoint thì phản bội ---- */
-function taoDeQuocLuong(ten, seed, deut) {
-  var x = G.moiGame(ten, seed);
-  x.planets[0].ships.probe = 10;                // 30 NL/kỳ
-  if (deut !== undefined) x.planets[0].res.deut = deut;
-  return x;
-}
-var sp = taoDeQuocLuong('Tình Báo', 'THDC-SP');
-var deutTruocL = sp.planets[0].res.deut;
-sp.baoTri.nextAt = sp.now + 100;
-G.tick(sp, sp.now + 101);
-ktra(Math.abs((deutTruocL - 30) - sp.planets[0].res.deut) < 0.5,
-  'checkpoint đủ Nhiên Liệu thì trừ đúng 30 lương gián điệp');
-var noLuong = taoDeQuocLuong('Nợ Lương', 'THDC-SP2', 5);   // cố tình thiếu
-noLuong.baoTri.nextAt = noLuong.now + 100;
-G.tick(noLuong, noLuong.now + 101);
-ktra(noLuong.luongGD.phanBoi === true && Math.abs(noLuong.luongGD.traLuc - 30) < 0.5,
-  'thiếu lương 1 kỳ bật cờ phản bội và ghi nợ đúng 30');
-/* trả lương ngay xoá nợ; một kỳ sạch nữa mới tắt cờ */
-noLuong.planets[0].res.deut = 100000;   // nạp đủ trước khi trả
-ktra(G.chay(noLuong, 'traLuongGD', {}) === null && noLuong.luongGD.traLuc === 0,
-  'trả lương ngay được và xoá nợ');
-noLuong.baoTri.nextAt += G.NHIP_V1.cycleSeconds;
-G.tick(noLuong, noLuong.baoTri.nextAt + 1);
-ktra(noLuong.luongGD.phanBoi === true, 'kỳ đầu trả đủ sau phản bội vẫn giữ cờ để chứng minh');
-noLuong.baoTri.nextAt += G.NHIP_V1.cycleSeconds;
-G.tick(noLuong, noLuong.baoTri.nextAt + 1);
-ktra(noLuong.luongGD.phanBoi === false && noLuong.luongGD.kySanh === 0,
-  'kỳ sạch thứ hai thì tắt cờ phản bội');
 
 console.log('\n' + (loi ? '✗ ' + loi + ' lỗi / ' : '✓ ') + ok + ' kiểm tra đạt');
 process.exit(loi ? 1 : 0);

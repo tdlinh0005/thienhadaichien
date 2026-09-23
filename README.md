@@ -9,6 +9,11 @@ Bản **1.33f** được ghi nhận là game thuần text; bản đồ hoạ **1
 đó trong tháng 10–11/2010. Lối chơi gần OGame nhưng có nhiều cơ chế riêng. Bản phục dựng
 này ưu tiên các cơ chế có nguồn xác nhận và ghi rõ phần nào phải thiết kế bù.
 
+Ba con số phiên bản có vai trò riêng: SemVer phát hành lấy duy nhất từ `package.json.version`;
+nhãn tư liệu hiển thị là `G.PHIEN_BAN_LICH_SU` (`1.35b-r2`); schema save dùng
+`G.STATE_VERSION`. Nhãn lịch sử không quyết định migration và schema state không phải số
+phiên bản phát hành.
+
 - **Một người** — chạy hoàn toàn trong trình duyệt, không cần server, không cần mạng.
 - **Nhiều người** — máy chủ Node + SQLite: mỗi người một tài khoản, vũ trụ dùng chung,
   đánh nhau giữa các tài khoản là thật (xem mục [Chơi nhiều người](#chơi-nhiều-người)).
